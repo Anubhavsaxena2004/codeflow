@@ -18,6 +18,18 @@ export interface ScaffoldLine {
   slot?: number
 }
 
+export interface ArchitectureNode {
+  id: string
+  label: string
+  kind: 'client' | 'service' | 'database'
+}
+
+export interface ArchitectureMapping {
+  nodeIds: string[]
+  arrowIds?: string[]
+  hint: string
+}
+
 export interface Challenge {
   id: string
   title: string
@@ -25,6 +37,7 @@ export interface Challenge {
   scaffold: ScaffoldLine[]
   blocks: Block[]
   glossary: GlossaryTerm[]
+  architecture: { nodes: ArchitectureNode[]; arrows: { id: string; from: string; to: string; label?: string }[]; mappings: Record<string, ArchitectureMapping> }
 }
 
 export const signupChallenge: Challenge = {
@@ -56,6 +69,30 @@ export const signupChallenge: Challenge = {
     { id: 'bad-hash', label: 'Hash the password', code: 'const hashedPassword = bcrypt.hash(password, 10);', what: 'A shorter password hashing attempt.', whyWrong: 'Missing await. bcrypt.hash returns a Promise, so hashedPassword would be a Promise object, not a string.' },
     { id: 'bad-response', label: 'Send success response', code: 'return res.status(200).json(user);', what: 'A response that sends the new user.', whyWrong: 'Sends the whole user document back, including the password hash. 201 is also more accurate than 200 for creating something.' },
   ],
+  architecture: {
+    nodes: [
+      { id: 'client', label: 'Client', kind: 'client' },
+      { id: 'validation', label: 'Signup Validation', kind: 'service' },
+      { id: 'logic', label: 'Signup Logic', kind: 'service' },
+      { id: 'database', label: 'Database', kind: 'database' },
+    ],
+    arrows: [
+      { id: 'client-validation', from: 'client', to: 'validation' },
+      { id: 'validation-logic', from: 'validation', to: 'logic' },
+      { id: 'logic-database-read', from: 'logic', to: 'database', label: 'read' },
+      { id: 'database-logic-read', from: 'database', to: 'logic', label: 'read' },
+      { id: 'logic-database-write', from: 'logic', to: 'database', label: 'write' },
+      { id: 'logic-client-response', from: 'logic', to: 'client', label: 'response' },
+    ],
+    mappings: {
+      extract: { nodeIds: ['validation'], hint: 'What data did the client send us?' },
+      validate: { nodeIds: ['validation'], hint: 'What is the cheapest check before touching the database?' },
+      exists: { nodeIds: ['logic'], arrowIds: ['logic-database-read', 'database-logic-read'], hint: 'What should happen if someone signs up twice with the same email?' },
+      hash: { nodeIds: ['logic'], hint: 'Would you want your raw password sitting in a database?' },
+      save: { nodeIds: ['logic'], arrowIds: ['logic-database-write'], hint: 'Where should the safe user record go?' },
+      respond: { nodeIds: ['client'], arrowIds: ['logic-client-response'], hint: 'How does the client learn signup succeeded?' },
+    },
+  },
   glossary: [
     { term: 'req.body', definition: 'Data the client sent in the request body. Needs express.json() middleware to be parsed.' },
     { term: 'await', definition: 'Pauses this function until the Promise resolves, without blocking the server.' },

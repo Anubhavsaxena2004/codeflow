@@ -44,7 +44,16 @@ export default function CodeFlowApp({ challenge = signupChallenge }: { challenge
   const [language, setLanguage] = useState<Language>('express'); const [slots, setSlots] = useState<(string | undefined)[]>(Array(order.length).fill(undefined)); const [checked, setChecked] = useState(false); const [checkAttempts, setCheckAttempts] = useState(0); const [runOpen, setRunOpen] = useState(false); const [hints, setHints] = useState(0); const [predictions, setPredictions] = useState({ correct: 0, total: 0 }); const [started, setStarted] = useState(Date.now()); const [elapsed, setElapsed] = useState(0); const [reflected, setReflected] = useState(false)
   useEffect(() => { const id = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000); return () => window.clearInterval(id) }, [started])
   useEffect(() => { const saved = localStorage.getItem('codeflow-progress'); if (saved) { try { setPredictions(JSON.parse(saved).predictions ?? { correct: 0, total: 0 }) } catch { /* ignore malformed local progress */ } } }, [])
-  const blocks = useMemo(() => [...challenge.blocks.filter((block) => !block.id.startsWith('bad-'))].sort(() => Math.random() - 0.5), [challenge])
+  const initialBlocks = useMemo(() => challenge.blocks.filter((block) => !block.id.startsWith('bad-')), [challenge])
+  const [blocks, setBlocks] = useState(initialBlocks)
+  useEffect(() => {
+    const shuffled = [...initialBlocks]
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1))
+      ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+    }
+    setBlocks(shuffled)
+  }, [initialBlocks])
   const completed = checked && slots.every((id, index) => id === order[index]); const score = Math.max(0, 100 - Math.max(0, checkAttempts - (completed ? 0 : 1)) * 10 - hints * 15); const stars = score >= 90 ? 3 : score >= 70 ? 2 : 1
   const persist = (next: { correct: number; total: number }) => { setPredictions(next); localStorage.setItem('codeflow-progress', JSON.stringify({ predictions: next, completed: true, score, stars, elapsed })) }
   const place = (id: string) => { const next = [...slots]; const old = next.indexOf(id); if (old >= 0) next[old] = undefined; const empty = next.findIndex((slot) => !slot); if (empty >= 0) next[empty] = id; setSlots(next); setChecked(false) }

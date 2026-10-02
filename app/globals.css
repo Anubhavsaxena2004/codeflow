@@ -160,6 +160,21 @@
 }
 .animate-shake { animation: shake 0.35s ease-in-out; }
 
+/* CodeFlow IDE */
+.ide-mono {
+  font-family: 'Cascadia Code', 'Cascadia Mono', Consolas, 'SF Mono', Menlo, ui-monospace, monospace;
+  font-variant-ligatures: none;
+}
+.squiggle {
+  text-decoration: underline wavy #f14c4c;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 4px;
+}
+body.is-dragging,
+body.is-dragging * {
+  cursor: grabbing !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

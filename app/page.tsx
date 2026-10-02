@@ -1,6 +1,11 @@
 ﻿'use client'
 
+import { useEffect, useState } from 'react'
 import { ArrowRight, CheckCircle2, LockKeyhole, Star } from 'lucide-react'
+import { starsFor } from '@/lib/scoring'
+import { useSession } from '@/lib/use-session'
+
+type Progress = { challengeId: string; bestScore: number | null; completedAt: string | null }
 
 const cards = [
   { id: 'signup', title: 'Signup Flow', description: 'Arrange validation, hashing, persistence, and a safe response.', difficulty: 'Intermediate', active: true, href: '/challenge/signup' },
@@ -10,6 +15,17 @@ const cards = [
 ]
 
 export default function Home() {
+  const session = useSession()
+  const [progress, setProgress] = useState<Record<string, Progress>>({})
+
+  useEffect(() => {
+    if (session.status !== 'signed-in') return
+    fetch('/api/progress')
+      .then((response) => (response.ok ? response.json() : { progress: [] }))
+      .then((data: { progress: Progress[] }) => setProgress(Object.fromEntries(data.progress.map((row) => [row.challengeId, row]))))
+      .catch(() => undefined)
+  }, [session.status])
+
   return (
     <main className="notebook-bg min-h-screen p-4 md:p-8">
       <style jsx global>{`
@@ -40,7 +56,17 @@ export default function Home() {
             <span className="flex size-9 items-center justify-center rounded-md bg-[#4e7cff] text-sm font-bold text-white">{'<>'}</span>
             <span className="handwritten text-2xl text-[#2d2b60]">CodeFlow</span>
           </div>
-          <a href="/mentor" className="text-xs uppercase tracking-[0.26em] text-[#5a567e]">Mentor mode</a>
+          <div className="flex items-center gap-4 text-xs uppercase tracking-[0.26em] text-[#5a567e]">
+            <a href="/mentor">Mentor mode</a>
+            {session.status === 'signed-in' ? (
+              <span className="flex items-center gap-3 normal-case tracking-normal">
+                <span className="text-[#2d2b60]">Hi, {session.user.name.split(' ')[0]}</span>
+                <button type="button" onClick={session.signOut} className="underline-offset-4 hover:underline">Sign out</button>
+              </span>
+            ) : session.status === 'guest' ? (
+              <a href="/login" className="rounded-full border-2 border-[#2d2b60]/50 px-3 py-1 text-[#2d2b60]">Sign in</a>
+            ) : null}
+          </div>
         </header>
 
         <section className="mb-8">
@@ -101,8 +127,8 @@ export default function Home() {
                   </div>
                   <p className="mt-2 text-xs leading-5 text-[#5a567e]">{card.description}</p>
                   <div className="mt-3 flex items-center justify-between border-t border-[#2d2b60]/20 pt-2 text-[10px] text-[#5a567e]">
-                    <span>{card.active ? 'Open challenge' : 'Coming soon'}</span>
-                    {card.active && <span className="inline-flex items-center gap-1 text-[#d5b36c]"><Star className="size-3 fill-current" /> Best score</span>}
+                    <span>{card.active ? (progress[card.id]?.completedAt ? 'Completed · play again' : progress[card.id] ? 'Continue' : 'Open challenge') : 'Coming soon'}</span>
+                    {card.active && <BestScore best={progress[card.id]?.bestScore ?? null} signedIn={session.status === 'signed-in'} />}
                   </div>
                 </a>
               ))}
@@ -111,5 +137,16 @@ export default function Home() {
         </section>
       </div>
     </main>
+  )
+}
+
+function BestScore({ best, signedIn }: { best: number | null; signedIn: boolean }) {
+  if (best === null) return <span className="text-[#5a567e]">{signedIn ? 'No best score yet' : 'Sign in to track your best'}</span>
+  const stars = starsFor(best)
+  return (
+    <span className="inline-flex items-center gap-1 text-[#d5b36c]" aria-label={`Best score ${best}, ${stars} of 3 stars`}>
+      {[0, 1, 2].map((index) => <Star key={index} className={index < stars ? 'size-3 fill-current' : 'size-3 opacity-40'} />)}
+      <span className="ml-1 text-[#5a567e]">Best {best}</span>
+    </span>
   )
 }

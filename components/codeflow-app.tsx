@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ComponentType } from 'react'
+import { useEffect, useMemo, useState, type ComponentType, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -44,17 +44,27 @@ import { computeScore, starsFor } from '@/lib/scoring'
 import { loginHref, useSession } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
 import { BlockCard, BlockPalette } from './ide/block-palette'
-import { BottomPanel, type PanelTab, type Problem } from './ide/bottom-panel'
+import { BottomPanel, type PanelTab, type Problem, type SlotGuideRow } from './ide/bottom-panel'
 import { ChallengeEditor, FileView, type SlotStatus } from './ide/code-editor'
 import { FileIcon, languageFor } from './ide/code'
 import { FileExplorer } from './ide/file-explorer'
 import { RunDrawer } from './ide/run-drawer'
+import { Sash } from './ide/sash'
 
 type Slots = (string | null)[]
 type SyncState = 'idle' | 'saving' | 'saved' | 'error'
 type IconType = ComponentType<{ className?: string; strokeWidth?: number }>
 
 const GUEST_PROGRESS_KEY = 'codeflow-progress'
+const LAYOUT_KEY = 'codeflow-layout'
+
+// Pane sizes in px (desktop only; the stacked mobile layout uses fixed heights).
+type Layout = { explorer: number; palette: number; panel: number }
+const DEFAULT_LAYOUT: Layout = { explorer: 240, palette: 320, panel: 224 }
+const LAYOUT_MIN: Layout = { explorer: 170, palette: 240, panel: 100 }
+const EDITOR_MIN_WIDTH = 360
+const EDITOR_MIN_HEIGHT = 160
+const CHROME_HEIGHT = 40 + 24 + 36 + 24 // title bar, status bar, tabs, breadcrumbs
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
 // The pointer position is the most precise signal for inline drop lines; overlap is the fallback between targets.
@@ -132,7 +142,8 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
   const [explorerOpen, setExplorerOpen] = useState(true)
   const [paletteOpen, setPaletteOpen] = useState(true)
   const [panelOpen, setPanelOpen] = useState(true)
-  const [panelTab, setPanelTab] = useState<PanelTab>('problems')
+  const [panelTab, setPanelTab] = useState<PanelTab>('steps')
+  const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT)
   const [tabs, setTabs] = useState<string[]>([workspace.challengePath])
   const [activePath, setActivePath] = useState<string | null>(workspace.challengePath)
   const [syncState, setSyncState] = useState<SyncState>('idle')
@@ -225,6 +236,37 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
     }, 800)
     return () => window.clearTimeout(timer)
   }, [slots, canSync, savedDraft, challenge.id])
+
+  // ---- pane sizes: a per-browser preference ------------------------------
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(LAYOUT_KEY) ?? 'null')
+      if (!saved || typeof saved !== 'object') return
+      const pick = (key: keyof Layout) => (Number.isFinite(saved[key]) ? Math.max(LAYOUT_MIN[key], saved[key]) : DEFAULT_LAYOUT[key])
+      setLayout({ explorer: pick('explorer'), palette: pick('palette'), panel: pick('panel') })
+    } catch {
+      // ignore unreadable preferences
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
+      } catch {
+        // storage unavailable; sizes just won't persist
+      }
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [layout])
+
+  const resize = (key: keyof Layout) => (value: number) => setLayout((current) => ({ ...current, [key]: value }))
+  const resetSize = (key: keyof Layout) => () => setLayout((current) => ({ ...current, [key]: DEFAULT_LAYOUT[key] }))
+  // Each pane may grow until the editor would drop below its minimum size, and never past the
+  // viewport-relative caps in the class names (lg:max-w-[40vw], lg:max-w-[45vw], lg:max-h-[60vh]).
+  const maxSideWidth = (other: number, viewportShare: number) => () =>
+    Math.min(window.innerWidth * viewportShare, window.innerWidth - 48 - other - EDITOR_MIN_WIDTH)
+  const maxPanelHeight = () => Math.min(window.innerHeight * 0.6, window.innerHeight - CHROME_HEIGHT - EDITOR_MIN_HEIGHT)
 
   // ---- block moves -------------------------------------------------------
   /** Moves a block into a step (swapping with whatever is there) or, with `to = null`, back to the palette. */
@@ -419,6 +461,22 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
   const errorCount = problems.filter((problem) => problem.severity === 'error').length
   const warningCount = problems.filter((problem) => problem.severity === 'warning').length
 
+  // Challenges without a written guide (e.g. from mentor mode) fall back to their architecture map.
+  const slotGuide: SlotGuideRow[] = order.map((id, index) => {
+    const mapping = mappings[id]
+    const node = challenge.architecture.nodes.find((item) => item.id === mapping?.nodeIds[0])
+    const guide = challenge.steps?.[index] ?? { kind: node?.label ?? `Step ${index + 1}`, goal: mapping?.hint ?? '' }
+    return { ...guide, placed: blockById(slots[index])?.label, status: statuses[index] }
+  })
+
+  const focusStep = (index: number) => {
+    openFile(workspace.challengePath)
+    // Wait for the challenge file to render if another tab was active.
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(() => document.querySelector(`[data-slot="${index}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })),
+    )
+  }
+
   const solvedCode = useMemo(
     () => workspace.scaffold.map((line) => (line.type === 'line' ? line.text ?? '' : indentCode(workspace.codeFor(order[(line.slot ?? 1) - 1]), line.indent ?? 0))).join('\n'),
     [workspace, order],
@@ -431,7 +489,10 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
   return (
     <>
       <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={finishDrag}>
-        <div className="flex min-h-dvh flex-col bg-[#1f1f1f] font-sans text-[13px] text-[#cccccc] lg:h-dvh lg:min-h-0">
+        <div
+          className="flex min-h-dvh flex-col bg-[#1f1f1f] font-sans text-[13px] text-[#cccccc] lg:h-dvh lg:min-h-0"
+          style={{ '--explorer-w': `${layout.explorer}px`, '--palette-w': `${layout.palette}px`, '--panel-h': `${layout.panel}px` } as CSSProperties}
+        >
           {/* Title bar */}
           <header className="flex h-10 shrink-0 items-center gap-2 border-b border-[#2b2b2b] bg-[#181818] px-2">
             <Link href="/" className="flex shrink-0 items-center gap-2 rounded px-1.5 py-1 hover:bg-[#2b2b2b]">
@@ -494,7 +555,17 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
 
             {/* Explorer */}
             {explorerOpen && (
-              <aside className="h-72 shrink-0 border-b border-[#2b2b2b] bg-[#181818] lg:h-auto lg:w-60 lg:border-b-0 lg:border-r">
+              <aside className="relative h-72 shrink-0 border-b border-[#2b2b2b] bg-[#181818] lg:h-auto lg:w-(--explorer-w) lg:max-w-[40vw] lg:border-b-0 lg:border-r">
+                <Sash
+                  axis="x"
+                  label="Resize explorer"
+                  value={layout.explorer}
+                  min={LAYOUT_MIN.explorer}
+                  max={maxSideWidth(paletteOpen ? layout.palette : 0, 0.4)}
+                  onChange={resize('explorer')}
+                  onReset={resetSize('explorer')}
+                  className="right-0 translate-x-1/2"
+                />
                 <FileExplorer
                   projectName={workspace.projectName}
                   files={workspace.files}
@@ -582,11 +653,24 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
               </div>
 
               {panelOpen && (
-                <div className="h-64 shrink-0 border-t border-[#2b2b2b] lg:h-56">
+                <div className="relative h-64 shrink-0 border-t border-[#2b2b2b] lg:h-(--panel-h) lg:max-h-[60vh]">
+                  <Sash
+                    axis="y"
+                    invert
+                    label="Resize panel"
+                    value={layout.panel}
+                    min={LAYOUT_MIN.panel}
+                    max={maxPanelHeight}
+                    onChange={resize('panel')}
+                    onReset={resetSize('panel')}
+                    className="top-0 -translate-y-1/2"
+                  />
                   <BottomPanel
                     tab={panelTab}
                     onTab={setPanelTab}
                     onClose={() => setPanelOpen(false)}
+                    steps={slotGuide}
+                    onStepClick={focusStep}
                     problems={problems}
                     problemCount={errorCount + warningCount}
                     fileName={challengeFileName}
@@ -607,7 +691,18 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
 
             {/* Block palette */}
             {paletteOpen && (
-              <aside className="h-[32rem] shrink-0 border-t border-[#2b2b2b] bg-[#181818] lg:h-auto lg:w-80 lg:border-l lg:border-t-0">
+              <aside className="relative h-[32rem] shrink-0 border-t border-[#2b2b2b] bg-[#181818] lg:h-auto lg:w-(--palette-w) lg:max-w-[45vw] lg:border-l lg:border-t-0">
+                <Sash
+                  axis="x"
+                  invert
+                  label="Resize blocks"
+                  value={layout.palette}
+                  min={LAYOUT_MIN.palette}
+                  max={maxSideWidth(explorerOpen ? layout.explorer : 0, 0.45)}
+                  onChange={resize('palette')}
+                  onReset={resetSize('palette')}
+                  className="left-0 -translate-x-1/2"
+                />
                 <BlockPalette
                   blocks={unplaced}
                   total={order.length}

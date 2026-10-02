@@ -1,11 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { CircleCheck, CircleX, Info, Lightbulb, TriangleAlert, X } from 'lucide-react'
+import { Check, CircleCheck, CircleX, Info, Lightbulb, TriangleAlert, X } from 'lucide-react'
 import type { Challenge } from '@/data/challenges'
 import { cn } from '@/lib/utils'
+import type { SlotStatus } from './code-editor'
 
-export type PanelTab = 'problems' | 'architecture' | 'glossary' | 'reflect'
+export type PanelTab = 'steps' | 'problems' | 'architecture' | 'glossary' | 'reflect'
+
+export interface SlotGuideRow {
+  kind: string
+  goal: string
+  /** Label of the block currently in the slot. */
+  placed?: string
+  status: SlotStatus
+}
 
 export interface Problem {
   severity: 'error' | 'warning' | 'hint' | 'success' | 'info'
@@ -26,6 +35,8 @@ interface BottomPanelProps {
   tab: PanelTab
   onTab: (tab: PanelTab) => void
   onClose: () => void
+  steps: SlotGuideRow[]
+  onStepClick: (index: number) => void
   problems: Problem[]
   problemCount: number
   fileName: string
@@ -34,9 +45,10 @@ interface BottomPanelProps {
   architecture: ArchitectureProps
 }
 
-export function BottomPanel({ tab: requestedTab, onTab, onClose, problems, problemCount, fileName, challenge, showReflect, architecture }: BottomPanelProps) {
+export function BottomPanel({ tab: requestedTab, onTab, onClose, steps, onStepClick, problems, problemCount, fileName, challenge, showReflect, architecture }: BottomPanelProps) {
   const tab = requestedTab === 'reflect' && !showReflect ? 'problems' : requestedTab
   const tabs: { id: PanelTab; label: string; badge?: number }[] = [
+    { id: 'steps', label: 'SLOT GUIDE' },
     { id: 'problems', label: 'PROBLEMS', badge: problemCount },
     { id: 'architecture', label: 'ARCHITECTURE' },
     { id: 'glossary', label: 'GLOSSARY' },
@@ -65,6 +77,33 @@ export function BottomPanel({ tab: requestedTab, onTab, onClose, problems, probl
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
+        {tab === 'steps' && (
+          <div className="py-1">
+            <p className="mb-2 text-[12px] text-[#9d9d9d]">What kind of code belongs in each slot of {fileName}. Click a step to jump to it.</p>
+            <ol className="flex flex-col">
+              {steps.map((step, index) => (
+                <li key={index}>
+                  <button
+                    type="button"
+                    onClick={() => onStepClick(index)}
+                    className="grid w-full grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 rounded px-1 py-1 text-left text-[12px] leading-5 hover:bg-[#2a2d2e] md:grid-cols-[1.25rem_9rem_minmax(0,1fr)_minmax(0,14rem)]"
+                  >
+                    <span className="mt-0.5 grid size-5 place-items-center rounded-full bg-[#2b2b2b] text-[11px] text-[#cccccc]">{index + 1}</span>
+                    <span className="ide-mono text-[#9cdcfe]">{step.kind}</span>
+                    <span className="col-start-2 text-[#9d9d9d] md:col-start-auto">{step.goal}</span>
+                    <span className="col-start-2 flex min-w-0 items-center gap-1.5 md:col-start-auto">
+                      {step.status === 'correct' && <Check className="size-3.5 shrink-0 text-[#89d185]" />}
+                      {step.status === 'wrong' && <CircleX className="size-3.5 shrink-0 text-[#f14c4c]" />}
+                      {step.status === 'empty' && <TriangleAlert className="size-3.5 shrink-0 text-[#cca700]" />}
+                      {step.placed ? <span className="truncate text-[#cccccc]">{step.placed}</span> : <span className="italic text-[#6e7681]">empty</span>}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
         {tab === 'problems' && (
           problems.length === 0 ? (
             <p className="py-1 text-[12px] text-[#9d9d9d]">No problems have been detected yet. Press Check to verify the order.</p>

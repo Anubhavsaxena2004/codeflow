@@ -60,12 +60,21 @@ export interface StackVariant {
   folders: Record<string, string>
 }
 
+export interface StepGuide {
+  /** Short category of code that belongs in the slot, e.g. "Database read". */
+  kind: string
+  /** What the code in that slot has to achieve, without naming the exact block. */
+  goal: string
+}
+
 export interface Challenge {
   id: string
   title: string
   fileName: string
   scaffold: ScaffoldLine[]
   blocks: Block[]
+  /** One entry per slot, in slot order. */
+  steps?: StepGuide[]
   glossary: GlossaryTerm[]
   reflections?: { question: string; answer: string }[]
   architecture: { nodes: ArchitectureNode[]; arrows: { id: string; from: string; to: string; label?: string }[]; mappings: Record<string, ArchitectureMapping> }
@@ -103,6 +112,14 @@ export const signupChallenge: Challenge = {
     { id: 'bad-save', label: 'Save user to database', code: 'const user = await User.create({ name, email, password });', what: 'A database write that looks plausible.', whyWrong: 'Stores the plain-text password. If the database leaks, every user\'s password is exposed.' },
     { id: 'bad-hash', label: 'Hash the password', code: 'const hashedPassword = bcrypt.hash(password, 10);', what: 'A shorter password hashing attempt.', whyWrong: 'Missing await. bcrypt.hash returns a Promise, so hashedPassword would be a Promise object, not a string.' },
     { id: 'bad-response', label: 'Send success response', code: 'return res.status(200).json(user);', what: 'A response that sends the new user.', whyWrong: 'Sends the whole user document back, including the password hash. 201 is also more accurate than 200 for creating something.' },
+  ],
+  steps: [
+    { kind: 'Request input', goal: 'Pull the fields this endpoint needs out of the incoming request.' },
+    { kind: 'Guard clause', goal: 'Stop early if anything required is missing. Responds 400.' },
+    { kind: 'Database read', goal: 'Look for existing data that would clash with this signup. Responds 409.' },
+    { kind: 'Security', goal: 'Transform the secret so it is never stored as the user typed it.' },
+    { kind: 'Database write', goal: 'Persist the new record, using only safe values.' },
+    { kind: 'Response', goal: 'Tell the client it worked without leaking private fields. Responds 201.' },
   ],
   reflections: [
     { question: 'Why do we check if the user exists BEFORE hashing?', answer: 'Hashing is deliberately slow. Checking first avoids wasting CPU on a request that will be rejected as a duplicate.' },

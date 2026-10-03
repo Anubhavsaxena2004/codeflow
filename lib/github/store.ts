@@ -1,6 +1,6 @@
 import { query } from '@/lib/server/db'
 import { decryptSecret, encryptSecret } from './crypto'
-import { getGitHubConfig } from './config'
+import { getTokenEncryptionKey } from './config'
 import type { LinkedRepo, ProjectFile } from './types'
 
 export interface DbConnection {
@@ -20,7 +20,7 @@ export async function getConnection(userId: string): Promise<DbConnection | null
 export async function getAccessToken(userId: string): Promise<string | null> {
   const [row] = await query<{ token_enc: string }>('SELECT token_enc FROM github_connections WHERE user_id = $1', [userId])
   if (!row) return null
-  return decryptSecret(row.token_enc, getGitHubConfig().tokenEncryptionKey)
+  return decryptSecret(row.token_enc, getTokenEncryptionKey())
 }
 
 /**
@@ -28,7 +28,7 @@ export async function getAccessToken(userId: string): Promise<string | null> {
  * The token is encrypted with a per-record salt before it touches the database.
  */
 export async function upsertConnection(userId: string, githubUserId: string, githubLogin: string, accessToken: string): Promise<void> {
-  const encrypted = encryptSecret(accessToken, getGitHubConfig().tokenEncryptionKey)
+  const encrypted = encryptSecret(accessToken, getTokenEncryptionKey())
   await query(
     `INSERT INTO github_connections (user_id, github_user_id, github_login, token_enc)
      VALUES ($1, $2, $3, $4)
@@ -94,6 +94,26 @@ export async function listProjectFiles(userId: string, journeyId: string): Promi
     [userId, journeyId],
   )
   return rows
+}
+
+/**
+ * Replaces the saved project for a journey with the freshly built workspace.
+ * The workspace is regenerated (and can change with the chosen stack), so a
+ * replace keeps the stored files in lockstep with what the learner sees.
+ */
+export async function replaceProjectFiles(userId: string, journeyId: string, files: ProjectFile[]): Promise<void> {
+  await query('DELETE FROM user_project_files WHERE user_id = $1 AND journey_id = $2', [userId, journeyId])
+  if (files.length === 0) return
+
+  const placeholders = files.map((_, index) => `($1, $2, $${index * 2 + 3}, $${index * 2 + 4})`).join(', ')
+  const params: unknown[] = [userId, journeyId]
+  for (const file of files) params.push(file.path, file.content)
+  await query(`INSERT INTO user_project_files (user_id, journey_id, path, content) VALUES ${placeholders}`, params)
+}
+
+/** Forgets the linked repo so the learner can choose or name a different one. */
+export async function unlinkRepo(userId: string, journeyId: string): Promise<void> {
+  await query('DELETE FROM github_repos WHERE user_id = $1 AND journey_id = $2', [userId, journeyId])
 }
 
 export async function saveOAuthState(state: string, userId: string): Promise<void> {

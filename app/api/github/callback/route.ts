@@ -1,5 +1,6 @@
 import { createGitHubClient, exchangeOAuthCode } from '@/lib/github/client'
 import { getGitHubConfig } from '@/lib/github/config'
+import { returnToFromState } from '@/lib/github/oauth-state'
 import { consumeOAuthState, upsertConnection } from '@/lib/github/store'
 
 /** Finishes GitHub OAuth. Redirects the browser back to the app with ?github=connected|error. */
@@ -9,7 +10,10 @@ export async function GET(request: Request) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
-  const fail = (reason: string) => Response.redirect(`${origin}/?github=error&reason=${encodeURIComponent(reason)}`, 303)
+  const returnTo = state ? returnToFromState(state) : '/'
+  const separator = returnTo.includes('?') ? '&' : '?'
+  const back = (query: string) => Response.redirect(`${origin}${returnTo}${separator}${query}`, 303)
+  const fail = (reason: string) => back(`github=error&reason=${encodeURIComponent(reason)}`)
 
   if (error) return fail(error)
   if (!code || !state) return fail('missing_params')
@@ -39,5 +43,5 @@ export async function GET(request: Request) {
 
   // Upsert: covers both the first connect and reconnecting (also with another account).
   await upsertConnection(userId, githubUserId, login, exchanged.accessToken)
-  return Response.redirect(`${origin}/?github=connected`, 303)
+  return back('github=connected')
 }

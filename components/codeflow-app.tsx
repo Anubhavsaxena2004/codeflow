@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ComponentType, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -48,6 +48,7 @@ import { BottomPanel, type PanelTab, type Problem, type SlotGuideRow } from './i
 import { ChallengeEditor, FileView, type SlotStatus } from './ide/code-editor'
 import { FileIcon, languageFor } from './ide/code'
 import { FileExplorer } from './ide/file-explorer'
+import { GithubPanel, type GithubRepo, type ProjectSaveState } from './ide/github-panel'
 import { RunDrawer } from './ide/run-drawer'
 import { Sash } from './ide/sash'
 
@@ -94,7 +95,7 @@ function ToolButton({ icon: Icon, label, onClick, disabled, variant = 'ghost' }:
   )
 }
 
-function ActivityItem({ icon: Icon, label, active, onClick, disabled }: { icon: IconType; label: string; active?: boolean; onClick?: () => void; disabled?: boolean }) {
+function ActivityItem({ icon: Icon, label, active, onClick, disabled, indicator }: { icon: IconType; label: string; active?: boolean; onClick?: () => void; disabled?: boolean; indicator?: boolean }) {
   return (
     <button
       type="button"
@@ -107,6 +108,7 @@ function ActivityItem({ icon: Icon, label, active, onClick, disabled }: { icon: 
     >
       {active && <span className="absolute inset-y-0 left-0 w-0.5 bg-[#0078d4]" />}
       <Icon className="size-6" strokeWidth={1.5} />
+      {indicator && <span className="absolute bottom-2.5 right-2.5 size-1.5 rounded-full bg-[#2ea043]" />}
     </button>
   )
 }
@@ -149,6 +151,14 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
   const [syncState, setSyncState] = useState<SyncState>('idle')
   // JSON of the draft the server already has; null until it has been loaded, so nothing is saved over it first.
   const [savedDraft, setSavedDraft] = useState<string | null>(null)
+  const [sidebarView, setSidebarView] = useState<'explorer' | 'github'>('explorer')
+  const [github, setGithub] = useState<{ loading: boolean; connected: boolean; login: string | null; repo: GithubRepo | null }>({
+    loading: false,
+    connected: false,
+    login: null,
+    repo: null,
+  })
+  const [projectState, setProjectState] = useState<ProjectSaveState>('idle')
 
   const canSync = sync && session.status === 'signed-in'
   const completed = checked && slots.every((id, index) => id === order[index])
@@ -156,6 +166,34 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
   const stars = starsFor(score)
   const confirmed = slots.filter((id, index): id is string => id !== null && id === order[index])
   const blockById = (id: string | null) => challenge.blocks.find((block) => block.id === id)
+
+  // ---- GitHub connection status -----------------------------------------
+  const refreshGithub = useCallback(() => {
+    if (!canSync) {
+      setGithub({ loading: false, connected: false, login: null, repo: null })
+      return
+    }
+    setGithub((current) => ({ ...current, loading: true }))
+    fetch(`/api/github/status?journeyId=${encodeURIComponent(challenge.id)}`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+      .then((data: { connected?: boolean; login?: string | null; repo?: GithubRepo | null }) =>
+        setGithub({ loading: false, connected: !!data.connected, login: data.login ?? null, repo: data.repo ?? null }),
+      )
+      .catch(() => setGithub({ loading: false, connected: false, login: null, repo: null }))
+  }, [canSync, challenge.id])
+
+  useEffect(() => {
+    refreshGithub()
+  }, [refreshGithub])
+
+  // After the OAuth round-trip (?github=connected|error) land on the GitHub view
+  // so the learner sees the result and the panel can tidy the URL.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('github')) {
+      setSidebarView('github')
+      setExplorerOpen(true)
+    }
+  }, [])
 
   // Deterministic shuffle so server and client render the same palette.
   const paletteOrder = useMemo(
@@ -325,6 +363,16 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
     setPanelTab(tab)
   }
 
+  // The activity bar swaps the left slot between the file tree and GitHub.
+  const showSidebar = (view: 'explorer' | 'github') => {
+    if (explorerOpen && sidebarView === view) {
+      setExplorerOpen(false)
+      return
+    }
+    setSidebarView(view)
+    setExplorerOpen(true)
+  }
+
   const check = () => {
     const correct = slots.every((id, index) => id === order[index])
     const nextWrongChecks = correct ? wrongChecks : wrongChecks + 1
@@ -482,6 +530,35 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
     [workspace, order],
   )
 
+  // The solved workspace as pushable files: the challenge file is built from the
+  // solution, the rest are read-only project files. Saving on solve keeps
+  // user_project_files in lockstep with what the editor shows.
+  const projectFiles = useMemo(
+    () =>
+      completed
+        ? workspace.files
+            .map((file) => ({ path: file.path, content: file.challenge ? solvedCode : file.content ?? '' }))
+            .filter((file) => file.content.length > 0)
+        : [],
+    [completed, workspace, solvedCode],
+  )
+
+  useEffect(() => {
+    if (!canSync || !completed || projectFiles.length === 0) return
+    const timer = window.setTimeout(() => {
+      setProjectState('saving')
+      fetch('/api/github/project', {
+        method: 'PUT',
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ journeyId: challenge.id, files: projectFiles }),
+      })
+        .then((response) => (response.ok ? response.json() : Promise.reject(response)))
+        .then(() => setProjectState('saved'))
+        .catch(() => setProjectState('error'))
+    }, 800)
+    return () => window.clearTimeout(timer)
+  }, [canSync, completed, projectFiles, challenge.id])
+
   const draggedBlock = blockById(dragging)
   const inspectedBlock = blockById(inspected) ?? null
   const initials = session.user?.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
@@ -537,11 +614,19 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
           <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
             {/* Activity bar */}
             <nav aria-label="Views" className="hidden w-12 shrink-0 flex-col border-r border-[#2b2b2b] bg-[#181818] lg:flex">
-              <ActivityItem icon={Files} label="Explorer" active={explorerOpen} onClick={() => setExplorerOpen((open) => !open)} />
+              <ActivityItem icon={Files} label="Explorer" active={explorerOpen && sidebarView === 'explorer'} onClick={() => showSidebar('explorer')} />
               <ActivityItem icon={Blocks} label="Blocks" active={paletteOpen} onClick={() => setPaletteOpen((open) => !open)} />
               <ActivityItem icon={Network} label="Architecture map" active={panelOpen && panelTab === 'architecture'} onClick={() => showPanel('architecture')} />
               <ActivityItem icon={PanelBottom} label="Toggle panel" active={panelOpen} onClick={() => setPanelOpen((open) => !open)} />
-              <ActivityItem icon={GitBranch} label="GitHub sync (coming soon)" disabled />
+              {sync && (
+                <ActivityItem
+                  icon={GitBranch}
+                  label={github.connected ? `GitHub — @${github.login}` : 'GitHub'}
+                  active={explorerOpen && sidebarView === 'github'}
+                  onClick={() => showSidebar('github')}
+                  indicator={github.connected}
+                />
+              )}
               <div className="mt-auto">
                 {session.status === 'guest' ? (
                   <Link href={loginHref(pathname)} aria-label="Sign in" title="Sign in" className="flex size-12 items-center justify-center text-[#868686] hover:text-[#cccccc]">
@@ -566,14 +651,32 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true }
                   onReset={resetSize('explorer')}
                   className="right-0 translate-x-1/2"
                 />
-                <FileExplorer
-                  projectName={workspace.projectName}
-                  files={workspace.files}
-                  folders={workspace.folders}
-                  activePath={activePath}
-                  challengeBadge={completed ? '✓' : `${order.length - unplaced.length}/${order.length}`}
-                  onOpen={openFile}
-                />
+                {sidebarView === 'github' ? (
+                  <GithubPanel
+                    signedIn={session.status === 'signed-in'}
+                    login={github.login}
+                    repo={github.repo}
+                    loading={github.loading}
+                    journeyId={challenge.id}
+                    projectName={workspace.projectName}
+                    challengeId={challenge.id}
+                    challengeTitle={challenge.title}
+                    challengePath={workspace.challengePath}
+                    completed={completed}
+                    saveState={projectState}
+                    signInHref={loginHref(pathname)}
+                    onChanged={refreshGithub}
+                  />
+                ) : (
+                  <FileExplorer
+                    projectName={workspace.projectName}
+                    files={workspace.files}
+                    folders={workspace.folders}
+                    activePath={activePath}
+                    challengeBadge={completed ? '✓' : `${order.length - unplaced.length}/${order.length}`}
+                    onOpen={openFile}
+                  />
+                )}
               </aside>
             )}
 

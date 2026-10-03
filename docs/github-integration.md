@@ -3,12 +3,30 @@
 Lets a signed-in learner push the project they are building (their `user_project_files`)
 to **their own** GitHub repo, with a real commit history — then `git clone` and run it.
 
-All new code lives in new files only:
-
 - `lib/github/` — the service module wrapping every GitHub REST call (fetch-based, no SDK)
-- `app/api/github/` — the six API endpoints
+- `app/api/github/` — the API endpoints and the OAuth handshake
+- `components/ide/github-panel.tsx` — the sidebar view (connect, repo, pushes)
 - `db/migrations/002_github_integration.sql` — storage tables
 - `lib/github/__tests__/` — unit tests with mocked GitHub responses
+
+## UI
+
+The activity bar's GitHub icon opens a **GitHub view in the left sidebar** (the same slot
+as the Explorer; clicking Explorer switches back). The view offers:
+
+- **Connect / Reconnect / Disconnect** — Connect starts the OAuth flow and returns you
+  to the page you started from. Reconnect re-runs it (last account wins); Disconnect
+  deletes the stored token.
+- **Repository** — with nothing linked yet, name a new repo (created private) or enter an
+  existing `owner/repo` you own. Once linked, “Change repository” unlinks it so you can
+  pick another.
+- **Push** — unlocked once the challenge is solved. *Push &lt;file&gt;* sends just the
+  challenge file as one commit; *Push whole project* sends every workspace file as one
+  commit. The built files are saved to `user_project_files` automatically when the
+  challenge is solved (the push endpoints read them back).
+- Conflicts surface the GitHub compare URL and a “Keep GitHub version & retry” action.
+
+The GitHub icon is hidden in mentor preview mode (`sync={false}`).
 
 ## Setup
 
@@ -47,7 +65,7 @@ Scope requested: `repo` (needed to create repos and push via the Git Data API).
 ### 3. Apply the migration
 
 ```bash
-npm run db:migrate
+pnpm db:migrate
 ```
 
 This creates `user_project_files`, `github_connections`, `github_repos` and
@@ -61,11 +79,13 @@ All endpoints require the normal user session cookie.
 | Method | Endpoint | Body / query | Result |
 | --- | --- | --- | --- |
 | GET | `/api/github/status` | `?journeyId=` optional | `{ connected, login, repo, repos }` |
-| POST | `/api/github/connect` | — | `{ url }` — GitHub OAuth authorize URL |
-| GET | `/api/github/callback` | `code`, `state` (GitHub) | 303 redirect to `/?github=connected` or `/?github=error&reason=…` |
+| POST | `/api/github/connect` | `{ returnTo? }` | `{ url }` — GitHub OAuth authorize URL |
+| GET | `/api/github/callback` | `code`, `state` (GitHub) | 303 redirect to `<returnTo>?github=connected` or `…?github=error&reason=…` |
 | DELETE | `/api/github/connection` | — | `{ ok: true }` — deletes the stored token |
+| DELETE | `/api/github/repo` | `?journeyId=` | `{ ok: true }` — unlinks the repo (keeps the connection) |
+| PUT | `/api/github/project` | `{ journeyId, files: [{ path, content }] }` | `{ ok, count }` — replaces the saved project files (the push source) |
 | POST | `/api/github/push` | `{ journeyId, message?, stageName?, repoName?, existingRepo? }` | structured push result |
-| PUT | `/api/github/push/file` | `{ journeyId, path, message?, challengeId?, challengeTitle? }` | structured push result |
+| PUT | `/api/github/push/file` | `{ journeyId, path, message?, challengeId?, challengeTitle?, repoName?, existingRepo? }` | structured push result |
 | POST | `/api/github/resolve` | `{ journeyId }` | `{ ok, remoteSha, branch }` — accept the remote head as the new base after a conflict |
 
 Push results are structured: `{ ok, commitSha, pushedFiles, excludedFiles }` on
@@ -88,6 +108,11 @@ only exist on GitHub are kept, files that are part of the project are updated to
 the saved version.
 
 ## Push flows
+
+**Saving the project**: the editor builds the workspace (solved challenge file +
+the read-only project files) when the challenge is solved and `PUT`s it to
+`/api/github/project`. `.env*`, `.git*` and `node_modules/**` are skipped and
+unsafe paths are rejected. Every push reads this saved project.
 
 **Bulk push** (primary — whole project, one atomic commit):
 
@@ -132,13 +157,21 @@ node --import ./lib/github/__tests__/register.mjs --test lib/github/__tests__/*.
 
 Covers: file filtering, path validation, secret scanning, base64 handling, tree
 building, commit message formatting, token encryption round-trip, client error
-mapping/rate limits, and both push strategies — including the conflict path —
-against mocked GitHub responses (a queue-based `fetch`; no network).
+mapping/rate limits, repo-name parsing/target resolution, the OAuth return-path
+round-trip, and both push strategies — including the conflict path — against
+mocked GitHub responses (a queue-based `fetch`; no network).
 
 ## Manual end-to-end test (throwaway repo)
 
-1. Run the app locally with the env vars above and `npm run db:migrate`.
-2. Sign in, then seed a couple of files (adjust ids/paths to your data):
+1. Run the app locally with the env vars above and `pnpm db:migrate`.
+2. Sign in and open `/challenge/signup`; click the **GitHub** icon in the activity bar.
+   - Guest: the panel offers a Sign in link.
+   - Not solved: pushes are locked with a hint to solve the challenge.
+   - **Connect GitHub** sends you to GitHub and back to the challenge page.
+   - Name a repo (or enter `owner/repo`), solve the challenge, then use
+     **Push \<file\>** or **Push whole project**.
+
+To exercise the raw endpoints, seed a couple of files instead (adjust ids/paths):
 
    ```sql
    INSERT INTO user_project_files (user_id, journey_id, path, content)

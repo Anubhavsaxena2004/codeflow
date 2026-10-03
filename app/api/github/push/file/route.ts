@@ -11,7 +11,7 @@ const JOURNEY_ID = /^[A-Za-z0-9_-]{1,128}$/
 
 /**
  * SINGLE-FILE PUSH: updates one project file via the Contents API.
- * Body: { journeyId, path, message?, challengeId?, challengeTitle? }
+ * Body: { journeyId, path, message?, challengeId?, challengeTitle?, repoName?, existingRepo? }
  * Result: { ok, commitSha, pushedFiles, conflict?, ... }
  */
 export async function PUT(request: Request) {
@@ -51,6 +51,8 @@ export async function PUT(request: Request) {
         journeyId,
         client,
         login: connection.githubLogin,
+        existingRepo: typeof body?.existingRepo === 'string' ? body.existingRepo.trim() : undefined,
+        repoName: typeof body?.repoName === 'string' ? body.repoName.trim() : undefined,
       })
       if (!resolution.ok) return jsonError(resolution.error === 'invalid_name' ? 400 : 409, resolution.message)
 

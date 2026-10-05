@@ -1,7 +1,16 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
+import { Fredoka } from 'next/font/google'
+import { MotionProvider } from '@/components/ui/motion-provider'
 import { themeScript } from '@/lib/theme'
 import './globals.css'
+
+const fredoka = Fredoka({
+  weight: ['500', '600', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-game',
+})
 
 export const metadata: Metadata = {
   title: 'CodeFlow — Backend Logic Practice',
@@ -41,12 +50,14 @@ export default function RootLayout({
 }>) {
   return (
     // The theme script sets the light/dark class before React hydrates, so the class differs from the server's HTML.
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={fredoka.variable}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="antialiased">
-        {children}
+        <MotionProvider>
+          {children}
+        </MotionProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

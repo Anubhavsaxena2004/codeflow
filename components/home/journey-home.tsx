@@ -59,7 +59,7 @@ function Card({ title, icon, children, className, aside }: { title?: string; ico
       {title && (
         <div className="mb-3 flex items-center gap-2">
           {icon}
-          <h2 className="text-[15px] font-bold text-(--cf-text)">{title}</h2>
+          <h2 className="text-[15px] font-bold text-(--cf-text) font-display">{title}</h2>
           {aside && <span className="ml-auto">{aside}</span>}
         </div>
       )}
@@ -282,10 +282,10 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
         <header className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-(--cf-border) bg-(--cf-surface)/90 px-4 py-3 backdrop-blur md:px-6">
           <Link href="/" className="flex items-center gap-2 lg:hidden">
             <span className="grid size-8 place-items-center rounded-lg text-xs font-extrabold text-white" style={{ background: GREEN }}>{'</>'}</span>
-            <span className="font-extrabold">CodeFlow</span>
+            <span className="font-extrabold font-display">CodeFlow</span>
           </Link>
           <div className="hidden lg:block">
-            <h1 className="text-xl font-extrabold">Your coding journey</h1>
+            <h1 className="text-xl font-extrabold font-display">Your coding journey</h1>
             <p className="text-xs text-(--cf-muted)">Build real projects level by level, fix planted bugs, and push what you build to GitHub.</p>
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -295,13 +295,13 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
               </button>
             )}
             <span className="flex items-center gap-1.5 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-3 py-1.5 text-xs font-bold text-[#c2410c] dark:border-[#f97316]/30 dark:bg-[#f97316]/15 dark:text-[#fdba74]" title="Days in a row with a passed level">
-              <Flame aria-hidden className="size-4 fill-[#fb923c] text-[#f97316]" /> {streak} day streak
+              <Flame aria-hidden className="size-4 fill-[#fb923c] text-[#f97316]" /> <span className="num">{streak}</span> day streak
             </span>
             <span className="flex items-center gap-2 rounded-full border border-(--cf-border) bg-(--cf-surface) py-1 pl-1 pr-3 text-xs" title={`${totalXp} XP in total`}>
               <span className="grid h-6 place-items-center rounded-full px-2 text-[10px] font-extrabold text-white" style={{ background: 'linear-gradient(135deg, #a855f7, #6d28d9)' }}>XP</span>
-              <span className="font-extrabold">Rank {rank.rank}</span>
+              <span className="font-extrabold font-display">Rank <span className="num">{rank.rank}</span></span>
               <span className="hidden w-20 sm:block"><Bar value={(rank.into / rank.size) * 100} color="linear-gradient(90deg, #a855f7, #6d28d9)" /></span>
-              <span className="text-(--cf-muted)">{rank.into}/{rank.size}</span>
+              <span className="text-(--cf-muted) num">{rank.into}/{rank.size}</span>
             </span>
             <ThemeToggle className="size-8 rounded-full border border-(--cf-border) bg-(--cf-surface) text-(--cf-muted) hover:bg-(--cf-surface-2) hover:text-(--cf-text)" />
             {session.status === 'signed-in' ? (
@@ -366,7 +366,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                   <>
                     <div className="flex flex-wrap items-end justify-between gap-3">
                       <div>
-                        <h2 className="text-xl font-extrabold">{journey.title}</h2>
+                        <h2 className="text-xl font-extrabold font-display">{journey.title}</h2>
                         <p className="text-sm text-(--cf-muted)">{journey.summary}</p>
                       </div>
                       <Link href={`/learn/${journey.id}`} className={primaryButton} style={{ background: GREEN }}>

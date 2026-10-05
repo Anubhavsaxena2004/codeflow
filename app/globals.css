@@ -36,13 +36,16 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --font-display: var(--font-game), ui-rounded, 'Segoe UI', system-ui, sans-serif;
 }
 
 :root {
@@ -114,6 +117,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --elev-2: 0 4px 14px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --elev-3: 0 12px 28px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --elev-4: 0 24px 48px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --focus-ring: #c4b5fd;
+  --cf-scroll: rgb(255 255 255 / 0.18);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -150,6 +159,12 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --elev-1: 0 1px 2px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --elev-2: 0 4px 14px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --elev-3: 0 12px 28px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --elev-4: 0 24px 48px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --focus-ring: #c4b5fd;
+    --cf-scroll: rgb(255 255 255 / 0.18);
   }
 }
 
@@ -239,6 +254,67 @@
   --adm-link: #0b62d6;
   --adm-code: #0070c1;
   --adm-string: #a31515;
+
+  /* Game display font & fluid type scale */
+  --font-display: var(--font-game), ui-rounded, "Segoe UI", system-ui, sans-serif;
+  --fs-caption: 12px;
+  --fs-small: 13px;
+  --fs-body: clamp(15px, 0.91rem + 0.112vw, 16px);
+  --fs-h4: clamp(17px, 1.035rem + 0.112vw, 18px);
+  --fs-h3: clamp(20px, 1.14rem + 0.449vw, 24px);
+  --fs-h2: clamp(24px, 1.336rem + 0.674vw, 30px);
+  --fs-h1: clamp(28px, 1.421rem + 1.348vw, 40px);
+  --fs-display: clamp(36px, 1.702rem + 2.247vw, 56px);
+
+  --lh-tight: 1.1;
+  --lh-snug: 1.25;
+  --lh-body: 1.5;
+
+  --ls-display: -0.01em;
+  --ls-button: 0.02em;
+
+  /* Radius tokens */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  /* Elevation (light) */
+  --elev-1: 0 1px 2px rgb(15 23 42 / 0.06);
+  --elev-2: 0 4px 12px rgb(15 23 42 / 0.08);
+  --elev-3: 0 12px 24px rgb(15 23 42 / 0.12);
+  --elev-4: 0 24px 48px rgb(15 23 42 / 0.16);
+
+  /* Depth */
+  --depth-sm: 3px;
+  --depth-md: 4px;
+  --depth-lg: 6px;
+
+  /* Layout */
+  --hud-h: 64px;
+  --sidebar-w: 248px;
+  --sidebar-w-rail: 72px;
+  --panel-pad: 16px;
+  --panel-gap: 16px;
+
+  /* Motion */
+  --dur-press: 90ms;
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 360ms;
+  --dur-beat: 600ms;
+  --dur-count: 900ms;
+
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-in: cubic-bezier(.55, 0, 1, .45);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --ease-pop: cubic-bezier(.34, 1.56, .64, 1);
+
+  /* Global focus & scroll (light) */
+  --focus-ring: #6d28d9;
+  --cf-scroll: rgb(15 23 42 / 0.18);
 }
 
 :root.dark {
@@ -320,6 +396,40 @@
   --adm-link: #3794ff;
   --adm-code: #9cdcfe;
   --adm-string: #ce9178;
+
+  /* Elevation (dark) */
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --elev-2: 0 4px 14px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --elev-3: 0 12px 28px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --elev-4: 0 24px 48px rgb(0 0 0 / 0.7), inset 0 1px 0 rgb(255 255 255 / 0.06);
+
+  /* Global focus & scroll (dark) */
+  --focus-ring: #c4b5fd;
+  --cf-scroll: rgb(255 255 255 / 0.18);
+}
+
+/* Responsive layout adjustments */
+@media (max-width: 639px) {
+  :root {
+    --hud-h: 56px;
+  }
+}
+@media (min-width: 1024px) {
+  :root {
+    --panel-pad: 20px;
+  }
+}
+
+/* Display & numeric typography */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: var(--ls-display);
+}
+
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 
 /* The journey map: islands bob gently, the current level pulses. */
@@ -333,9 +443,6 @@
   to { transform: translateX(-60px); }
 }
 .animate-waves { animation: wave-drift 9s linear infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .animate-island, .animate-waves { animation: none; }
-}
 
 /* ---- Game effects --------------------------------------------------------------------- */
 
@@ -427,10 +534,28 @@
 }
 .animate-flash { animation: screen-flash 0.6s ease-out both; }
 
-@media (prefers-reduced-motion: reduce) {
-  .tilt { transform: none !important; }
-  .btn-shine::after, .glow-border::before { animation: none; transition: none; }
-  .animate-rise, .animate-star-pop, .animate-banner, .animate-flash { animation: none; }
+/* ---- Global Focus, Selection & Scrollbars --------------------------------------------- */
+::selection {
+  background-color: rgb(168 85 247 / 0.25);
+}
+
+:focus-visible:not(textarea[aria-label="Code editor"]) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Thin themed scrollbars on cf and adm surfaces; IDE scrollbars stay as they are */
+body,
+.cf-scroll,
+[class*="--cf-"],
+[class*="--adm-"] {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cf-scroll) transparent;
+}
+
+[class*="ide-"],
+.ide-mono {
+  scrollbar-color: var(--ide-scrollbar) transparent;
 }
 
 @keyframes shake {
@@ -471,8 +596,66 @@ body.is-resizing-y * {
   to { background-color: transparent; }
 }
 .animate-file-in { animation: file-in 1.6s ease-out; }
+
+/* ---- Prefers Reduced Motion: Complete Still Fallbacks ----------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  .animate-file-in { animation: none; }
+  :root {
+    --dur-press: 0ms;
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --dur-beat: 0ms;
+    --dur-count: 0ms;
+  }
+
+  .tilt {
+    transform: none !important;
+    transition: none !important;
+  }
+  .tilt-glare {
+    opacity: 0 !important;
+    transition: none !important;
+  }
+  .btn-shine::after,
+  .btn-shine-idle::after {
+    animation: none !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .glow-border::before {
+    animation: none !important;
+  }
+  .animate-island,
+  .animate-waves {
+    animation: none !important;
+    transform: none !important;
+  }
+  .animate-rise {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .animate-star-pop {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .animate-banner {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .animate-flash {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+  .animate-shake {
+    animation: none !important;
+    transform: none !important;
+  }
+  .animate-file-in {
+    animation: none !important;
+  }
 }
 
 @layer base {

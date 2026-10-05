@@ -11,6 +11,7 @@ import { filesBefore } from '@/lib/journeys/snapshot'
 import { kindLabels, trackIds, tracks, type Project, type Track } from '@/lib/journeys/types'
 import { cn } from '@/lib/utils'
 import { Field, inputClass, TextArea, TextInput } from './fields'
+import { LearnersPanel } from './learners-panel'
 
 type Row = { id: string; track: Track; title: string; summary: string; worlds: number; levels: number; published: boolean; source: 'bundled' | 'edited' | 'custom'; updatedAt: string | null }
 
@@ -100,13 +101,19 @@ export function AdminDashboard() {
         <div className="mx-auto flex max-w-6xl items-center gap-3">
           <Link href="/" className="font-bold text-white">{'</>'} CodeFlow</Link>
           <span className="text-[#6e7681]">/ Admin</span>
+          <nav className="ml-2 hidden gap-3 text-[12px] sm:flex">
+            <a href="#learners" className="text-[#9da5b4] hover:text-white">Learners</a>
+            <a href="#journeys" className="text-[#9da5b4] hover:text-white">Journeys</a>
+          </nav>
           <Link href="/mentor" className="ml-auto flex items-center gap-1.5 rounded border border-[#343a46] px-2.5 py-1 text-[12px] hover:bg-[#1c1f26]"><PencilRuler className="size-3.5" /> Challenge sandbox</Link>
         </div>
       </header>
 
       <div className="mx-auto flex max-w-6xl flex-col gap-8 p-5">
-        <section>
-          <h1 className="text-xl font-bold text-white">Journeys</h1>
+        <LearnersPanel />
+
+        <section id="journeys" className="scroll-mt-4">
+          <h2 className="text-xl font-bold text-white">Journeys</h2>
           <p className="mt-1 max-w-3xl text-[12px] leading-5 text-[#9da5b4]">
             Bundled journeys ship with the code (data/journeys). Editing one saves your version to the database, which then replaces it for every learner; “Revert to bundled” throws your edits away. New journeys you create live only in the database. Nothing is visible to learners until it is published.
           </p>

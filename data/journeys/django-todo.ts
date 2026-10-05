@@ -1,25 +1,73 @@
 import type { JourneyTerm, Project } from '@/lib/journeys/types'
+import { GIT_IDENTITY, GIT_TERMS, pushLesson, pushSteps } from './git'
 
-// Django Todo API. Setup and database worlds for now: every startproject/startapp command
+// Django Todo API. Setup, database and GitHub worlds for now: every startproject/startapp command
 // generates the same files the real one does, so learners see where each file comes from.
 
 const README = `# Todo API (Django)
 
 A todo API built with Django.
 
-## Setup
-
-    python -m venv venv
-    source venv/bin/activate          # Windows: venv\\Scripts\\activate
-    pip install -r requirements.txt
-    python manage.py migrate
-    python manage.py runserver
-
 ## Layout
 
 - config/: the project. Settings and the root URL table.
 - todos/: an app. One feature with its own models, views and tests.
 - manage.py: Django's command-line tool.
+
+## Run it on your computer
+
+You need Python 3.10 or newer and Git.
+
+### 1. Get the code
+
+    git clone https://github.com/your-username/todo-django.git
+    cd todo-django
+
+### 2. Create the virtual environment and install Django
+
+    python -m venv venv
+    source venv/bin/activate          # Windows: venv\\Scripts\\activate
+    pip install -r requirements.txt
+
+### 3. Create the tables and start the server
+
+    python manage.py migrate
+    python manage.py runserver        # http://127.0.0.1:8000/
+
+To use the admin site at http://127.0.0.1:8000/admin/, create a login first:
+
+    python manage.py createsuperuser
+
+## Push it to GitHub
+
+### 1. Create an empty repository
+
+On github.com, click + → New repository. Name it todo-django and leave "Add a README file" unticked, so the repository starts empty.
+
+### 2. Create a personal access token
+
+GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token. Tick the repo scope, pick an expiry, then generate it and copy it: GitHub shows it only once. Git asks for it instead of your password.
+
+### 3. Commit and push
+
+From the todo-django folder:
+
+    git init
+    git config --global user.name "Your Name"          # once per computer
+    git config --global user.email "you@example.com"   # the email on your GitHub account
+    git add .
+    git commit -m "feat: Django todo API"
+    git remote add origin https://github.com/your-username/todo-django.git
+    git branch -M main
+    git push -u origin main                             # password: paste the token
+
+After that, every change is three commands:
+
+    git add .
+    git commit -m "fix: describe the change"
+    git push
+
+Never commit venv/, db.sqlite3 or .env: .gitignore keeps them out. If a token leaks, delete it on GitHub and make a new one.
 `
 
 const GITIGNORE = `# The virtual environment is rebuilt from requirements.txt
@@ -257,6 +305,9 @@ const GLOSSARY: JourneyTerm[] = [
   { term: 'migrate', definition: 'Applies every migration that has not run yet to the database.', match: ['manage.py migrate'] },
   { term: 'runserver', definition: 'Starts the development server at http://127.0.0.1:8000/, reloading when files change.' },
   { term: 'db.sqlite3', definition: "The file-based SQLite database Django uses by default. Local only; it's in .gitignore.", match: ['db.sqlite3', 'sqlite3'] },
+  { term: 'git', definition: 'git init creates a repository, git add stages files, git commit records a snapshot with a message.', match: ['git init', 'git add', 'git commit'] },
+  { term: '.gitignore', definition: 'Paths git must never commit, like venv/, db.sqlite3 and .env.' },
+  ...GIT_TERMS,
 ]
 
 export const djangoTodo: Project = {
@@ -274,6 +325,7 @@ export const djangoTodo: Project = {
   worlds: [
     { id: 'setup', title: 'Setup Village', subtitle: 'Virtualenv, Django, a project and your first app', theme: 'village' },
     { id: 'database', title: 'Database Dungeon', subtitle: 'Models, migrations and the dev server', theme: 'dungeon' },
+    { id: 'production', title: 'Production City', subtitle: 'Commit it and push it to GitHub', theme: 'city' },
   ],
   levels: [
     {
@@ -496,6 +548,48 @@ Migration files are code: commit them, so every copy of the project builds the s
           explain: 'Open http://127.0.0.1:8000/admin/ in a browser and you have a working Django site.',
         },
       ],
+    },
+
+    // ---- World 3: Production City ----------------------------------------------------------
+    {
+      id: 'ship-it',
+      world: 'production',
+      kind: 'command',
+      title: 'Commit your work',
+      summary: 'Make the project a git repository, tell git who you are, and record the first commit.',
+      lesson: `Git records snapshots of your project called commits. You make one in three moves: create the repository (once), stage the files that go in the snapshot, then commit them with a message that says what changed.
+
+Every commit is stamped with an author. The first time you use git on a computer, give it your name and email with \`git config --global\`. Use the email on your GitHub account, so GitHub links your commits to your profile.
+
+.gitignore keeps venv/, __pycache__/, db.sqlite3 and .env out of every commit: requirements.txt and the migrations are enough to rebuild them.
+
+In the next level you send this commit to GitHub.`,
+      cwd: '',
+      env: VENV,
+      steps: [
+        { goal: 'Create a git repository here.', hint: 'git, then the word for "start".', accept: ['git init'], output: 'Initialized empty Git repository in /todo-django/.git/', adds: [{ path: '.git/', about: "Git's database of every commit. Never edit it by hand.", generated: true }] },
+        ...GIT_IDENTITY,
+        { goal: 'Stage every file.', hint: 'git add with a dot stages everything under the current folder.', accept: ['git add .', 'git add -A', 'git add --all'], explain: 'Nothing is printed: staging is silent. venv/ and db.sqlite3 are skipped because .gitignore lists them.' },
+        {
+          goal: 'Commit with a message, for example "feat: Django todo API".',
+          hint: 'git commit -m "your message"',
+          accept: ['git commit -m "feat: Django todo API"'],
+          pattern: 'git commit -m ".+"',
+          output: '[main (root-commit) 8c1d2e4] feat: Django todo API\n 17 files changed, 389 insertions(+)',
+          explain: 'One commit, every file, stamped with your name. Next, send it to GitHub.',
+        },
+      ],
+    },
+    {
+      id: 'push-github',
+      world: 'production',
+      kind: 'command',
+      title: 'Push to GitHub',
+      summary: 'Create a token, connect your repository to GitHub and push your commit.',
+      lesson: pushLesson('todo-django'),
+      cwd: '',
+      env: VENV,
+      steps: pushSteps('todo-django', 26),
     },
   ],
   glossary: GLOSSARY,

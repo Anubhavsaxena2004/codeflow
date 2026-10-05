@@ -12,10 +12,17 @@ export interface SessionUser {
   isAdmin: boolean
 }
 
+const adminEmails = () => (process.env.ADMIN_EMAILS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
+
+/** With ADMIN_EMAILS empty the admin is open to every signed-in user. Listing emails locks it to them. */
+export function adminIsOpen() {
+  return adminEmails().length === 0
+}
+
 /** Admins are listed by email in ADMIN_EMAILS (comma-separated), so granting access needs no UI or migration. */
 export function isAdminEmail(email: string) {
-  const admins = (process.env.ADMIN_EMAILS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
-  return admins.includes(email.toLowerCase())
+  const admins = adminEmails()
+  return admins.length === 0 || admins.includes(email.toLowerCase())
 }
 
 const SESSION_COOKIE = 'codeflow_session'

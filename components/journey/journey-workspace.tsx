@@ -210,12 +210,16 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
   // ---- GitHub --------------------------------------------------------------
   const [github, setGithub] = useState<{ loading: boolean; connected: boolean; login: string | null; repo: GithubRepo | null }>({ loading: false, connected: false, login: null, repo: null })
+  const [githubOauth, setGithubOauth] = useState(true)
   const refreshGithub = useCallback(() => {
     if (!signedIn) return setGithub({ loading: false, connected: false, login: null, repo: null })
     setGithub((current) => ({ ...current, loading: true }))
     fetch(`/api/github/status?journeyId=${encodeURIComponent(project.id)}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: { connected?: boolean; login?: string | null; repo?: GithubRepo | null }) => setGithub({ loading: false, connected: !!data.connected, login: data.login ?? null, repo: data.repo ?? null }))
+      .then((data: { oauth?: boolean; connected?: boolean; login?: string | null; repo?: GithubRepo | null }) => {
+        setGithubOauth(data.oauth !== false)
+        setGithub({ loading: false, connected: !!data.connected, login: data.login ?? null, repo: data.repo ?? null })
+      })
       .catch(() => setGithub({ loading: false, connected: false, login: null, repo: null }))
   }, [signedIn, project.id])
   useEffect(() => refreshGithub(), [refreshGithub])
@@ -794,6 +798,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                   <GithubPanel
                     signedIn={signedIn}
                     login={github.login}
+                    oauthAvailable={githubOauth}
                     repo={github.repo}
                     loading={github.loading}
                     journeyId={project.id}

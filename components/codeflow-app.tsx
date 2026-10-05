@@ -168,6 +168,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
   const blockById = (id: string | null) => challenge.blocks.find((block) => block.id === id)
 
   // ---- GitHub connection status -----------------------------------------
+  const [githubOauth, setGithubOauth] = useState(true)
   const refreshGithub = useCallback(() => {
     if (!canSync) {
       setGithub({ loading: false, connected: false, login: null, repo: null })
@@ -176,9 +177,10 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
     setGithub((current) => ({ ...current, loading: true }))
     fetch(`/api/github/status?journeyId=${encodeURIComponent(challenge.id)}`)
       .then((response) => (response.ok ? response.json() : Promise.reject(response)))
-      .then((data: { connected?: boolean; login?: string | null; repo?: GithubRepo | null }) =>
-        setGithub({ loading: false, connected: !!data.connected, login: data.login ?? null, repo: data.repo ?? null }),
-      )
+      .then((data: { oauth?: boolean; connected?: boolean; login?: string | null; repo?: GithubRepo | null }) => {
+        setGithubOauth(data.oauth !== false)
+        setGithub({ loading: false, connected: !!data.connected, login: data.login ?? null, repo: data.repo ?? null })
+      })
       .catch(() => setGithub({ loading: false, connected: false, login: null, repo: null }))
   }, [canSync, challenge.id])
 
@@ -655,6 +657,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
                   <GithubPanel
                     signedIn={session.status === 'signed-in'}
                     login={github.login}
+                    oauthAvailable={githubOauth}
                     repo={github.repo}
                     loading={github.loading}
                     journeyId={challenge.id}

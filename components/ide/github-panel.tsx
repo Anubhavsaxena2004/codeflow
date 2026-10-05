@@ -7,12 +7,14 @@ import {
   ExternalLink,
   FolderGit2,
   GitCommitHorizontal,
+  KeyRound,
   Link2,
   LoaderCircle,
   RefreshCw,
   Unplug,
   Upload,
 } from 'lucide-react'
+import { NEW_TOKEN_URL } from '@/lib/github/token'
 import { cn } from '@/lib/utils'
 
 export interface GithubRepo {
@@ -27,6 +29,8 @@ interface GithubPanelProps {
   signedIn: boolean
   /** GitHub login of the connected account, if any. */
   login: string | null
+  /** The OAuth app is configured. Without it, learners connect with a personal access token. */
+  oauthAvailable?: boolean
   repo: GithubRepo | null
   loading: boolean
   journeyId: string
@@ -60,6 +64,7 @@ function slugRepoName(projectName: string): string {
 export function GithubPanel({
   signedIn,
   login,
+  oauthAvailable = true,
   repo,
   loading,
   journeyId,
@@ -80,6 +85,8 @@ export function GithubPanel({
   const [repoMode, setRepoMode] = useState<'new' | 'existing'>('new')
   const [repoName, setRepoName] = useState(() => slugRepoName(projectName))
   const [existingRepo, setExistingRepo] = useState('')
+  const [tokenOpen, setTokenOpen] = useState(false)
+  const [token, setToken] = useState('')
 
   const connected = login !== null
   const challengeFileName = challengePath.split('/').pop() ?? challengePath
@@ -158,6 +165,63 @@ export function GithubPanel({
       if (!response.ok || !data.url) throw new Error(data.error ?? 'Could not start GitHub sign-in.')
       window.location.href = data.url
     })
+
+  const saveToken = () =>
+    run('token', async () => {
+      const response = await fetch('/api/github/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      })
+      const data = (await response.json().catch(() => ({}))) as { login?: string; error?: string }
+      if (!response.ok || !data.login) throw new Error(data.error ?? 'Could not save the token.')
+      setToken('')
+      setTokenOpen(false)
+      setNotice({ kind: 'ok', text: `GitHub connected as @${data.login}.` })
+      onChanged()
+    })
+
+  // Reconnecting goes through OAuth when it is set up, and through a new token otherwise.
+  const reconnect = () => (oauthAvailable ? connect() : setTokenOpen(true))
+
+  const tokenForm = (
+    <form
+      className="mt-3 border-t border-[#2b2b2b] pt-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void saveToken()
+      }}
+    >
+      <div className="mb-2 flex items-center gap-1.5 text-[12px] text-[#e7e7e7]">
+        <KeyRound className="size-3.5" /> Connect with a personal access token
+      </div>
+      <ol className="list-decimal space-y-1 pl-4 text-[11px] leading-[18px] text-[#9d9d9d]">
+        <li>
+          <a href={NEW_TOKEN_URL} target="_blank" rel="noreferrer" className="text-[#3794ff] hover:underline">Create a token on GitHub</a>. It opens with the <code className="text-[#ce9178]">repo</code> scope ticked; pick an expiry.
+        </li>
+        <li>Click <span className="text-[#cccccc]">Generate token</span> and copy it. GitHub shows it only once.</li>
+        <li>Paste it here. It is encrypted before it is stored and only used to push your projects.</li>
+      </ol>
+      <input
+        type="password"
+        value={token}
+        onChange={(event) => setToken(event.target.value)}
+        placeholder="ghp_… or github_pat_…"
+        aria-label="GitHub personal access token"
+        autoComplete="off"
+        spellCheck={false}
+        className="mt-2 h-7 w-full rounded border border-[#3c3c3c] bg-[#313131] px-2 text-[12px] text-[#cccccc] outline-none focus:border-[#0078d4]"
+      />
+      <button
+        type="submit"
+        disabled={busy !== null || !token.trim()}
+        className="mt-2 inline-flex h-7 items-center gap-1.5 rounded bg-[#0078d4] px-3 text-[12px] font-medium text-white hover:bg-[#026ec1] disabled:opacity-40"
+      >
+        {busy === 'token' ? <LoaderCircle className="size-3.5 animate-spin" /> : <KeyRound className="size-3.5" />}
+        Save token
+      </button>
+    </form>
+  )
 
   const disconnect = () =>
     run('disconnect', async () => {
@@ -249,22 +313,33 @@ export function GithubPanel({
                     <span className="text-[#e7e7e7]">Connected as <span className="font-semibold">@{login}</span></span>
                   </div>
                   <div className="mt-3 flex gap-2">
-                    <PanelButton icon={RefreshCw} label="Reconnect" onClick={connect} disabled={busy !== null} />
+                    <PanelButton icon={RefreshCw} label="Reconnect" onClick={reconnect} disabled={busy !== null} />
                     <PanelButton icon={Unplug} label="Disconnect" onClick={disconnect} disabled={busy !== null} />
                   </div>
+                  {tokenOpen && tokenForm}
                 </div>
               ) : (
                 <div className="rounded border border-[#2b2b2b] bg-[#1f1f1f] p-3">
                   <p className="text-[12px] text-[#9d9d9d]">Connect your GitHub account to push this project to your own repository.</p>
-                  <button
-                    type="button"
-                    onClick={connect}
-                    disabled={busy !== null}
-                    className="mt-3 inline-flex h-7 items-center gap-1.5 rounded bg-[#0078d4] px-3 text-[12px] font-medium text-white hover:bg-[#026ec1] disabled:opacity-40"
-                  >
-                    {busy === 'connect' ? <LoaderCircle className="size-3.5 animate-spin" /> : <ExternalLink className="size-3.5" />}
-                    Connect GitHub
-                  </button>
+                  {oauthAvailable && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={connect}
+                        disabled={busy !== null}
+                        className="mt-3 inline-flex h-7 items-center gap-1.5 rounded bg-[#0078d4] px-3 text-[12px] font-medium text-white hover:bg-[#026ec1] disabled:opacity-40"
+                      >
+                        {busy === 'connect' ? <LoaderCircle className="size-3.5 animate-spin" /> : <ExternalLink className="size-3.5" />}
+                        Connect GitHub
+                      </button>
+                      {!tokenOpen && (
+                        <button type="button" onClick={() => setTokenOpen(true)} className="mt-2 block text-[11px] text-[#3794ff] hover:underline">
+                          Use a personal access token instead
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {(!oauthAvailable || tokenOpen) && tokenForm}
                 </div>
               )}
             </section>

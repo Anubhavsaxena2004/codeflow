@@ -8,6 +8,8 @@ export async function GET(request: Request) {
     const connection = await getConnection(user.id)
 
     return Response.json({
+      // Without the OAuth app, learners connect with a personal access token instead.
+      oauth: !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
       connected: connection !== null,
       login: connection?.githubLogin ?? null,
       repo: journeyId ? await getLinkedRepo(user.id, journeyId) : null,

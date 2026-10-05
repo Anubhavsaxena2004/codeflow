@@ -17,6 +17,11 @@ as the Explorer; clicking Explorer switches back). The view offers:
 - **Connect / Reconnect / Disconnect** — Connect starts the OAuth flow and returns you
   to the page you started from. Reconnect re-runs it (last account wins); Disconnect
   deletes the stored token.
+- **Personal access token** — the learner pastes a GitHub token instead (classic with the
+  `repo` scope, or fine-grained). `POST /api/github/token` asks GitHub who it belongs to,
+  checks a classic token's scopes, and stores it exactly like an OAuth token. Without the
+  OAuth app (`GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` unset) this is the only way shown, so
+  the integration works with nothing but `TOKEN_ENCRYPTION_KEY`.
 - **Repository** — with nothing linked yet, name a new repo (created private) or enter an
   existing `owner/repo` you own. Once linked, “Change repository” unlinks it so you can
   pick another.
@@ -31,6 +36,10 @@ The GitHub icon is hidden in mentor preview mode (`sync={false}`).
 ## Setup
 
 ### 1. Environment variables
+
+One OAuth app serves every learner: its client id and secret identify CodeFlow, and each
+learner's own token lands in their own `github_connections` row. Both are optional; without
+them learners connect with a personal access token. `TOKEN_ENCRYPTION_KEY` is always required.
 
 Add to `.env.local`:
 
@@ -78,7 +87,8 @@ All endpoints require the normal user session cookie.
 
 | Method | Endpoint | Body / query | Result |
 | --- | --- | --- | --- |
-| GET | `/api/github/status` | `?journeyId=` optional | `{ connected, login, repo, repos }` |
+| GET | `/api/github/status` | `?journeyId=` optional | `{ oauth, connected, login, repo, repos }` — `oauth`: the OAuth app is configured |
+| POST | `/api/github/token` | `{ token }` | `{ ok, login, kind }` — connects with a personal access token |
 | POST | `/api/github/connect` | `{ returnTo? }` | `{ url }` — GitHub OAuth authorize URL |
 | GET | `/api/github/callback` | `code`, `state` (GitHub) | 303 redirect to `<returnTo>?github=connected` or `…?github=error&reason=…` |
 | DELETE | `/api/github/connection` | — | `{ ok: true }` — deletes the stored token |
@@ -148,17 +158,17 @@ configurable floor) the push stops with `rate_limited` + `retryAt`. Transient
 
 ## Tests
 
-No test framework is installed, so the suite uses Node's built-in runner
-(Node 24 runs the TypeScript modules directly via type stripping):
+No test framework is installed, so the suite uses Node's built-in runner, with the
+journeys' loader transpiling the TypeScript modules (works on Node 20+):
 
 ```bash
-node --import ./lib/github/__tests__/register.mjs --test lib/github/__tests__/*.test.mjs
+npm run test:github
 ```
 
 Covers: file filtering, path validation, secret scanning, base64 handling, tree
 building, commit message formatting, token encryption round-trip, client error
 mapping/rate limits, repo-name parsing/target resolution, the OAuth return-path
-round-trip, and both push strategies — including the conflict path — against
+round-trip, personal access token checks, and both push strategies — including the conflict path — against
 mocked GitHub responses (a queue-based `fetch`; no network).
 
 ## Manual end-to-end test (throwaway repo)

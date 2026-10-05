@@ -35,8 +35,8 @@ database, or before the migration has run, the bundled journeys still work.
 
 ## The admin workflow
 
-1. Add your email to `ADMIN_EMAILS` (comma-separated) in `.env.local` and restart. An **Admin** link
-   appears in the sidebar.
+1. Open `/admin` (the **Admin** link in the sidebar). While `ADMIN_EMAILS` is empty every signed-in
+   user is an admin; list emails there (comma-separated) to limit it to them.
 2. On `/admin`, under **New journey**, give a topic, a stack, the folder tree and the request flow:
 
    ```
@@ -102,6 +102,10 @@ replace a file, and the explorer marks it `M`; new files are marked `U`.
   journeys. Guests' stack and progress are kept in localStorage.
 - Levels unlock in order. `POST /api/journeys/:id/levels/:levelId` re-verifies the submission on the
   server, refuses locked levels, and stores stars, XP and the learner's solution in `level_progress`.
+  A passed level stays open, so adding a level in the middle of a journey never locks finished work.
+- `/admin` starts with **Learners**: every account, the level each one is on, XP, GitHub and last
+  activity, plus how many learners passed each level. It reads `users`, `level_progress`,
+  `github_connections` and `github_repos`; nothing extra is stored.
 - After each passed level, the project as it stands after the learner's furthest passed level,
   including their own code, is written to `user_project_files`. That is the table the GitHub
   integration pushes from, so the GitHub view in a level pushes the real project. `.env*`, `.git*` and
@@ -121,6 +125,7 @@ replace a file, and the explorer marks it `M`; new files are marked `U`.
 | GET / POST | `/api/admin/projects` | admin | List everything / create `{ definition, published }` |
 | GET / PUT / DELETE | `/api/admin/projects/:id` | admin | Read / save `{ definition, published }` / delete or revert |
 | POST | `/api/admin/scaffold` | admin | `{ id, track, title, tree, flow }` → a draft journey (not saved) |
+| GET | `/api/admin/learners` | admin | Every learner with their journeys, passed levels and GitHub repo |
 
 ## Setup
 
@@ -134,7 +139,7 @@ and grants the `anon` role (anyone with the publishable key) full access to new 
 default. 004 turns on row level security and revokes those grants, so only the server can
 read users, sessions or GitHub tokens. Any new table needs the same treatment in its migration.
 
-Add `ADMIN_EMAILS=you@example.com` to `.env.local` to get the admin.
+The admin is open to every signed-in user until `ADMIN_EMAILS=you@example.com` is set.
 
 ## Adding a bundled journey in code
 

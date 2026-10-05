@@ -1,5 +1,6 @@
 import type { ScaffoldLine } from '@/data/challenges'
 import type { JourneyTerm, Project } from '@/lib/journeys/types'
+import { GIT_IDENTITY, GIT_TERMS, pushLesson, pushSteps } from './git'
 
 // MERN Todo App: the folder structure from mern-todo-folder-structure.pdf, built world by world.
 // One deviation from the PDF: Vite keeps index.html at client/ (not client/public/), so that is
@@ -92,10 +93,69 @@ A todo list with a React frontend and a Node + Express + MongoDB backend.
 
 Request flow: React component → api.js → route → controller → model → MongoDB, then back the same way.
 
-## Run it
+## Run it on your computer
 
-    cd server && npm run dev     # API on http://localhost:5000
-    cd client && npm run dev     # app on http://localhost:5173
+You need Node.js 20 or newer (npm comes with it), Git, and MongoDB: either MongoDB Community Server on your machine or a free MongoDB Atlas cluster.
+
+### 1. Get the code
+
+    git clone https://github.com/your-username/todo-app.git
+    cd todo-app
+
+### 2. Start the API (terminal 1)
+
+Create server/.env with these two lines. With Atlas, use its connection string as MONGO_URI.
+
+    PORT=5000
+    MONGO_URI=mongodb://127.0.0.1:27017/todo-app
+
+Then install the packages and start the server:
+
+    cd server
+    npm install                  # rebuilds node_modules from package.json
+    npm run dev                  # API on http://localhost:5000
+
+### 3. Start the React app (terminal 2)
+
+    cd client
+    npm install
+    npm run dev                  # app on http://localhost:5173
+
+### 4. Run the tests
+
+    cd server
+    npm test
+
+## Push it to GitHub
+
+### 1. Create an empty repository
+
+On github.com, click + → New repository. Name it todo-app and leave "Add a README file" unticked, so the repository starts empty.
+
+### 2. Create a personal access token
+
+GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token. Tick the repo scope, pick an expiry, then generate it and copy it: GitHub shows it only once. Git asks for it instead of your password.
+
+### 3. Commit and push
+
+From the todo-app folder:
+
+    git init
+    git config --global user.name "Your Name"          # once per computer
+    git config --global user.email "you@example.com"   # the email on your GitHub account
+    git add .
+    git commit -m "feat: MERN todo app"
+    git remote add origin https://github.com/your-username/todo-app.git
+    git branch -M main
+    git push -u origin main                             # password: paste the token
+
+After that, every change is three commands:
+
+    git add .
+    git commit -m "fix: describe the change"
+    git push
+
+Never commit server/.env or paste a token into a file. .gitignore already keeps .env out; if a token leaks, delete it on GitHub and make a new one.
 `
 
 const GITIGNORE = `# Reinstalled from package.json, never committed
@@ -745,6 +805,7 @@ const GLOSSARY: JourneyTerm[] = [
   { term: 'describe / test', definition: 'describe groups related tests; each test is one scenario with arrange, act and assert.', match: ['describe(', 'test('] },
   { term: 'git', definition: 'git init creates a repository, git add stages files, git commit records a snapshot with a message.', match: ['git init', 'git add', 'git commit'] },
   { term: '.gitignore', definition: 'Paths git must never commit, like node_modules/ and .env.' },
+  ...GIT_TERMS,
 ]
 
 const NODE_MODULES_ABOUT ='Downloaded packages. Never edit or commit it: `npm install` recreates it from package.json.'
@@ -777,7 +838,7 @@ export const mernTodo: Project = {
     { id: 'api', title: 'API Forest', subtitle: 'Routes, controllers and your first requests', theme: 'forest' },
     { id: 'react', title: 'React Castle', subtitle: 'A client that talks to your API', theme: 'castle' },
     { id: 'testing', title: 'Test Lab', subtitle: 'Prove it works with Jest', theme: 'lab' },
-    { id: 'production', title: 'Production City', subtitle: 'Commit it and see the whole architecture', theme: 'city' },
+    { id: 'production', title: 'Production City', subtitle: 'Commit it, push it to GitHub, see the whole architecture', theme: 'city' },
   ],
   levels: [
     // ---- World 1: Setup Village ------------------------------------------------------------
@@ -1308,16 +1369,19 @@ Coverage then shows which lines your tests actually ran. It is a map of what is 
       world: 'production',
       kind: 'command',
       title: 'Commit your work',
-      summary: 'Make the project a git repository and record the first commit.',
+      summary: 'Make the project a git repository, tell git who you are, and record the first commit.',
       lesson: `Git records snapshots of your project called commits. You make one in three moves: create the repository (once), stage the files that go in the snapshot, then commit them with a message that says what changed.
+
+Every commit is stamped with an author. The first time you use git on a computer, give it your name and email with \`git config --global\`. Use the email on your GitHub account, so GitHub links your commits to your profile.
 
 .gitignore keeps node_modules/, .env and coverage/ out of every commit.
 
-When you're done, open the GitHub view (the branch icon on the left) to push this project to a repository of your own.`,
+In the next level you send this commit to GitHub.`,
       cwd: 'server',
       steps: [
         { goal: 'Go back to the project root.', hint: 'One folder up.', accept: ['cd ..', 'cd ../'], cwd: '' },
         { goal: 'Create a git repository here.', hint: 'git, then the word for "start".', accept: ['git init'], output: 'Initialized empty Git repository in /todo-app/.git/', adds: [{ path: '.git/', about: "Git's database of every commit. Never edit it by hand.", generated: true }] },
+        ...GIT_IDENTITY,
         { goal: 'Stage every file.', hint: 'git add with a dot stages everything under the current folder.', accept: ['git add .', 'git add -A', 'git add --all'], explain: 'Nothing is printed: staging is silent. git status would list the staged files.' },
         {
           goal: 'Commit with a message, for example "feat: MERN todo app".',
@@ -1325,9 +1389,19 @@ When you're done, open the GitHub view (the branch icon on the left) to push thi
           accept: ['git commit -m "feat: MERN todo app"'],
           pattern: 'git commit -m ".+"',
           output: '[main (root-commit) 3f9c2ab] feat: MERN todo app\n 27 files changed, 640 insertions(+)',
-          explain: 'One commit, every file. Now push it from the GitHub view so it lives somewhere other than your laptop.',
+          explain: 'One commit, every file, stamped with your name. Next, send it to GitHub so it lives somewhere other than your laptop.',
         },
       ],
+    },
+    {
+      id: 'push-github',
+      world: 'production',
+      kind: 'command',
+      title: 'Push to GitHub',
+      summary: 'Create a token, connect your repository to GitHub and push your commit.',
+      lesson: pushLesson('todo-app'),
+      cwd: '',
+      steps: pushSteps('todo-app', 41),
     },
     {
       id: 'trace-request',

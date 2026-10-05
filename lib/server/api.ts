@@ -39,7 +39,7 @@ export async function withDatabase(action: string, handler: () => Promise<Respon
   }
 }
 
-/** Runs the handler for an admin (see ADMIN_EMAILS), or answers 401/403. */
+/** Runs the handler for an admin (see ADMIN_EMAILS; empty means every signed-in user), or answers 401/403. */
 export async function withAdmin(handler: (user: SessionUser) => Promise<Response>) {
   return withUser((user) => (user.isAdmin ? handler(user) : Promise.resolve(jsonError(403, 'Admins only.'))))
 }

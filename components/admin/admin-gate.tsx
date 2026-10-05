@@ -30,7 +30,7 @@ export async function adminGate(path: string) {
   if (!user.isAdmin) {
     return (
       <AdminMessage title="Admins only">
-        {user.email} is not an admin. Admins are the emails listed in the <code>ADMIN_EMAILS</code> environment variable (comma-separated); add yours and restart the server.
+        {user.email} is not an admin. Admins are the emails listed in the <code>ADMIN_EMAILS</code> environment variable (comma-separated); add yours, or remove the variable to open the admin to every signed-in user, and restart the server.
       </AdminMessage>
     )
   }

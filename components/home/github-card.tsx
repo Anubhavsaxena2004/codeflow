@@ -2,9 +2,25 @@
 
 import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import Link from 'next/link'
-import { CircleAlert, CircleCheck, ExternalLink, GitBranch, GitCommitHorizontal, KeyRound, Link2, LoaderCircle, RefreshCw, Unplug, Upload } from 'lucide-react'
+import {
+  Check,
+  CircleAlert,
+  CircleCheck,
+  ExternalLink,
+  GitBranch,
+  GitCommitHorizontal,
+  KeyRound,
+  Link2,
+  Loader2,
+  LoaderCircle,
+  RefreshCw,
+  Unplug,
+  Upload,
+  X,
+} from 'lucide-react'
 import { NEW_TOKEN_URL } from '@/lib/github/token'
 import { cn } from '@/lib/utils'
+import { GamePanel, Pill, gameButtonClasses } from '@/components/ui/game'
 
 // The profile's GitHub section: connect an account (OAuth or a personal access token) and push
 // each project from one place. It uses the same endpoints as the GitHub view inside a level.
@@ -40,13 +56,16 @@ function Button({ icon: Icon, children, onClick, disabled, busy, primary, type =
       type={type}
       onClick={onClick}
       disabled={disabled || busy}
+      aria-busy={busy ? 'true' : undefined}
       className={cn(
-        'btn-shine inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3.5 text-[13px] font-bold transition disabled:pointer-events-none disabled:opacity-45',
-        primary ? 'text-white shadow-[0_4px_12px_rgb(22_163_74/0.3)] hover:brightness-110' : 'border border-(--cf-border) bg-(--cf-surface) text-(--cf-text) hover:bg-(--cf-surface-2)',
+        gameButtonClasses({
+          variant: primary ? 'primary' : 'secondary',
+          size: 'sm',
+        }),
+        'font-display font-bold',
       )}
-      style={primary ? { background: 'linear-gradient(135deg, #22c55e, #15803d)' } : undefined}
     >
-      {busy ? <LoaderCircle className="size-4 animate-spin" /> : <Icon className="size-4" />}
+      {busy ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />}
       {children}
     </button>
   )
@@ -60,6 +79,7 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
   const [token, setToken] = useState('')
   const [names, setNames] = useState<Record<string, string>>({})
   const [conflict, setConflict] = useState<Conflict | null>(null)
+  const [projectStatus, setProjectStatus] = useState<Record<string, { kind: 'ok' | 'error'; text: string }>>({})
 
   const refresh = useCallback(async (): Promise<Status | null> => {
     const data = await fetch('/api/github/status').then((response) => (response.ok ? response.json() : null)).catch(() => null)
@@ -91,7 +111,12 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
     try {
       await action()
     } catch (error) {
-      setNotice({ kind: 'error', text: error instanceof Error ? error.message : 'Something went wrong.' })
+      const errorMsg = error instanceof Error ? error.message : 'Something went wrong.'
+      setNotice({ kind: 'error', text: errorMsg })
+      if (key.startsWith('push-')) {
+        const pId = key.replace('push-', '')
+        setProjectStatus((prev) => ({ ...prev, [pId]: { kind: 'error', text: errorMsg } }))
+      }
     } finally {
       setBusy(null)
     }
@@ -154,7 +179,9 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
       const fresh = (await refresh())?.repos.find((item) => item.journeyId === project.id)
       const url = fresh ? `https://github.com/${fresh.owner}/${fresh.repo}` : null
       if (data.ok && data.commitSha) {
-        setNotice({ kind: 'ok', text: `Pushed ${data.pushedFiles?.length ?? 0} files of ${project.title}.`, ...(url ? { link: { href: `${url}/commit/${data.commitSha}`, label: data.commitSha.slice(0, 7) } } : {}) })
+        const successText = `Pushed ${data.pushedFiles?.length ?? 0} files of ${project.title}.`
+        setNotice({ kind: 'ok', text: successText, ...(url ? { link: { href: `${url}/commit/${data.commitSha}`, label: data.commitSha.slice(0, 7) } } : {}) })
+        setProjectStatus((prev) => ({ ...prev, [project.id]: { kind: 'ok', text: successText } }))
       } else if (data.conflict) {
         setConflict({ journeyId: project.id, message: data.message ?? 'The repository changed on GitHub.', compare: url && data.expectedSha && data.remoteSha ? `${url}/compare/${data.expectedSha}...${data.remoteSha}` : null })
       } else {
@@ -213,17 +240,34 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
   )
 
   return (
-    <section className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-5 shadow-(--cf-shadow)">
+    <GamePanel as="section" tone="default">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="grid size-10 place-items-center rounded-xl bg-[#24292f] text-white dark:bg-[#f0f6fc] dark:text-[#24292f]"><GitBranch className="size-5" /></span>
+        <span className="grid size-10 place-items-center rounded-xl bg-[#24292f] text-white shadow-xs dark:bg-[#f0f6fc] dark:text-[#24292f]">
+          <GitBranch className="size-5" />
+        </span>
         <div className="min-w-0 flex-1">
-          <h2 className="font-bold">GitHub</h2>
-          <p className="text-sm text-(--cf-muted)">Push the projects you build to repositories of your own.</p>
+          <div className="text-[11px] font-bold uppercase tracking-wider text-(--cf-faint)">Linked account</div>
+          <h2 className="font-display text-lg font-bold text-(--cf-text)">GitHub</h2>
+          <p className="text-xs text-(--cf-muted)">Push the projects you build to repositories of your own.</p>
         </div>
         {signedIn && status && (
-          <span className={cn('rounded-full px-3 py-1 text-xs font-bold', connected ? 'bg-[#dcfce7] text-[#166534] dark:bg-[#16a34a]/20 dark:text-[#86efac]' : 'bg-(--cf-surface-2) text-(--cf-muted)')}>
-            {connected ? 'Connected' : 'Not connected'}
-          </span>
+          <Pill
+            tone={connected ? 'success' : 'neutral'}
+            size="md"
+            className="gap-1.5 font-bold"
+          >
+            {connected ? (
+              <>
+                <Check className="size-3.5 text-[#16a34a]" />
+                <span>Connected</span>
+              </>
+            ) : (
+              <>
+                <Unplug className="size-3.5 text-(--cf-muted)" />
+                <span>Not connected</span>
+              </>
+            )}
+          </Pill>
         )}
       </div>
 
@@ -290,6 +334,8 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
                 const repo = status.repos.find((item) => item.journeyId === project.id)
                 const url = repo ? `https://github.com/${repo.owner}/${repo.repo}` : null
                 const ready = project.passed > 0
+                const pStatus = projectStatus[project.id]
+                const isPushing = busy === `push-${project.id}`
                 return (
                   <li key={project.id} className="py-3">
                     <div className="flex flex-wrap items-center gap-3">
@@ -331,9 +377,29 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
                         <span className="text-xs text-(--cf-muted)">Connect GitHub to push</span>
                       )}
 
-                      <Button icon={Upload} primary onClick={() => void push(project, repo)} busy={busy === `push-${project.id}`} disabled={!connected || !ready || busy !== null}>
-                        {repo ? 'Push latest' : 'Create repo & push'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {pStatus?.kind === 'ok' && !isPushing && (
+                          <div className="flex items-center gap-1 text-xs font-semibold text-[#166534] dark:text-[#86efac]">
+                            <Check className="size-3.5 text-[#16a34a]" />
+                            <span className="max-w-[160px] truncate">{pStatus.text}</span>
+                          </div>
+                        )}
+                        {pStatus?.kind === 'error' && !isPushing && (
+                          <div className="flex items-center gap-1 text-xs font-semibold text-[#b91c1c] dark:text-[#fca5a5]">
+                            <X className="size-3.5 text-[#dc2626]" />
+                            <span className="max-w-[160px] truncate">{pStatus.text}</span>
+                          </div>
+                        )}
+                        <Button
+                          icon={Upload}
+                          primary={false}
+                          onClick={() => void push(project, repo)}
+                          busy={isPushing}
+                          disabled={!connected || !ready || busy !== null}
+                        >
+                          {repo ? 'Push latest' : 'Create repo & push'}
+                        </Button>
+                      </div>
                     </div>
 
                     {conflict?.journeyId === project.id && (
@@ -359,6 +425,6 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
           )}
         </>
       )}
-    </section>
+    </GamePanel>
   )
 }

@@ -17,6 +17,7 @@ import { Mascot } from './mascot'
 import { TrackPicker } from './track-picker'
 import { JourneyMap } from './journey-map'
 import { QuestCard } from './quest-card'
+import { AchievementMedal } from './achievement-medal'
 import type { LevelState } from './world-map'
 import { GamePanel, GameButton, gameButtonClasses, Pill, SegmentedProgress, RankEmblem, StatTile, GameTooltip } from '@/components/ui/game'
 
@@ -679,35 +680,25 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                   </Card>
                 )}
 
-                <Card title="Achievements" icon={<Trophy className="size-5 text-[#f59e0b]" />} aside={<span className="text-xs font-semibold text-(--cf-muted)">{earned.length} of {achievements.length} unlocked</span>}>
-                  <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {achievements.map((achievement) => {
-                      const { icon: Icon, color } = achievementStyles[achievement.icon]
-                      const got = achievement.current >= achievement.target
-                      return (
-                        <li key={achievement.id}>
-                          <Tilt className={cn('flex h-full gap-3 rounded-xl border p-3', got ? 'border-[#86efac] bg-[#f0fdf4] dark:border-[#16a34a]/40 dark:bg-[#16a34a]/10' : 'border-(--cf-border) bg-(--cf-surface-2)')}>
-                          <span className={cn('grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-sm', !got && 'opacity-45 grayscale')} style={{ background: color }}>
-                            <Icon className="size-5" />
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 text-sm font-bold">
-                              {achievement.title}
-                              {got && <Check aria-label="Unlocked" className="size-4 text-[#16a34a]" />}
-                            </div>
-                            <div className="text-xs text-(--cf-muted)">{achievement.description}</div>
-                            {achievement.target > 1 && (
-                              <div className="mt-1.5 flex items-center gap-2">
-                                <Bar value={(achievement.current / achievement.target) * 100} className="h-1.5 flex-1" />
-                                <span className="text-[10px] font-semibold text-(--cf-muted)">{achievement.current}/{achievement.target}</span>
-                              </div>
-                            )}
-                          </div>
-                          </Tilt>
-                        </li>
-                      )
-                    })}
-                  </ul>
+                <Card
+                  title="Achievements"
+                  icon={<Trophy className="size-5 text-[#f59e0b]" />}
+                  aside={
+                    <span className="text-xs font-semibold text-(--cf-muted)">
+                      <span className="num font-bold text-(--cf-text)">{earned.length}</span> / <span className="num font-bold text-(--cf-text)">{achievements.length}</span> unlocked
+                    </span>
+                  }
+                >
+                  <div className="no-scrollbar -mx-2 flex items-start gap-4 overflow-x-auto px-2 py-1 sm:grid sm:grid-cols-6 sm:gap-2">
+                    {achievements.map((achievement) => (
+                      <AchievementMedal
+                        key={achievement.id}
+                        achievement={achievement}
+                        size={40}
+                        className="flex-1"
+                      />
+                    ))}
+                  </div>
                 </Card>
 
                 <Card title="Logic challenges" icon={<Puzzle className="size-5 text-[#8b5cf6]" />} aside={<span className="hidden text-xs text-(--cf-muted) sm:inline">Arrange one backend flow, block by block</span>}>
@@ -894,18 +885,18 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                 <Card title="Recent achievements" className="animate-rise [--delay:240ms]">
                   {earned.length ? (
                     <ul className="flex flex-col gap-3">
-                      {earned.slice(-3).reverse().map((achievement) => {
-                        const { icon: Icon, color } = achievementStyles[achievement.icon]
-                        return (
-                          <li key={achievement.id} className="flex items-center gap-3">
-                            <span className="grid size-10 shrink-0 place-items-center rounded-full text-white shadow-sm" style={{ background: color }}><Icon className="size-5" /></span>
-                            <span>
-                              <span className="block text-sm font-bold">{achievement.title}</span>
-                              <span className="block text-xs text-(--cf-muted)">{achievement.description}</span>
-                            </span>
-                          </li>
-                        )
-                      })}
+                      {earned.slice(-3).reverse().map((achievement, idx) => (
+                        <li key={achievement.id} className="flex items-center gap-3">
+                          <AchievementMedal achievement={achievement} size={40} hideTitle isNew={idx === 0} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-display text-sm font-bold text-(--cf-text)">{achievement.title}</span>
+                              {idx === 0 && <Pill tone="xp" size="sm">NEW</Pill>}
+                            </div>
+                            <span className="block text-xs text-(--cf-muted)">{achievement.description}</span>
+                          </div>
+                        </li>
+                      ))}
                     </ul>
                   ) : (
                     <p className="text-xs text-(--cf-muted)">Pass your first level to earn First Steps.</p>

@@ -487,6 +487,33 @@
 }
 .btn-shine-idle::after { animation: shine-sweep 3.6s ease-in-out infinite; }
 
+/* Medal shine sweep on hover, focus, and on first view */
+@keyframes medal-sweep {
+  0% { transform: translateX(-140%) rotate(25deg); }
+  100% { transform: translateX(140%) rotate(25deg); }
+}
+.medal-shine {
+  position: relative;
+  overflow: hidden;
+}
+.medal-shine::after {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.6) 50%, transparent 65%);
+  transform: translateX(-140%) rotate(25deg);
+  pointer-events: none;
+  animation: medal-sweep 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s 1 forwards;
+  transition: transform 0.6s ease;
+}
+.group:hover .medal-shine::after,
+.group:focus-visible .medal-shine::after,
+.medal-shine:hover::after,
+.medal-shine:focus-visible::after {
+  animation: none;
+  transform: translateX(140%) rotate(25deg);
+}
+
 /* A rainbow border that slowly turns, for the card that matters most right now. */
 @property --glow-angle {
   syntax: '<angle>';
@@ -619,7 +646,8 @@ body.is-resizing-y * {
     transition: none !important;
   }
   .btn-shine::after,
-  .btn-shine-idle::after {
+  .btn-shine-idle::after,
+  .medal-shine::after {
     animation: none !important;
     transform: none !important;
     transition: none !important;

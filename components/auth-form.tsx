@@ -37,7 +37,7 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: str
       return
     }
     const data = await response?.json().catch(() => null)
-    setError(data?.error ?? 'Could not reach the server. Try again.')
+    setError(data?.error ?? (response ? `The server ran into a problem (error ${response.status}). Try again in a minute.` : 'Could not reach the server. Check your connection and try again.'))
     setPending(false)
   }
 

@@ -26,6 +26,19 @@ export async function withUser(handler: (user: SessionUser) => Promise<Response>
   return handler(user)
 }
 
+/**
+ * For routes every visitor needs (sign-in, sign-up): an unreachable database becomes a clear 503
+ * instead of a bare 500, and the real error goes to the server log (Vercel → Logs).
+ */
+export async function withDatabase(action: string, handler: () => Promise<Response>) {
+  try {
+    return await handler()
+  } catch (error) {
+    console.error(`${action} failed:`, error)
+    return jsonError(503, `${action} is unavailable right now because the server could not reach the database. Try again in a minute.`)
+  }
+}
+
 /** Runs the handler for an admin (see ADMIN_EMAILS), or answers 401/403. */
 export async function withAdmin(handler: (user: SessionUser) => Promise<Response>) {
   return withUser((user) => (user.isAdmin ? handler(user) : Promise.resolve(jsonError(403, 'Admins only.'))))

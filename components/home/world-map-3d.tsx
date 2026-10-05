@@ -4,12 +4,14 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ComponentRef } fro
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Line, OrbitControls, PerformanceMonitor, Sparkles, Stars } from '@react-three/drei'
 import * as THREE from 'three'
-import { Check, LockKeyhole, Minus, Plus, RotateCcw, Skull } from 'lucide-react'
+import { Check, LockKeyhole, Minus, Plus, RotateCcw, Skull, Star } from 'lucide-react'
 import { Stars as StarRating, worldThemes, type WorldPalette } from '@/components/journey/level-meta'
-import type { LevelProgress, WorldTheme } from '@/lib/journeys/types'
+import { kindLabels, type LevelProgress, type WorldTheme } from '@/lib/journeys/types'
 import type { LevelSummary, ProjectSummary } from '@/lib/server/journeys'
 import { cn } from '@/lib/utils'
 import { levelPoints, type LevelState } from './world-map'
+import { LevelPin } from './level-pin'
+import { GameTooltip } from '@/components/ui/game'
 
 // The journey as a 3D sea of low-poly floating islands. Same data and the same clicks as the 2D
 // map (WorldMap). Level pins, world banners and "You are here" are ordinary page elements in an
@@ -467,8 +469,30 @@ function Mascot({ position, motion }: { position: Vec3; motion: boolean }) {
   useFrame(({ clock }) => {
     if (!body.current) return
     const t = clock.elapsedTime
-    body.current.position.y = position[1] + (motion ? Math.abs(Math.sin(t * 2.4)) * 0.12 : 0)
-    body.current.rotation.y = motion ? Math.sin(t * 0.8) * 0.35 : 0
+    if (!motion) {
+      body.current.position.set(position[0], position[1], position[2])
+      body.current.scale.set(1, 1, 1)
+      return
+    }
+    const cycle = t % 3.0
+    let hopY = 0
+    let scaleY = 1
+    let scaleXZ = 1
+    if (cycle < 0.6) {
+      if (cycle < 0.42) {
+        const p = cycle / 0.42
+        hopY = Math.sin(p * Math.PI) * 0.25
+        scaleY = 1 + Math.sin(p * Math.PI) * 0.12
+        scaleXZ = 1 - Math.sin(p * Math.PI) * 0.06
+      } else {
+        const p = (cycle - 0.42) / 0.18
+        scaleY = 1 - Math.sin(p * Math.PI) * 0.18
+        scaleXZ = 1 + Math.sin(p * Math.PI) * 0.12
+      }
+    }
+    body.current.position.set(position[0], position[1] + hopY, position[2])
+    body.current.scale.set(scaleXZ, scaleY, scaleXZ)
+    body.current.rotation.y = Math.sin(t * 0.8) * 0.35
   })
   return (
     <group ref={body} position={position}>
@@ -494,6 +518,32 @@ function Mascot({ position, motion }: { position: Vec3; motion: boolean }) {
   )
 }
 
+function LightBeam({ position, color }: { position: Vec3; color: string }) {
+  const beamMat = useRef<THREE.MeshBasicMaterial>(null)
+  useFrame(({ clock }) => {
+    if (beamMat.current) {
+      beamMat.current.opacity = 0.25 + Math.sin(clock.elapsedTime * 2.5) * 0.1
+    }
+  })
+  return (
+    <group position={[position[0], position[1] + 1.2, position[2]]}>
+      <mesh>
+        <cylinderGeometry args={[0.08, 0.4, 2.4, 16, 1, true]} />
+        <meshBasicMaterial
+          ref={beamMat}
+          color={color}
+          transparent
+          opacity={0.3}
+          side={THREE.DoubleSide}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+
 // ---- level pins --------------------------------------------------------------------------
 
 function Pin({ level, number, state, row, selected, palette, onSelect }: {
@@ -506,38 +556,35 @@ function Pin({ level, number, state, row, selected, palette, onSelect }: {
   onSelect: () => void
 }) {
   const boss = !!level.boss
-  const locked = state === 'locked'
+  const ariaLabel = `Level ${number}: ${level.title}${boss ? ' (boss)' : ''}, ${state === 'done' ? 'passed' : state === 'current' ? 'next up' : state === 'open' ? 'open' : 'locked'}`
+  const tooltipContent = `${level.title} · ${kindLabels[level.kind] || level.kind}${boss ? ' (Boss)' : ''}`
+
   return (
     <div className="relative flex origin-center flex-col items-center" style={{ transform: 'scale(var(--pin-scale, 1))' }}>
-      <button
-        type="button"
-        onClick={onSelect}
-        aria-pressed={selected}
-        title={level.title}
-        aria-label={`Level ${number}: ${level.title}${boss ? ' (boss)' : ''}, ${state === 'done' ? 'passed' : state === 'current' ? 'next up' : state === 'open' ? 'open' : 'locked'}`}
-        className={cn(
-          'grid place-items-center rounded-full border-[3px] font-extrabold shadow-[0_6px_14px_rgb(0_0_0/0.35)] transition hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none',
-          boss ? 'size-10 text-sm' : 'size-8 text-[12px]',
-          locked ? 'border-white/70 bg-slate-300 text-slate-500 dark:border-slate-400/40 dark:bg-slate-600 dark:text-slate-300' : boss || state === 'done' ? 'border-white text-white' : '',
-          selected ? 'outline-[3px] outline-offset-2 outline-solid outline-[#fde047]' : 'focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-[#fde047]',
-        )}
-        style={{
-          background: locked ? undefined : boss ? 'linear-gradient(145deg, #f87171, #b91c1c)' : state === 'done' ? `linear-gradient(145deg, ${palette.color}, ${palette.deep})` : '#ffffff',
-          ...(!locked && !boss && state !== 'done' ? { borderColor: palette.color, color: palette.deep } : {}),
-        }}
-      >
-        {boss ? <Skull className="size-5" /> : locked ? <LockKeyhole className="size-3.5" /> : number}
-      </button>
-      {(boss || row) && (
-        <span className="pointer-events-none mt-0.5 flex flex-col items-center gap-0.5">
-          {boss && <span className="rounded bg-[#dc2626] px-1 text-[8px] font-extrabold leading-3.5 tracking-wider text-white shadow">BOSS</span>}
-          {row && (
-            <span className="rounded-full bg-white/90 px-0.5 leading-none shadow-sm dark:bg-[#0a1022]/80">
-              <StarRating count={row.stars} />
-            </span>
+      <GameTooltip content={tooltipContent} side="top">
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={selected}
+          aria-label={ariaLabel}
+          className={cn(
+            'group relative rounded-full transition-transform duration-[var(--dur-fast,160ms)] ease-[var(--ease-pop)]',
+            'hover:scale-110 focus-visible:scale-110',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring)]',
           )}
-        </span>
-      )}
+        >
+          <LevelPin
+            number={number}
+            kind={level.kind}
+            state={state}
+            isBoss={boss}
+            stars={row?.stars ?? 0}
+            selected={selected}
+            accentColor={palette.color}
+            deepColor={palette.deep}
+          />
+        </button>
+      </GameTooltip>
     </div>
   )
 }
@@ -611,9 +658,16 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
   const currentIndex = levels.findIndex(({ index: levelIndex }) => stateOf(levelIndex) === 'current')
   const selectedIndex = levels.findIndex(({ level }) => level.id === selectedId)
 
-  useFrame(({ clock }) => {
+  const currentScale = useRef(1)
+
+  useFrame(({ clock }, delta) => {
     const t = clock.elapsedTime
-    if (float.current) float.current.position.y = motion ? Math.sin(t * 0.6 + index * 1.4) * 0.12 + (hovered ? 0.12 : 0) : hovered ? 0.12 : 0
+    const targetScale = hovered ? 1.02 : 1.0
+    currentScale.current = THREE.MathUtils.damp(currentScale.current, targetScale, 6, delta)
+    if (float.current) {
+      float.current.position.y = motion ? Math.sin(t * 0.6 + index * 1.4) * 0.12 + (hovered ? 0.12 : 0) : hovered ? 0.12 : 0
+      float.current.scale.set(currentScale.current, currentScale.current, currentScale.current)
+    }
     if (pulse.current) {
       const scale = motion ? 1 + ((t * 0.9) % 1) * 0.9 : 1.3
       pulse.current.scale.set(scale, scale, scale)
@@ -643,13 +697,13 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
           }}
         >
           <mesh geometry={top} receiveShadow castShadow>
-            <meshStandardMaterial vertexColors flatShading roughness={0.9} />
+            <meshStandardMaterial vertexColors flatShading roughness={0.9} emissive="#ffffff" emissiveIntensity={hovered ? 0.12 : 0} />
           </mesh>
           <mesh geometry={band} position={[0, -0.5, 0]} castShadow>
-            <meshStandardMaterial vertexColors flatShading roughness={0.95} />
+            <meshStandardMaterial vertexColors flatShading roughness={0.95} emissive="#ffffff" emissiveIntensity={hovered ? 0.12 : 0} />
           </mesh>
           <mesh geometry={rock} position={[0, -0.8 - (radius * 1.1) / 2, 0]} castShadow>
-            <meshStandardMaterial vertexColors flatShading roughness={1} />
+            <meshStandardMaterial vertexColors flatShading roughness={1} emissive="#ffffff" emissiveIntensity={hovered ? 0.12 : 0} />
           </mesh>
         </group>
 
@@ -711,7 +765,7 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
 
         {selectedIndex >= 0 && (
           <mesh ref={ring} position={[points[selectedIndex][0], TOP + 0.04, points[selectedIndex][2]]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.58, 0.68, 32, 1, 0, Math.PI * 1.6]} />
+            <ringGeometry args={[0.55, 0.62, 32]} />
             <meshBasicMaterial color="#fde047" transparent opacity={0.95} side={THREE.DoubleSide} />
           </mesh>
         )}
@@ -722,6 +776,7 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
               <ringGeometry args={[0.45, 0.52, 32]} />
               <meshBasicMaterial color={palette.color} transparent opacity={0.6} side={THREE.DoubleSide} />
             </mesh>
+            <LightBeam position={points[currentIndex]} color={palette.color} />
             <Mascot position={[points[currentIndex][0] + 0.15, TOP, points[currentIndex][2] - 0.75]} motion={motion} />
             <group ref={anchor('here')} position={[points[currentIndex][0] + 0.15, TOP + 1.55, points[currentIndex][2] - 0.75]} />
           </>
@@ -829,6 +884,7 @@ function Projector({ anchors, marks }: { anchors: React.RefObject<Map<string, TH
         continue
       }
       element.style.visibility = 'visible'
+      element.style.opacity = point.z > 0.88 ? '0.35' : '1'
       element.style.transform = `translate3d(${((point.x + 1) / 2) * size.width}px, ${((1 - point.y) / 2) * size.height}px, 0) translate(-50%, -50%)`
       element.style.zIndex = String(Math.round((1 - point.z) * 5000))
     }
@@ -886,11 +942,16 @@ function CameraRig({ goal, controls, motion }: { goal: { position: THREE.Vector3
   useFrame((_, delta) => {
     const instance = controls.current
     if (!active.current || !goal || !instance) return
-    const k = 1 - Math.pow(0.02, delta)
-    camera.position.lerp(goal.position, k)
-    instance.target.lerp(goal.target, k)
+    camera.position.x = THREE.MathUtils.damp(camera.position.x, goal.position.x, 4, delta)
+    camera.position.y = THREE.MathUtils.damp(camera.position.y, goal.position.y, 4, delta)
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, goal.position.z, 4, delta)
+    instance.target.x = THREE.MathUtils.damp(instance.target.x, goal.target.x, 4, delta)
+    instance.target.y = THREE.MathUtils.damp(instance.target.y, goal.target.y, 4, delta)
+    instance.target.z = THREE.MathUtils.damp(instance.target.z, goal.target.z, 4, delta)
     instance.update()
-    if (camera.position.distanceTo(goal.position) < 0.03 && instance.target.distanceTo(goal.target) < 0.03) active.current = false
+    if (camera.position.distanceTo(goal.position) < 0.03 && instance.target.distanceTo(goal.target) < 0.03) {
+      active.current = false
+    }
   })
   return null
 }
@@ -1074,6 +1135,13 @@ export default function WorldMap3D({ journey, done, stateOf, selectedId, onSelec
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fly only when a new focus is requested
   }, [focus])
 
+  useEffect(() => {
+    if (!selectedId) return
+    const worldIndex = journey.worlds.findIndex((world) => journey.levels.some((l) => l.id === selectedId && l.world === world.id))
+    if (worldIndex >= 0) setGoal({ ...closeUp(worldIndex), nonce: Date.now() })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
+
   const zoom = (factor: number) => {
     const instance = controls.current
     if (!instance) return
@@ -1175,34 +1243,59 @@ export default function WorldMap3D({ journey, done, stateOf, selectedId, onSelec
 
       {/* Labels over the scene. Hidden until the projector has placed them. */}
       <div className="pointer-events-none absolute inset-0 isolate overflow-hidden">
-        {worlds.map(({ world, worldIndex, levels, palette, reached, complete }) => (
-          <Fragment key={world.id}>
-            <div ref={mark(`banner-${world.id}`)} className="invisible absolute left-0 top-0 will-change-transform">
-              <button
-                type="button"
-                onClick={() => onSelectWorld(world.id)}
-                className={cn('pointer-events-auto flex origin-center items-center gap-1.5 whitespace-nowrap rounded-xl py-1 pl-1 pr-2.5 text-left text-white shadow-lg ring-1 ring-white/40 transition hover:brightness-110', !reached && 'opacity-75 saturate-50')}
-                style={{ background: `linear-gradient(135deg, ${palette.color}, ${palette.deep})`, transform: 'scale(var(--pin-scale, 1))' }}
-              >
-                <span className="grid size-6 place-items-center rounded-lg bg-white/20 text-[10px] font-extrabold">{worldIndex + 1}</span>
-                <span className="text-[12px] font-bold leading-tight">{world.title}</span>
-                {complete ? <Check aria-label="World complete" className="size-3.5" /> : !reached ? <LockKeyhole aria-label="Locked" className="size-3" /> : null}
-              </button>
-            </div>
-            {levels.map(({ level, index }) => (
-              <div key={level.id} ref={mark(`pin-${level.id}`)} className="invisible absolute left-0 top-0 will-change-transform">
-                <div className="pointer-events-auto">
-                  <Pin level={level} number={index + 1} state={stateOf(index)} row={done[level.id]} selected={selectedId === level.id} palette={palette} onSelect={() => onSelect(level.id)} />
-                </div>
+        {worlds.map(({ world, worldIndex, levels, palette, reached, complete }) => {
+          const doneCount = levels.filter(({ level }) => done[level.id]).length
+          const totalCount = levels.length
+          return (
+            <Fragment key={world.id}>
+              <div ref={mark(`banner-${world.id}`)} className="invisible absolute left-0 top-0 will-change-transform">
+                <button
+                  type="button"
+                  onClick={() => onSelectWorld(world.id)}
+                  aria-label={`World ${worldIndex + 1}: ${world.title}, ${reached ? `${doneCount} of ${totalCount} levels completed` : 'Locked'}`}
+                  className={cn(
+                    'pointer-events-auto flex origin-center items-center gap-2 whitespace-nowrap px-3.5 py-1 text-left text-white shadow-lg transition-all duration-200 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring)]',
+                    !reached && 'opacity-80 saturate-60',
+                  )}
+                  style={{
+                    backgroundColor: palette.deep,
+                    clipPath: 'polygon(0% 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 0% 100%, 8px 50%)',
+                    transform: 'scale(var(--pin-scale, 1))',
+                  }}
+                >
+                  <span className="font-display text-[11px] font-extrabold tracking-wider uppercase text-white/80">{worldIndex + 1}</span>
+                  <span className="font-display text-[13px] font-extrabold leading-tight text-white drop-shadow-sm">{world.title}</span>
+                  {!reached ? (
+                    <span className="flex items-center gap-1 rounded bg-black/25 px-1.5 py-0.5 text-[10px] font-bold text-white/90">
+                      <LockKeyhole aria-hidden="true" className="size-3" />
+                      <span>Locked</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 rounded bg-black/20 px-1.5 py-0.5 text-[11px] font-bold text-white/95">
+                      <Star aria-hidden="true" className={cn('size-3 fill-[#f5b301] text-[#f5b301]', complete && 'fill-current')} />
+                      <span>{doneCount}/{totalCount}</span>
+                    </span>
+                  )}
+                </button>
               </div>
-            ))}
-          </Fragment>
-        ))}
+              {levels.map(({ level, index }) => (
+                <div key={level.id} ref={mark(`pin-${level.id}`)} className="invisible absolute left-0 top-0 will-change-transform">
+                  <div className="pointer-events-auto">
+                    <Pin level={level} number={index + 1} state={stateOf(index)} row={done[level.id]} selected={selectedId === level.id} palette={palette} onSelect={() => onSelect(level.id)} />
+                  </div>
+                </div>
+              ))}
+            </Fragment>
+          )
+        })}
         {worlds.some(({ levels }) => levels.some(({ index }) => stateOf(index) === 'current')) && (
           <div ref={mark('here')} className="invisible absolute left-0 top-0 will-change-transform">
-            <span className="block whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-[#1b2140] shadow-md" style={{ transform: 'scale(var(--pin-scale, 1))' }}>
-              You are here
-            </span>
+            <div className="relative flex flex-col items-center" style={{ transform: 'scale(var(--pin-scale, 1))' }}>
+              <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2.5 py-0.5 text-[10px] font-display font-extrabold text-[#0f172a] shadow-lg ring-1 ring-black/10 dark:bg-[#0f172a] dark:text-white dark:ring-white/20">
+                <span>You are here</span>
+              </span>
+              <span className="-mt-0.5 size-0 border-x-4 border-x-transparent border-t-4 border-t-white dark:border-t-[#0f172a]" />
+            </div>
           </div>
         )}
       </div>

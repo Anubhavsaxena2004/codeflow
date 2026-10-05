@@ -1,11 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import type { Track } from '@/lib/journeys/types'
 
 export interface SessionUser {
   id: string
   name: string
   email: string
+  track: Track | null
+  isAdmin: boolean
 }
 
 type SessionState = { status: 'loading'; user: null } | { status: 'guest'; user: null } | { status: 'signed-in'; user: SessionUser }
@@ -32,7 +35,10 @@ export function useSession() {
     setState({ status: 'guest', user: null })
   }, [])
 
-  return { ...state, signOut }
+  /** Replaces the signed-in user after a profile change. */
+  const updateUser = useCallback((user: SessionUser) => setState({ status: 'signed-in', user }), [])
+
+  return { ...state, signOut, updateUser }
 }
 
 /** Login link that brings the user back to the current page afterwards. */

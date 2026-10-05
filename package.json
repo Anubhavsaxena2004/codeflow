@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:migrate": "node scripts/db-migrate.mjs"
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "test:journeys": "node --import ./lib/journeys/__tests__/register.mjs --test lib/journeys/__tests__/journeys.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

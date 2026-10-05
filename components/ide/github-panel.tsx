@@ -38,6 +38,8 @@ interface GithubPanelProps {
   /** The whole project is solved, so pushes are unlocked. */
   completed: boolean
   saveState: ProjectSaveState
+  /** What to do to unlock pushes; defaults to the challenge wording. */
+  lockedHint?: string
   signInHref: string
   /** Re-reads connection + repo state after connect/disconnect/unlink. */
   onChanged: () => void
@@ -67,6 +69,7 @@ export function GithubPanel({
   challengePath,
   completed,
   saveState,
+  lockedHint = 'Solve the challenge (all steps in the right order) to unlock pushes. Your project is saved automatically once it is solved.',
   signInHref,
   onChanged,
 }: GithubPanelProps) {
@@ -323,9 +326,7 @@ export function GithubPanel({
               <section className="mt-4">
                 <div className="mb-2 text-[11px] font-bold tracking-wide text-[#bbbbbb]">PUSH</div>
                 {!completed ? (
-                  <div className="rounded border border-[#cca700]/40 bg-[#cca700]/10 p-3 text-[12px] text-[#e2c08d]">
-                    Solve the challenge (all steps in the right order) to unlock pushes. Your project is saved automatically once it is solved.
-                  </div>
+                  <div className="rounded border border-[#cca700]/40 bg-[#cca700]/10 p-3 text-[12px] text-[#e2c08d]">{lockedHint}</div>
                 ) : (
                   <>
                     <div className="mb-3 flex items-center gap-2 text-[11px] text-[#9d9d9d]">

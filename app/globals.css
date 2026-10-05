@@ -487,6 +487,44 @@
 }
 .btn-shine-idle::after { animation: shine-sweep 3.6s ease-in-out infinite; }
 
+/* Title backdrop: clouds drifting horizontally on 60-90s loops */
+@keyframes cloud-drift-slow {
+  from { transform: translateX(-350px); }
+  to { transform: translateX(calc(100vw + 350px)); }
+}
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+.animate-cloud-slow {
+  animation: cloud-drift-slow 70s linear infinite;
+}
+.animate-cloud-slower {
+  animation: cloud-drift-slow 90s linear infinite;
+}
+.animate-cloud-fast {
+  animation: cloud-drift-slow 55s linear infinite;
+}
+.animate-star-twinkle {
+  animation: star-twinkle 3s ease-in-out infinite;
+}
+.tab-hidden .animate-cloud-slow,
+.tab-hidden .animate-cloud-slower,
+.tab-hidden .animate-cloud-fast,
+.tab-hidden .animate-star-twinkle {
+  animation-play-state: paused !important;
+}
+
+/* Autofill dark mode styling to avoid yellow flash */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--cf-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--cf-surface-2) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 /* Medal shine sweep on hover, focus, and on first view */
 @keyframes medal-sweep {
   0% { transform: translateX(-140%) rotate(25deg); }
@@ -656,7 +694,11 @@ body.is-resizing-y * {
     animation: none !important;
   }
   .animate-island,
-  .animate-waves {
+  .animate-waves,
+  .animate-cloud-slow,
+  .animate-cloud-slower,
+  .animate-cloud-fast,
+  .animate-star-twinkle {
     animation: none !important;
     transform: none !important;
   }

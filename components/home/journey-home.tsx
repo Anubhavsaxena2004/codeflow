@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState, type ComponentType, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Bug, Check, Circle, Crosshair, Flame, House, LockKeyhole, LogOut, Network, PencilRuler, Shield, Skull, SquareTerminal, Star, Trophy, UserRound } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowRight, Bug, Check, ChevronDown, Circle, Crosshair, Flame, House, LockKeyhole, LogOut, Menu, Network, PencilRuler, Shield, Skull, SquareTerminal, Star, Trophy, UserRound, X } from 'lucide-react'
 import { kindIcons, Stars, worldThemes } from '@/components/journey/level-meta'
 import { Tilt } from '@/components/effects/tilt'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -16,7 +17,7 @@ import { Mascot } from './mascot'
 import { TrackPicker } from './track-picker'
 import { JourneyMap } from './journey-map'
 import type { LevelState } from './world-map'
-import { GamePanel, gameButtonClasses } from '@/components/ui/game'
+import { GamePanel, GameButton, gameButtonClasses, Pill, SegmentedProgress, RankEmblem, StatTile, GameTooltip } from '@/components/ui/game'
 
 type IconType = ComponentType<{ className?: string }>
 
@@ -38,19 +39,46 @@ const achievementStyles: Record<Achievement['icon'], { icon: IconType; color: st
 const GREEN = 'linear-gradient(135deg, #22c55e, #15803d)'
 const primaryButton = 'btn-shine inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-[0_4px_12px_rgb(22_163_74/0.35)] transition hover:brightness-110'
 
-function NavLink({ href, icon: Icon, label, active }: { href: string; icon: IconType; label: string; active?: boolean }) {
+function NavLink({
+  href,
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  href: string
+  icon: IconType
+  label: string
+  active?: boolean
+  onClick?: () => void
+}) {
   return (
-    <Link
-      href={href}
-      aria-current={active ? 'page' : undefined}
-      className={cn(
-        'flex shrink-0 items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition',
-        active ? 'bg-[#dcfce7] text-[#166534] dark:bg-[#16a34a]/20 dark:text-[#86efac]' : 'text-(--cf-muted) hover:bg-(--cf-surface-2) hover:text-(--cf-text)',
-      )}
-    >
-      <Icon className="size-[18px]" />
-      {label}
-    </Link>
+    <GameTooltip content={label} side="right">
+      <Link
+        href={href}
+        onClick={onClick}
+        aria-label={label}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          'group relative flex h-11 items-center gap-3 rounded-[var(--radius-md,14px)] px-3 text-sm font-semibold transition-colors duration-[var(--dur-fast,160ms)]',
+          'hover:bg-(--cf-surface-2) hover:text-(--cf-text)',
+          active
+            ? 'bg-[#22c55e]/12 text-[#15803d] dark:text-[#86efac] before:absolute before:left-0 before:top-2.5 before:bottom-2.5 before:w-[3px] before:rounded-r before:bg-[#22c55e]'
+            : 'text-(--cf-muted)',
+          'w-full md:max-lg:justify-center md:max-lg:px-0 lg:w-full',
+        )}
+      >
+        <Icon
+          className={cn(
+            'size-5 shrink-0 transition-colors',
+            active ? 'text-[#15803d] dark:text-[#86efac]' : 'text-(--cf-muted) group-hover:text-(--cf-text)',
+          )}
+        />
+        <span className="truncate md:max-lg:sr-only lg:inline-block">
+          {label}
+        </span>
+      </Link>
+    </GameTooltip>
   )
 }
 
@@ -101,6 +129,11 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
   const [journeyId, setJourneyId] = useState<string | null>(initialJourney)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focus, setFocus] = useState<{ worldId: string; nonce: number } | null>(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const [xpDelta, setXpDelta] = useState<number | null>(null)
+  const prevXpRef = useRef(0)
 
   const trackJourneys = journeys.filter((journey) => journey.track === track)
   const journey = trackJourneys.find((item) => item.id === journeyId) ?? trackJourneys[0] ?? null
@@ -122,6 +155,42 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
   const initials = session.user?.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase() ?? 'ME'
   const challengeStack = track ? tracks[track].challengeStack : 'express'
 
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        document.documentElement.classList.add('tab-hidden')
+      } else {
+        document.documentElement.classList.remove('tab-hidden')
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setScrolled(!entry.isIntersecting)
+      },
+      { threshold: 0, rootMargin: '-8px 0px 0px 0px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (ready && prevXpRef.current > 0 && totalXp > prevXpRef.current) {
+      const diff = totalXp - prevXpRef.current
+      setXpDelta(diff)
+      const timer = setTimeout(() => setXpDelta(null), 900)
+      prevXpRef.current = totalXp
+      return () => clearTimeout(timer)
+    }
+    prevXpRef.current = totalXp
+  }, [totalXp, ready])
+
   const pickTrack = (next: Track) => {
     void setTrack(next)
     setPicking(false)
@@ -140,10 +209,10 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
 
   const nav = (
     <>
-      <NavLink href="/" icon={House} label="Home" active />
-      <NavLink href="/profile" icon={UserRound} label="Profile" />
-      {session.user?.isAdmin && <NavLink href="/admin" icon={Shield} label="Admin" />}
-      <NavLink href="/mentor" icon={PencilRuler} label="Mentor mode" />
+      <NavLink href="/" icon={House} label="Home" active onClick={() => setMobileOpen(false)} />
+      <NavLink href="/profile" icon={UserRound} label="Profile" onClick={() => setMobileOpen(false)} />
+      {session.user?.isAdmin && <NavLink href="/admin" icon={Shield} label="Admin" onClick={() => setMobileOpen(false)} />}
+      <NavLink href="/mentor" icon={PencilRuler} label="Mentor mode" onClick={() => setMobileOpen(false)} />
     </>
   )
 
@@ -251,76 +320,265 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
   const next = journey && currentIndex >= 0 ? journey.levels[currentIndex] : null
   const nextWorld = next && journey ? journey.worlds.find((world) => world.id === next.world) : null
 
+  const mascotCard = (
+    <GamePanel tone="raised" padding="sm" className="relative mt-auto border border-(--cf-border)">
+      <div className="relative rounded-xl border border-(--cf-border) bg-(--cf-surface-2) p-3 shadow-xs">
+        <p className="text-[12px] font-bold leading-snug text-(--cf-text)">
+          {next ? `Next up: ${next.title}` : 'Ready for your next quest?'}
+        </p>
+        <div className="absolute -bottom-1.5 left-6 size-3 rotate-45 border-b border-r border-(--cf-border) bg-(--cf-surface-2)" aria-hidden="true" />
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <Mascot className="size-[72px] shrink-0 animate-mascot-bob" />
+        <div className="min-w-0 flex-1">
+          <p className="pb-1 text-[13px] font-bold leading-5 text-(--cf-text)">Small steps build big developers.</p>
+          <p className="text-[11px] leading-4 text-(--cf-muted)">
+            Every level adds real files to a real project you can push to GitHub.
+          </p>
+        </div>
+      </div>
+      {journey && (
+        <div className="mt-3">
+          <Bar value={percent} />
+          <div className="mt-1 text-[11px] font-semibold text-(--cf-muted)">
+            {percent}% of {journey.title}
+          </div>
+        </div>
+      )}
+    </GamePanel>
+  )
+
   return (
-    <div className="min-h-dvh bg-(--cf-bg) text-(--cf-text) lg:flex">
-      {/* Sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-(--cf-border) bg-(--cf-surface) p-4 lg:flex">
-        <Link href="/" className="flex items-center gap-2.5 px-1">
-          <span className="grid size-10 place-items-center rounded-xl text-sm font-extrabold text-white shadow-md" style={{ background: GREEN }}>{'</>'}</span>
-          <span>
-            <span className="block text-xl font-extrabold leading-5">CodeFlow</span>
+    <div className="min-h-dvh bg-(--cf-bg) text-(--cf-text) md:flex">
+      {/* Mobile Navigation Drawer */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 flex md:hidden" role="dialog" aria-modal="true" aria-label="Navigation drawer">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-xs"
+            />
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+              className="relative z-10 flex h-full w-72 flex-col border-r border-(--cf-border) bg-(--cf-surface) p-4 shadow-(--elev-4)"
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-(--cf-border)">
+                <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-2.5">
+                  <span className="grid size-9 place-items-center rounded-xl text-sm font-extrabold text-white shadow-md" style={{ background: GREEN }}>{'</>'}</span>
+                  <span>
+                    <span className="block text-lg font-extrabold leading-tight font-display">CodeFlow</span>
+                    <span className="block text-[11px] font-medium text-(--cf-faint)">Learn · Build · Level up</span>
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(false)}
+                  aria-label="Close menu"
+                  className="rounded-lg p-1.5 text-(--cf-muted) hover:bg-(--cf-surface-2) hover:text-(--cf-text)"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+              <div className="mt-4 mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-(--cf-muted)">
+                Menu
+              </div>
+              <nav aria-label="Mobile Navigation" className="flex flex-col gap-1">
+                {nav}
+              </nav>
+              <div className="mt-auto pt-4">
+                {mascotCard}
+              </div>
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar: Rail on tablet (md), Full width on desktop (lg) */}
+      <aside className="sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-(--cf-border) bg-(--cf-surface) p-3 transition-all md:flex md:w-[var(--sidebar-w-rail,72px)] lg:w-[var(--sidebar-w,248px)]">
+        <Link href="/" className="flex items-center gap-2.5 px-1 py-1">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl text-sm font-extrabold text-white shadow-md" style={{ background: GREEN }}>{'</>'}</span>
+          <span className="hidden min-w-0 lg:block">
+            <span className="block text-xl font-extrabold leading-5 font-display">CodeFlow</span>
             <span className="block text-[11px] font-medium text-(--cf-faint)">Learn · Build · Level up</span>
           </span>
         </Link>
-        <nav aria-label="Main" className="mt-7 flex flex-col gap-1">{nav}</nav>
-        <div className="mt-auto rounded-2xl border border-(--cf-border) bg-gradient-to-br from-[#dcfce7] to-[#e0f2fe] p-4 dark:from-[#16a34a]/15 dark:to-[#2563eb]/15">
-          <div className="flex items-end gap-3">
-            <Mascot className="size-14 shrink-0" />
-            <p className="pb-1 text-[13px] font-bold leading-5 text-(--cf-text)">Small steps build big developers.</p>
-          </div>
-          <p className="mt-2 text-[11px] leading-4 text-(--cf-muted)">Every level adds real files to a real project you can push to GitHub.</p>
-          {journey && (
-            <div className="mt-3">
-              <Bar value={percent} />
-              <div className="mt-1 text-[11px] font-semibold text-(--cf-muted)">{percent}% of {journey.title}</div>
-            </div>
-          )}
+        <div className="mt-6 mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.08em] text-(--cf-muted) md:max-lg:sr-only lg:block">
+          Menu
+        </div>
+        <nav aria-label="Main" className="flex flex-col gap-1">
+          {nav}
+        </nav>
+        <div className="mt-auto hidden lg:block">
+          {mascotCard}
         </div>
       </aside>
 
-      <div className="min-w-0 flex-1">
-        {/* Header */}
-        <header className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-(--cf-border) bg-(--cf-surface)/90 px-4 py-3 backdrop-blur md:px-6">
-          <Link href="/" className="flex items-center gap-2 lg:hidden">
-            <span className="grid size-8 place-items-center rounded-lg text-xs font-extrabold text-white" style={{ background: GREEN }}>{'</>'}</span>
-            <span className="font-extrabold font-display">CodeFlow</span>
+      <div className="relative min-w-0 flex-1">
+        {/* Scroll Sentinel for header elevation */}
+        <div ref={sentinelRef} className="pointer-events-none absolute top-0 left-0 h-2 w-full" aria-hidden="true" />
+
+        {/* Header HUD */}
+        <header
+          className={cn(
+            'sticky top-0 z-30 flex h-14 sm:h-16 items-center gap-3 border-b border-(--cf-border) bg-(--cf-surface)/85 px-4 backdrop-blur-md supports-[not(backdrop-filter:blur(0))]:bg-(--cf-surface) transition-shadow duration-[var(--dur-base,240ms)] md:px-6 xl:px-6',
+            scrolled ? 'shadow-(--elev-2)' : 'shadow-none',
+          )}
+        >
+          {/* Mobile menu button */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="grid size-9 shrink-0 place-items-center rounded-xl border border-(--cf-border) bg-(--cf-surface) text-(--cf-muted) hover:bg-(--cf-surface-2) hover:text-(--cf-text) md:hidden"
+            aria-label="Open navigation menu"
+          >
+            <Menu className="size-5" />
+          </button>
+
+          {/* Logo on mobile only */}
+          <Link href="/" className="flex items-center gap-1.5 md:hidden">
+            <span className="grid size-7 place-items-center rounded-lg text-xs font-extrabold text-white" style={{ background: GREEN }}>{'</>'}</span>
+            <span className="font-extrabold font-display text-sm">CodeFlow</span>
           </Link>
+
+          {/* Desktop Journey heading */}
           <div className="hidden lg:block">
             <h1 className="text-xl font-extrabold font-display">Your coding journey</h1>
             <p className="text-xs text-(--cf-muted)">Build real projects level by level, fix planted bugs, and push what you build to GitHub.</p>
           </div>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {track && (
-              <button type="button" onClick={() => setPicking(true)} className="rounded-full border border-(--cf-border) bg-(--cf-surface) px-3 py-1.5 text-xs font-bold hover:bg-(--cf-surface-2)" title="Change your tech stack">
-                {tracks[track].label} stack
-              </button>
-            )}
-            <span className="flex items-center gap-1.5 rounded-full border border-[#fed7aa] bg-[#fff7ed] px-3 py-1.5 text-xs font-bold text-[#c2410c] dark:border-[#f97316]/30 dark:bg-[#f97316]/15 dark:text-[#fdba74]" title="Days in a row with a passed level">
-              <Flame aria-hidden className="size-4 fill-[#fb923c] text-[#f97316]" /> <span className="num">{streak}</span> day streak
-            </span>
-            <span className="flex items-center gap-2 rounded-full border border-(--cf-border) bg-(--cf-surface) py-1 pl-1 pr-3 text-xs" title={`${totalXp} XP in total`}>
-              <span className="grid h-6 place-items-center rounded-full px-2 text-[10px] font-extrabold text-white" style={{ background: 'linear-gradient(135deg, #a855f7, #6d28d9)' }}>XP</span>
-              <span className="font-extrabold font-display">Rank <span className="num">{rank.rank}</span></span>
-              <span className="hidden w-20 sm:block"><Bar value={(rank.into / rank.size) * 100} color="linear-gradient(90deg, #a855f7, #6d28d9)" /></span>
-              <span className="text-(--cf-muted) num">{rank.into}/{rank.size}</span>
-            </span>
-            <ThemeToggle className="size-8 rounded-full border border-(--cf-border) bg-(--cf-surface) text-(--cf-muted) hover:bg-(--cf-surface-2) hover:text-(--cf-text)" />
-            {session.status === 'signed-in' ? (
-              <span className="flex items-center gap-1">
-                <Link href="/profile" title={`${session.user.name} · ${session.user.email}`} className="grid size-9 place-items-center overflow-hidden rounded-full bg-[#dcfce7] ring-2 ring-[#22c55e]">
-                  <Mascot className="size-9" />
-                  <span className="sr-only">{initials}</span>
-                </Link>
-                <button type="button" onClick={session.signOut} aria-label="Sign out" title="Sign out" className="rounded-full p-1.5 text-(--cf-muted) hover:bg-(--cf-surface-2)">
-                  <LogOut className="size-4" />
-                </button>
+
+          {/* Stack chip */}
+          {track && (
+            <button
+              type="button"
+              onClick={() => setPicking(true)}
+              className="group inline-flex items-center gap-1.5 rounded-full border border-(--cf-border) bg-(--cf-surface) px-3 py-1.5 text-xs font-bold text-(--cf-text) shadow-xs transition-all duration-[var(--dur-fast,160ms)] hover:-translate-y-[1px] hover:bg-(--cf-surface-2) active:translate-y-0"
+              title="Change your tech stack"
+            >
+              <span className="size-2 rounded-full bg-[#22c55e]" aria-hidden="true" />
+              <span>{tracks[track].label} stack</span>
+              <ChevronDown className="size-3 text-(--cf-muted) transition-transform group-hover:translate-y-0.5" aria-hidden="true" />
+            </button>
+          )}
+
+          {/* Flexible space */}
+          <div className="flex-1 min-w-2" />
+
+          {/* Streak */}
+          <GameTooltip
+            content={streak > 0 ? 'Keep your streak alive — finish a level today' : 'Start a streak: finish any level'}
+            side="bottom"
+          >
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold select-none transition-colors',
+                streak > 0
+                  ? 'border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#f97316]/30 dark:bg-[#f97316]/15 dark:text-[#fdba74]'
+                  : 'border-(--cf-border) bg-(--cf-surface) text-(--cf-muted)',
+              )}
+            >
+              <Flame
+                aria-hidden="true"
+                className={cn(
+                  'size-4 shrink-0 transition-transform',
+                  streak > 0
+                    ? 'fill-[#f97316] text-[#f97316] animate-flame'
+                    : 'fill-none text-slate-400 dark:text-zinc-500',
+                )}
+              />
+              <span className="sr-only">{streak}-day streak</span>
+              <span aria-hidden="true">
+                <span className="num font-bold text-(--cf-text)">{streak}</span>{' '}
+                <span className="hidden sm:inline">day streak</span>
+                <span className="sm:hidden">d</span>
               </span>
-            ) : session.status === 'guest' ? (
-              <Link href="/login" className={primaryButton} style={{ background: GREEN }}>Sign in</Link>
-            ) : null}
+            </span>
+          </GameTooltip>
+
+          {/* Rank and XP */}
+          <div className="relative flex items-center gap-2">
+            <RankEmblem rank={rank.rank} size={40} className="hidden sm:inline-flex" />
+            <RankEmblem rank={rank.rank} size={32} className="sm:hidden" />
+            <div className="hidden sm:flex flex-col gap-0.5">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-(--cf-muted)">
+                <span className="font-display font-bold text-(--cf-text)">Rank <span className="num">{rank.rank}</span></span>
+                <span className="num">{rank.into} / {rank.size} XP</span>
+              </div>
+              <SegmentedProgress
+                value={rank.into}
+                max={rank.size}
+                segments={5}
+                tone="xp"
+                label={`Rank ${rank.rank} progress`}
+                className="w-36 lg:w-[180px]"
+              />
+            </div>
+            {/* Floating +n XP badge on XP increase */}
+            <AnimatePresence>
+              {xpDelta !== null && (
+                <motion.span
+                  initial={{ opacity: 0, y: 0 }}
+                  animate={{ opacity: 1, y: -16 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                  className="pointer-events-none absolute -top-3 right-0 rounded-full bg-[#a855f7] px-2 py-0.5 text-[11px] font-extrabold text-white shadow-md"
+                >
+                  +{xpDelta} XP
+                </motion.span>
+              )}
+            </AnimatePresence>
           </div>
-          <nav aria-label="Main" className="flex w-full gap-1 overflow-x-auto lg:hidden">{nav}</nav>
+
+          {/* Theme toggle */}
+          <ThemeToggle />
+
+          {/* Avatar / Auth */}
+          {session.status === 'signed-in' ? (
+            <span className="flex items-center gap-1.5">
+              <Link
+                href="/profile"
+                title={`${session.user.name} · ${session.user.email}`}
+                className="group relative inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#a855f7] to-[#6d28d9] p-[2px] shadow-xs transition-transform hover:scale-105"
+              >
+                <span className="grid size-full place-items-center overflow-hidden rounded-full bg-[#dcfce7] ring-2 ring-(--cf-surface)">
+                  <Mascot className="size-full" />
+                  <span className="sr-only">{initials}</span>
+                </span>
+              </Link>
+              <button
+                type="button"
+                onClick={session.signOut}
+                aria-label="Sign out"
+                title="Sign out"
+                className="rounded-full p-2 text-(--cf-muted) transition-colors hover:bg-(--cf-surface-2) hover:text-(--cf-text)"
+              >
+                <LogOut className="size-4" />
+              </button>
+            </span>
+          ) : session.status === 'guest' ? (
+            <Link href="/login" className={primaryButton} style={{ background: GREEN }}>
+              Sign in
+            </Link>
+          ) : null}
+
+          {/* Mobile thin XP strip along bottom edge */}
+          <div className="absolute inset-x-0 bottom-0 h-1 sm:hidden bg-(--cf-track) overflow-hidden" aria-hidden="true">
+            <div
+              className="h-full bg-gradient-to-r from-[#a855f7] to-[#6d28d9] transition-all duration-[var(--dur-count,900ms)] ease-[var(--ease-out)]"
+              style={{ width: `${(rank.into / rank.size) * 100}%` }}
+            />
+          </div>
         </header>
+
+        {/* Mobile secondary quick-nav */}
+        <nav aria-label="Main" className="flex w-full gap-1 overflow-x-auto border-b border-(--cf-border) bg-(--cf-surface) p-2 md:hidden">
+          {nav}
+        </nav>
 
         <main className="p-4 md:p-6">
           {session.status === 'guest' && ready && track && (

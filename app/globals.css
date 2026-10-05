@@ -656,6 +656,44 @@ body.is-resizing-y * {
   .animate-file-in {
     animation: none !important;
   }
+  .animate-flame,
+  .animate-mascot-bob {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Streak flame & Mascot animations */
+@keyframes flame-flicker {
+  0%, 100% {
+    transform: scale(1) rotate(-2deg);
+  }
+  50% {
+    transform: scale(1.06) rotate(2deg);
+  }
+}
+
+.animate-flame {
+  transform-origin: bottom center;
+  animation: flame-flicker 1.6s ease-in-out infinite;
+}
+
+@keyframes mascot-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-mascot-bob {
+  animation: mascot-bob 2.4s ease-in-out infinite;
+}
+
+.tab-hidden .animate-mascot-bob,
+.tab-hidden .animate-flame {
+  animation-play-state: paused !important;
 }
 
 @layer base {

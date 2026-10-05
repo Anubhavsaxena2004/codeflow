@@ -15,7 +15,7 @@ import { createPortal } from 'react-dom'
 export interface GameTooltipProps {
   content: ReactNode
   children: ReactElement
-  side?: 'top' | 'bottom'
+  side?: 'top' | 'bottom' | 'left' | 'right'
   disabled?: boolean
   className?: string
 }
@@ -28,7 +28,7 @@ export function GameTooltip({
   className,
 }: GameTooltipProps) {
   const [open, setOpen] = useState(false)
-  const [coords, setCoords] = useState<{ top: number; left: number; actualSide: 'top' | 'bottom' } | null>(null)
+  const [coords, setCoords] = useState<{ top: number; left: number; actualSide: 'top' | 'bottom' | 'left' | 'right' } | null>(null)
   const [mounted, setMounted] = useState(false)
   const triggerRef = useRef<HTMLElement | null>(null)
   const tooltipRef = useRef<HTMLDivElement | null>(null)
@@ -46,14 +46,24 @@ export function GameTooltip({
     const spacing = 8
 
     let targetSide = side
-    if (side === 'top' && rect.top - tooltipHeight - spacing < 8) {
-      targetSide = 'bottom'
-    } else if (side === 'bottom' && rect.bottom + tooltipHeight + spacing > window.innerHeight - 8) {
-      targetSide = 'top'
-    }
+    let top = 0
+    let left = 0
 
-    const top = targetSide === 'top' ? rect.top - spacing : rect.bottom + spacing
-    const left = rect.left + rect.width / 2
+    if (side === 'left') {
+      top = rect.top + rect.height / 2
+      left = rect.left - spacing
+    } else if (side === 'right') {
+      top = rect.top + rect.height / 2
+      left = rect.right + spacing
+    } else {
+      if (side === 'top' && rect.top - tooltipHeight - spacing < 8) {
+        targetSide = 'bottom'
+      } else if (side === 'bottom' && rect.bottom + tooltipHeight + spacing > window.innerHeight - 8) {
+        targetSide = 'top'
+      }
+      top = targetSide === 'top' ? rect.top - spacing : rect.bottom + spacing
+      left = rect.left + rect.width / 2
+    }
 
     setCoords({ top, left, actualSide: targetSide })
   }
@@ -151,7 +161,14 @@ export function GameTooltip({
               position: 'fixed',
               top: `${coords.top}px`,
               left: `${coords.left}px`,
-              transform: coords.actualSide === 'top' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+              transform:
+                coords.actualSide === 'top'
+                  ? 'translate(-50%, -100%)'
+                  : coords.actualSide === 'bottom'
+                    ? 'translate(-50%, 0)'
+                    : coords.actualSide === 'left'
+                      ? 'translate(-100%, -50%)'
+                      : 'translate(0, -50%)',
               zIndex: 9999,
               transition: 'opacity var(--dur-fast, 160ms) var(--ease-out, ease-out), transform var(--dur-fast, 160ms) var(--ease-out, ease-out)',
             }}

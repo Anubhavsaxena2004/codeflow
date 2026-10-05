@@ -317,7 +317,7 @@ export function SegmentedProgress({
  * -----------------------------------------------------------------------------------------------*/
 export interface RankEmblemProps {
   rank: number
-  size?: 28 | 40 | 64 | 96
+  size?: number
   glow?: boolean
   className?: string
 }
@@ -328,7 +328,7 @@ export function RankEmblem({
   glow = false,
   className,
 }: RankEmblemProps) {
-  const fontSize = size <= 28 ? 13 : size <= 40 ? 17 : size <= 64 ? 26 : 38
+  const fontSize = size <= 28 ? 12 : size <= 32 ? 14 : size <= 40 ? 17 : size <= 64 ? 26 : 38
 
   return (
     <div

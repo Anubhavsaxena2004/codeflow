@@ -13,7 +13,7 @@ function Gutter({ from, count, glyph, className }: { from: number; count: number
   return (
     <div className={cn('flex shrink-0 select-none', className)}>
       <div className="flex w-6 justify-center pt-0.5">{glyph}</div>
-      <div className="w-9 pr-3 text-right text-[#6e7681]">
+      <div className="w-9 pr-3 text-right text-(--ide-dim)">
         {Array.from({ length: count }, (_, index) => (
           <div key={index} className="h-5">{from + index}</div>
         ))}
@@ -24,8 +24,8 @@ function Gutter({ from, count, glyph, className }: { from: number; count: number
 
 function InfoBar({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-start gap-2 border-b border-[#2b2b2b] bg-[#1f1f1f] px-4 py-2 font-sans text-[12px] leading-5 text-[#9d9d9d]">
-      <Info className="mt-0.5 size-3.5 shrink-0 text-[#3794ff]" />
+    <div className="flex items-start gap-2 border-b border-(--ide-border) bg-(--ide-bg) px-4 py-2 font-sans text-[12px] leading-5 text-(--ide-muted)">
+      <Info className="mt-0.5 size-3.5 shrink-0 text-(--ide-link)" />
       <div>{children}</div>
     </div>
   )
@@ -37,7 +37,7 @@ export function FileView({ file, language }: { file: ProjectFile; language: stri
   return (
     <div>
       <InfoBar>
-        {file.about} <span className="text-[#6e7681]">· read-only</span>
+        {file.about} <span className="text-(--ide-dim)">· read-only</span>
       </InfoBar>
       <div className="ide-mono flex py-2 text-[13px] leading-5">
         <Gutter from={1} count={code.split('\n').length} />
@@ -69,7 +69,7 @@ export function ChallengeEditor({ about, scaffold, language, slots, statuses, hi
   return (
     <div>
       <InfoBar>
-        {about} Drag blocks from the right into the empty lines, then press <span className="text-[#cccccc]">Check</span>.
+        {about} Drag blocks from the right into the empty lines, then press <span className="text-(--ide-fg)">Check</span>.
       </InfoBar>
       <div className="ide-mono py-2 text-[13px] leading-5">
         {scaffold.map((line, row) => {
@@ -130,10 +130,10 @@ interface SlotRowProps {
 function SlotRow({ index, indent, from, blockId, code, language, status, hinted, active, onRemove, onHover }: SlotRowProps) {
   const { setNodeRef, isOver, active: dragging } = useDroppable({ id: `slot-${index}`, data: { slot: index } })
   const glyph =
-    status === 'wrong' ? <CircleX className="size-3.5 text-[#f14c4c]" /> :
-    status === 'empty' ? <TriangleAlert className="size-3.5 text-[#cca700]" /> :
-    status === 'correct' ? <Check className="size-3.5 text-[#89d185]" /> :
-    hinted ? <Lightbulb className="size-3.5 text-[#cca700]" /> : null
+    status === 'wrong' ? <CircleX className="size-3.5 text-(--ide-error)" /> :
+    status === 'empty' ? <TriangleAlert className="size-3.5 text-(--ide-warning)" /> :
+    status === 'correct' ? <Check className="size-3.5 text-(--ide-success)" /> :
+    hinted ? <Lightbulb className="size-3.5 text-(--ide-warning)" /> : null
 
   return (
     <div ref={setNodeRef} data-slot={index} className="flex">
@@ -145,8 +145,8 @@ function SlotRow({ index, indent, from, blockId, code, language, status, hinted,
           <div
             className={cn(
               'my-1 flex h-8 items-center rounded-sm border border-dashed px-3 italic transition-colors',
-              isOver ? 'border-[#0078d4] bg-[#0078d4]/15 text-[#cccccc]' : dragging ? 'border-[#0078d4]/60 bg-[#0078d4]/5 text-[#8b949e]' : 'border-[#454545] text-[#6a9955]',
-              status === 'empty' && !isOver && 'border-[#cca700]/70',
+              isOver ? 'border-[#0078d4] bg-[#0078d4]/15 text-(--ide-fg)' : dragging ? 'border-[#0078d4]/60 bg-[#0078d4]/5 text-(--ide-icon)' : 'border-(--ide-scrollbar) text-(--ide-comment)',
+              status === 'empty' && !isOver && 'border-(--ide-warning)/70',
             )}
           >
             {commentPrefix(language)} step {index + 1}: drop a block here
@@ -181,9 +181,9 @@ function PlacedBlock({ blockId, code, language, status, active, isOver, onRemove
         if (event.key === 'Delete' || event.key === 'Backspace') onRemove()
       }}
       className={cn(
-        'group relative cursor-grab rounded-sm outline-none transition-colors hover:bg-[#2a2d2e] focus-visible:ring-1 focus-visible:ring-[#0078d4] active:cursor-grabbing',
-        active && 'bg-[#264f78]/40 hover:bg-[#264f78]/40',
-        status === 'correct' && 'bg-[#89d185]/10',
+        'group relative cursor-grab rounded-sm outline-none transition-colors hover:bg-(--ide-hover) focus-visible:ring-1 focus-visible:ring-[#0078d4] active:cursor-grabbing',
+        active && 'bg-(--ide-selection)/40 hover:bg-(--ide-selection)/40',
+        status === 'correct' && 'bg-(--ide-success)/10',
         isOver && 'ring-1 ring-[#0078d4]',
         isDragging && 'opacity-30',
       )}
@@ -196,7 +196,7 @@ function PlacedBlock({ blockId, code, language, status, active, isOver, onRemove
         onTouchStart={(event) => event.stopPropagation()}
         aria-label="Send block back to the palette"
         title="Send back"
-        className="absolute right-1 top-0.5 hidden size-4 cursor-pointer items-center justify-center rounded-sm text-[#cccccc] hover:bg-[#3c3c3c] group-hover:flex"
+        className="absolute right-1 top-0.5 hidden size-4 cursor-pointer items-center justify-center rounded-sm text-(--ide-fg) hover:bg-(--ide-border-strong) group-hover:flex"
       >
         <X className="size-3" />
       </button>

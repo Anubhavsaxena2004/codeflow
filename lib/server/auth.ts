@@ -10,6 +10,8 @@ export interface SessionUser {
   /** The tech stack the learner picked; null until they choose. */
   track: Track | null
   isAdmin: boolean
+  /** Every level is open in any order (set by an admin); passing still counts the usual way. */
+  allLevelsOpen: boolean
 }
 
 const adminEmails = () => (process.env.ADMIN_EMAILS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
@@ -83,7 +85,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!token) return null
 
   const [user] = await query<Omit<SessionUser, 'isAdmin'>>(
-    `SELECT u.id::text AS id, u.name, u.email, u.track
+    `SELECT u.id::text AS id, u.name, u.email, u.track, u.all_levels_open AS "allLevelsOpen"
        FROM sessions s
        JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = $1 AND s.expires_at > now()`,

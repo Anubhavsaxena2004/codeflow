@@ -11,14 +11,27 @@ export const kindIcons: Record<LevelKind, LucideIcon> = {
   architecture: Network,
 }
 
-/** Map colours per world theme: a soft tint for the island, a strong colour for its badge and path. */
-export const worldThemes: Record<WorldTheme, { icon: LucideIcon; badge: string; tint: string; ring: string; text: string }> = {
-  village: { icon: House, badge: 'bg-[#16a34a]', tint: 'from-[#dcfce7] to-[#f0fdf4]', ring: 'ring-[#86efac]', text: 'text-[#166534]' },
-  forest: { icon: Trees, badge: 'bg-[#0d9488]', tint: 'from-[#ccfbf1] to-[#f0fdfa]', ring: 'ring-[#5eead4]', text: 'text-[#115e59]' },
-  dungeon: { icon: Database, badge: 'bg-[#d97706]', tint: 'from-[#fef3c7] to-[#fffbeb]', ring: 'ring-[#fcd34d]', text: 'text-[#92400e]' },
-  castle: { icon: Castle, badge: 'bg-[#7c3aed]', tint: 'from-[#ede9fe] to-[#f5f3ff]', ring: 'ring-[#c4b5fd]', text: 'text-[#5b21b6]' },
-  lab: { icon: FlaskConical, badge: 'bg-[#2563eb]', tint: 'from-[#dbeafe] to-[#eff6ff]', ring: 'ring-[#93c5fd]', text: 'text-[#1e40af]' },
-  city: { icon: Building2, badge: 'bg-[#db2777]', tint: 'from-[#fce7f3] to-[#fdf2f8]', ring: 'ring-[#f9a8d4]', text: 'text-[#9d174d]' },
+/**
+ * Map colours per world theme. `color` is the world's banner and badge; the rest paint its island
+ * (grass top, cliff, foliage). Hex values, so they work in SVG and in both light and dark mode.
+ */
+export interface WorldPalette {
+  icon: LucideIcon
+  color: string
+  /** A darker shade of color, for gradients and text on light backgrounds. */
+  deep: string
+  top: [string, string]
+  cliff: [string, string]
+  leaf: [string, string]
+}
+
+export const worldThemes: Record<WorldTheme, WorldPalette> = {
+  village: { icon: House, color: '#16a34a', deep: '#15803d', top: ['#9be15d', '#3fb950'], cliff: ['#b7793a', '#7a4a1f'], leaf: ['#4ade80', '#15803d'] },
+  forest: { icon: Trees, color: '#0d9488', deep: '#0f766e', top: ['#6ee7b7', '#10b981'], cliff: ['#a0643a', '#6b3f1d'], leaf: ['#34d399', '#047857'] },
+  dungeon: { icon: Database, color: '#ea580c', deep: '#c2410c', top: ['#a78bfa', '#6d28d9'], cliff: ['#5b3f8c', '#2e1d54'], leaf: ['#fb923c', '#c2410c'] },
+  castle: { icon: Castle, color: '#7c3aed', deep: '#6d28d9', top: ['#c4b5fd', '#8b5cf6'], cliff: ['#6a4bb0', '#3b2470'], leaf: ['#4ade80', '#166534'] },
+  lab: { icon: FlaskConical, color: '#2563eb', deep: '#1d4ed8', top: ['#67e8f9', '#06b6d4'], cliff: ['#3a6f8f', '#1e3a52'], leaf: ['#5eead4', '#0f766e'] },
+  city: { icon: Building2, color: '#db2777', deep: '#be185d', top: ['#93c5fd', '#3b82f6'], cliff: ['#475a8c', '#26315a'], leaf: ['#4ade80', '#15803d'] },
 }
 
 export function Stars({ count, className }: { count: number; className?: string }) {

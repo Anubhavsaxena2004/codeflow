@@ -43,6 +43,7 @@ import { availableStacks, signupChallenge, solutionOrder, stackLabels, workspace
 import { computeScore, starsFor } from '@/lib/scoring'
 import { loginHref, useSession } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { BlockCard, BlockPalette } from './ide/block-palette'
 import { BottomPanel, type PanelTab, type Problem, type SlotGuideRow } from './ide/bottom-panel'
 import { ChallengeEditor, FileView, type SlotStatus } from './ide/code-editor'
@@ -86,7 +87,7 @@ function ToolButton({ icon: Icon, label, onClick, disabled, variant = 'ghost' }:
       aria-label={label}
       className={cn(
         'flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[12px] transition-colors disabled:pointer-events-none disabled:opacity-40',
-        variant === 'primary' ? 'bg-[#0078d4] text-white hover:bg-[#026ec1]' : variant === 'run' ? 'bg-[#2ea043] text-white hover:bg-[#3fb950]' : 'text-[#cccccc] hover:bg-[#2b2b2b]',
+        variant === 'primary' ? 'bg-[#0078d4] text-white hover:bg-[#026ec1]' : variant === 'run' ? 'bg-[#2ea043] text-white hover:bg-[#3fb950]' : 'text-(--ide-fg) hover:bg-(--ide-border)',
       )}
     >
       <Icon className="size-3.5" />
@@ -104,7 +105,7 @@ function ActivityItem({ icon: Icon, label, active, onClick, disabled, indicator 
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={cn('relative flex size-12 items-center justify-center text-[#868686] hover:text-[#cccccc] disabled:opacity-40 disabled:hover:text-[#868686]', active && 'text-[#e7e7e7]')}
+      className={cn('relative flex size-12 items-center justify-center text-(--ide-icon) hover:text-(--ide-fg) disabled:opacity-40 disabled:hover:text-(--ide-icon)', active && 'text-(--ide-fg-strong)')}
     >
       {active && <span className="absolute inset-y-0 left-0 w-0.5 bg-[#0078d4]" />}
       <Icon className="size-6" strokeWidth={1.5} />
@@ -569,16 +570,16 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
     <>
       <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={finishDrag}>
         <div
-          className="flex min-h-dvh flex-col bg-[#1f1f1f] font-sans text-[13px] text-[#cccccc] lg:h-dvh lg:min-h-0"
+          className="flex min-h-dvh flex-col bg-(--ide-bg) font-sans text-[13px] text-(--ide-fg) lg:h-dvh lg:min-h-0"
           style={{ '--explorer-w': `${layout.explorer}px`, '--palette-w': `${layout.palette}px`, '--panel-h': `${layout.panel}px` } as CSSProperties}
         >
           {/* Title bar */}
-          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-[#2b2b2b] bg-[#181818] px-2">
-            <Link href="/" className="flex shrink-0 items-center gap-2 rounded px-1.5 py-1 hover:bg-[#2b2b2b]">
+          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-(--ide-border) bg-(--ide-bar) px-2">
+            <Link href="/" className="flex shrink-0 items-center gap-2 rounded px-1.5 py-1 hover:bg-(--ide-border)">
               <span className="grid size-5 place-items-center rounded-sm bg-[#0078d4] text-[9px] font-bold text-white">{'<>'}</span>
-              <span className="hidden text-[13px] text-[#cccccc] sm:inline">CodeFlow</span>
+              <span className="hidden text-[13px] text-(--ide-fg) sm:inline">CodeFlow</span>
             </Link>
-            <div className="mx-auto hidden h-6 min-w-0 max-w-md flex-1 items-center justify-center truncate rounded-md border border-[#3c3c3c] bg-[#1f1f1f] px-3 text-[12px] text-[#9d9d9d] md:flex">
+            <div className="mx-auto hidden h-6 min-w-0 max-w-md flex-1 items-center justify-center truncate rounded-md border border-(--ide-border-strong) bg-(--ide-bg) px-3 text-[12px] text-(--ide-muted) md:flex">
               {workspace.projectName} — {challenge.title}
             </div>
             <div className="ml-auto flex items-center gap-1">
@@ -587,7 +588,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
                   value={stack}
                   onChange={(event) => changeStack(event.target.value as Stack)}
                   aria-label="Language and framework"
-                  className="h-7 rounded border border-[#3c3c3c] bg-[#313131] px-1.5 text-[12px] text-[#cccccc] outline-none focus:border-[#0078d4]"
+                  className="h-7 rounded border border-(--ide-border-strong) bg-(--ide-input) px-1.5 text-[12px] text-(--ide-fg) outline-none focus:border-[#0078d4]"
                 >
                   {stacks.map((item) => (
                     <option key={item} value={item}>{stackLabels[item]}</option>
@@ -598,16 +599,17 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
               <ToolButton icon={Lightbulb} label="Hint" onClick={hint} disabled={completed} />
               <ToolButton icon={Check} label="Check" onClick={check} disabled={completed} variant="primary" />
               <ToolButton icon={Play} label="Run it" onClick={() => setRunOpen(true)} disabled={!completed} variant="run" />
-              <div className="ml-1 flex items-center gap-1 border-l border-[#2b2b2b] pl-2">
+              <div className="ml-1 flex items-center gap-1 border-l border-(--ide-border) pl-2">
+                <ThemeToggle className="size-7 rounded text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)" iconClassName="size-3.5" />
                 {session.status === 'signed-in' ? (
                   <>
                     <span title={`${session.user.name} · ${session.user.email}`} className="grid size-6 place-items-center rounded-full bg-[#0078d4] text-[10px] font-semibold text-white">{initials}</span>
-                    <button type="button" onClick={session.signOut} aria-label="Sign out" title="Sign out" className="rounded p-1 text-[#9d9d9d] hover:bg-[#2b2b2b] hover:text-white">
+                    <button type="button" onClick={session.signOut} aria-label="Sign out" title="Sign out" className="rounded p-1 text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)">
                       <LogOut className="size-3.5" />
                     </button>
                   </>
                 ) : session.status === 'guest' ? (
-                  <Link href={loginHref(pathname)} className="flex h-7 items-center rounded px-2 text-[12px] text-[#cccccc] hover:bg-[#2b2b2b]">Sign in</Link>
+                  <Link href={loginHref(pathname)} className="flex h-7 items-center rounded px-2 text-[12px] text-(--ide-fg) hover:bg-(--ide-border)">Sign in</Link>
                 ) : null}
               </div>
             </div>
@@ -615,7 +617,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
 
           <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
             {/* Activity bar */}
-            <nav aria-label="Views" className="hidden w-12 shrink-0 flex-col border-r border-[#2b2b2b] bg-[#181818] lg:flex">
+            <nav aria-label="Views" className="hidden w-12 shrink-0 flex-col border-r border-(--ide-border) bg-(--ide-bar) lg:flex">
               <ActivityItem icon={Files} label="Explorer" active={explorerOpen && sidebarView === 'explorer'} onClick={() => showSidebar('explorer')} />
               <ActivityItem icon={Blocks} label="Blocks" active={paletteOpen} onClick={() => setPaletteOpen((open) => !open)} />
               <ActivityItem icon={Network} label="Architecture map" active={panelOpen && panelTab === 'architecture'} onClick={() => showPanel('architecture')} />
@@ -631,7 +633,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
               )}
               <div className="mt-auto">
                 {session.status === 'guest' ? (
-                  <Link href={loginHref(pathname)} aria-label="Sign in" title="Sign in" className="flex size-12 items-center justify-center text-[#868686] hover:text-[#cccccc]">
+                  <Link href={loginHref(pathname)} aria-label="Sign in" title="Sign in" className="flex size-12 items-center justify-center text-(--ide-icon) hover:text-(--ide-fg)">
                     <UserRound className="size-6" strokeWidth={1.5} />
                   </Link>
                 ) : (
@@ -642,7 +644,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
 
             {/* Explorer */}
             {explorerOpen && (
-              <aside className="relative h-72 shrink-0 border-b border-[#2b2b2b] bg-[#181818] lg:h-auto lg:w-(--explorer-w) lg:max-w-[40vw] lg:border-b-0 lg:border-r">
+              <aside className="relative h-72 shrink-0 border-b border-(--ide-border) bg-(--ide-bar) lg:h-auto lg:w-(--explorer-w) lg:max-w-[40vw] lg:border-b-0 lg:border-r">
                 <Sash
                   axis="x"
                   label="Resize explorer"
@@ -685,7 +687,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
 
             {/* Editor group */}
             <main className="flex min-w-0 flex-1 flex-col lg:min-h-0">
-              <div role="tablist" aria-label="Open files" className="flex h-9 shrink-0 overflow-x-auto border-b border-[#2b2b2b] bg-[#181818]">
+              <div role="tablist" aria-label="Open files" className="flex h-9 shrink-0 overflow-x-auto border-b border-(--ide-border) bg-(--ide-bar)">
                 {tabs.map((path) => {
                   const file = workspace.files.find((item) => item.path === path)
                   const isActive = path === activePath
@@ -693,19 +695,19 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
                     <div
                       key={path}
                       className={cn(
-                        'group flex shrink-0 items-center gap-1.5 border-r border-[#2b2b2b] pl-3 pr-1 text-[13px]',
-                        isActive ? 'border-t border-t-[#0078d4] bg-[#1f1f1f] text-white' : 'border-t border-t-transparent text-[#9d9d9d] hover:bg-[#1f1f1f]/60',
+                        'group flex shrink-0 items-center gap-1.5 border-r border-(--ide-border) pl-3 pr-1 text-[13px]',
+                        isActive ? 'border-t border-t-[#0078d4] bg-(--ide-bg) text-(--ide-heading)' : 'border-t border-t-transparent text-(--ide-muted) hover:bg-(--ide-bg)/60',
                       )}
                     >
                       <button type="button" role="tab" aria-selected={isActive} onClick={() => setActivePath(path)} className="flex h-full items-center gap-1.5">
                         <FileIcon path={path} />
-                        <span className={cn(file?.challenge && 'text-[#e2c08d]')}>{path.split('/').pop()}</span>
+                        <span className={cn(file?.challenge && 'text-(--ide-warning-soft)')}>{path.split('/').pop()}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => closeTab(path)}
                         aria-label={`Close ${path.split('/').pop()}`}
-                        className={cn('rounded p-0.5 hover:bg-[#3c3c3c]', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
+                        className={cn('rounded p-0.5 hover:bg-(--ide-border-strong)', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
                       >
                         <X className="size-3.5" />
                       </button>
@@ -715,18 +717,18 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
               </div>
 
               {activePath && (
-                <div className="flex h-6 shrink-0 items-center gap-0.5 overflow-x-auto px-3 text-[12px] text-[#9d9d9d]">
+                <div className="flex h-6 shrink-0 items-center gap-0.5 overflow-x-auto px-3 text-[12px] text-(--ide-muted)">
                   {activePath.split('/').map((part, index, parts) => (
                     <span key={index} className="flex shrink-0 items-center gap-0.5">
                       {index === parts.length - 1 && <FileIcon path={part} className="size-3.5" />}
-                      <span className={index === parts.length - 1 ? 'text-[#cccccc]' : undefined}>{part}</span>
+                      <span className={index === parts.length - 1 ? 'text-(--ide-fg)' : undefined}>{part}</span>
                       {index < parts.length - 1 && <ChevronRight className="size-3.5" />}
                     </span>
                   ))}
                 </div>
               )}
 
-              <div className="flex-1 overflow-auto bg-[#1f1f1f] lg:min-h-0">
+              <div className="flex-1 overflow-auto bg-(--ide-bg) lg:min-h-0">
                 {activeFile?.challenge ? (
                   <ChallengeEditor
                     about={activeFile.about}
@@ -746,11 +748,11 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
                 ) : activeFile ? (
                   <FileView file={activeFile} language={languageFor(activeFile.path)} />
                 ) : (
-                  <div className="grid h-full min-h-60 place-items-center p-6 text-center text-[13px] text-[#6e7681]">
+                  <div className="grid h-full min-h-60 place-items-center p-6 text-center text-[13px] text-(--ide-dim)">
                     <div>
                       <Files className="mx-auto mb-3 size-10" strokeWidth={1} />
                       Open a file from the explorer.
-                      <button type="button" onClick={() => openFile(workspace.challengePath)} className="mt-2 block w-full text-[#3794ff] hover:underline">
+                      <button type="button" onClick={() => openFile(workspace.challengePath)} className="mt-2 block w-full text-(--ide-link) hover:underline">
                         Open {challengeFileName}
                       </button>
                     </div>
@@ -759,7 +761,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
               </div>
 
               {panelOpen && (
-                <div className="relative h-64 shrink-0 border-t border-[#2b2b2b] lg:h-(--panel-h) lg:max-h-[60vh]">
+                <div className="relative h-64 shrink-0 border-t border-(--ide-border) lg:h-(--panel-h) lg:max-h-[60vh]">
                   <Sash
                     axis="y"
                     invert
@@ -797,7 +799,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
 
             {/* Block palette */}
             {paletteOpen && (
-              <aside className="relative h-[32rem] shrink-0 border-t border-[#2b2b2b] bg-[#181818] lg:h-auto lg:w-(--palette-w) lg:max-w-[45vw] lg:border-l lg:border-t-0">
+              <aside className="relative h-[32rem] shrink-0 border-t border-(--ide-border) bg-(--ide-bar) lg:h-auto lg:w-(--palette-w) lg:max-w-[45vw] lg:border-l lg:border-t-0">
                 <Sash
                   axis="x"
                   invert

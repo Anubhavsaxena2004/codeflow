@@ -36,7 +36,7 @@ export async function POST(request: Request, context: Context) {
     )
     const done = new Set(passed.map((row) => row.levelId))
     // Replaying a passed level is always allowed, even if a level was added before it since.
-    const blocking = done.has(level.id) ? undefined : project.levels.slice(0, index).find((earlier) => !done.has(earlier.id))
+    const blocking = done.has(level.id) || user.allLevelsOpen ? undefined : project.levels.slice(0, index).find((earlier) => !done.has(earlier.id))
     if (blocking) return jsonError(409, `Finish "${blocking.title}" first.`)
 
     const verdict = verifyLevel(level, submission as Submission)

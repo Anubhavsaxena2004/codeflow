@@ -11,11 +11,11 @@ export interface TerminalLine {
 }
 
 const lineColors: Record<TerminalLine['kind'], string> = {
-  input: 'text-[#cccccc]',
-  output: 'text-[#cccccc]',
-  error: 'text-[#f48771]',
-  success: 'text-[#89d185]',
-  info: 'text-[#9cdcfe]',
+  input: 'text-(--ide-fg)',
+  output: 'text-(--ide-fg)',
+  error: 'text-(--ide-error-soft)',
+  success: 'text-(--ide-success)',
+  info: 'text-(--ide-code)',
 }
 
 interface TerminalProps {
@@ -70,12 +70,12 @@ export function Terminal({ lines, prompt, onCommand, placeholder, autoFocus }: T
     <div className="ide-mono h-full min-h-0 cursor-text overflow-y-auto px-4 py-2 text-[12.5px] leading-5" onClick={() => input.current?.focus({ preventScroll: true })}>
       {lines.map((line, index) => (
         <div key={index} className={cn('whitespace-pre-wrap [overflow-wrap:anywhere]', lineColors[line.kind])}>
-          {line.kind === 'input' && <span className="text-[#89d185]">{line.prompt} </span>}
+          {line.kind === 'input' && <span className="text-(--ide-success)">{line.prompt} </span>}
           {line.text}
         </div>
       ))}
       <div className="flex items-center">
-        <label htmlFor="terminal-input" className="shrink-0 whitespace-pre text-[#89d185]">
+        <label htmlFor="terminal-input" className="shrink-0 whitespace-pre text-(--ide-success)">
           {prompt}{' '}
         </label>
         <input
@@ -90,7 +90,7 @@ export function Terminal({ lines, prompt, onCommand, placeholder, autoFocus }: T
           autoComplete="off"
           autoCorrect="off"
           aria-label="Terminal input"
-          className="ide-mono min-w-0 flex-1 bg-transparent text-[#e7e7e7] caret-[#e7e7e7] outline-none placeholder:text-[#5a5a5a]"
+          className="ide-mono min-w-0 flex-1 bg-transparent text-(--ide-fg-strong) caret-(--ide-fg-strong) outline-none placeholder:text-(--ide-faint)"
         />
       </div>
       <div ref={end} />

@@ -103,6 +103,8 @@ replace a file, and the explorer marks it `M`; new files are marked `U`.
 - Levels unlock in order. `POST /api/journeys/:id/levels/:levelId` re-verifies the submission on the
   server, refuses locked levels, and stores stars, XP and the learner's solution in `level_progress`.
   A passed level stays open, so adding a level in the middle of a journey never locks finished work.
+  An admin can open every level for one learner (`users.all_levels_open`, migration 005, the
+  **Open every level** switch under Learners); they can then attempt levels in any order.
 - `/admin` starts with **Learners**: every account, the level each one is on, XP, GitHub and last
   activity, plus how many learners passed each level. It reads `users`, `level_progress`,
   `github_connections` and `github_repos`; nothing extra is stored.
@@ -126,6 +128,7 @@ replace a file, and the explorer marks it `M`; new files are marked `U`.
 | GET / PUT / DELETE | `/api/admin/projects/:id` | admin | Read / save `{ definition, published }` / delete or revert |
 | POST | `/api/admin/scaffold` | admin | `{ id, track, title, tree, flow }` → a draft journey (not saved) |
 | GET | `/api/admin/learners` | admin | Every learner with their journeys, passed levels and GitHub repo |
+| PATCH | `/api/admin/learners/:id` | admin | `{ allLevelsOpen }` opens every level for that learner |
 
 ## Setup
 

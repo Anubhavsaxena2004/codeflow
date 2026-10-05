@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 const codeStyles = {
-  dark: 'rounded bg-[#2b2b2b] px-1 py-px text-[0.92em] text-[#ce9178]',
+  dark: 'rounded bg-(--ide-border) px-1 py-px text-[0.92em] text-(--ide-string)',
   light: 'rounded bg-[#eef1f6] px-1 py-px text-[0.92em] text-[#3b3f8f]',
 }
 

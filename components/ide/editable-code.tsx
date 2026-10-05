@@ -55,15 +55,15 @@ export function EditableCode({ value, language, about, instruction, readOnly, on
 
   return (
     <div>
-      <div className="flex items-start gap-2 border-b border-[#2b2b2b] bg-[#1f1f1f] px-4 py-2 font-sans text-[12px] leading-5 text-[#9d9d9d]">
-        <Info className="mt-0.5 size-3.5 shrink-0 text-[#3794ff]" />
+      <div className="flex items-start gap-2 border-b border-(--ide-border) bg-(--ide-bg) px-4 py-2 font-sans text-[12px] leading-5 text-(--ide-muted)">
+        <Info className="mt-0.5 size-3.5 shrink-0 text-(--ide-link)" />
         <div>
-          {about} {instruction && <span className="text-[#cccccc]">{instruction}</span>}
-          {readOnly && <span className="text-[#6e7681]"> · read-only</span>}
+          {about} {instruction && <span className="text-(--ide-fg)">{instruction}</span>}
+          {readOnly && <span className="text-(--ide-dim)"> · read-only</span>}
         </div>
       </div>
       <div className="ide-mono flex py-2 text-[13px] leading-5" onClick={() => textarea.current?.focus()}>
-        <div className="w-15 shrink-0 select-none pr-3 text-right text-[#6e7681]">
+        <div className="w-15 shrink-0 select-none pr-3 text-right text-(--ide-dim)">
           {Array.from({ length: lineCount }, (_, index) => (
             <div key={index} className="h-5">{index + 1}</div>
           ))}
@@ -85,7 +85,7 @@ export function EditableCode({ value, language, about, instruction, readOnly, on
               autoCorrect="off"
               wrap="off"
               aria-label="Code editor"
-              className="ide-mono absolute inset-0 size-full resize-none overflow-hidden whitespace-pre bg-transparent p-0 text-[13px] leading-5 text-transparent caret-[#aeafad] outline-none selection:bg-[#264f78]/60"
+              className="ide-mono absolute inset-0 size-full resize-none overflow-hidden whitespace-pre bg-transparent p-0 text-[13px] leading-5 text-transparent caret-(--ide-caret) outline-none selection:bg-(--ide-selection)/60"
             />
           </div>
         </div>

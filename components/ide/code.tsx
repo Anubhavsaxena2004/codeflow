@@ -1,7 +1,7 @@
 'use client'
 
 import { FileCode, FileJson, FileText, Settings, type LucideIcon } from 'lucide-react'
-import { Highlight, Prism, themes } from 'prism-react-renderer'
+import { Highlight, Prism, type PrismTheme } from 'prism-react-renderer'
 import { cn } from '@/lib/utils'
 
 // prism-react-renderer ships without Java; a clike extension covers what the Spring stack uses.
@@ -12,6 +12,26 @@ if (!Prism.languages.java) {
     'class-name': /\b[A-Z]\w*\b/,
   })
   Prism.languages.insertBefore('java', 'keyword', { annotation: { pattern: /@\w+/, alias: 'function' } })
+}
+
+// VS Code's colours as CSS variables (globals.css), so the code follows light and dark mode.
+const color = (name: string) => ({ color: `var(--syn-${name})` })
+const ideTheme: PrismTheme = {
+  plain: { ...color('plain'), backgroundColor: 'transparent' },
+  styles: [
+    { types: ['prolog', 'constant', 'char'], style: color('constant') },
+    { types: ['comment'], style: color('comment') },
+    { types: ['keyword', 'changed', 'interpolation-punctuation'], style: color('keyword') },
+    { types: ['builtin'], style: color('builtin') },
+    { types: ['number', 'inserted', 'boolean'], style: color('number') },
+    { types: ['attr-name', 'variable'], style: color('variable') },
+    { types: ['deleted', 'string', 'attr-value', 'template-punctuation'], style: color('string') },
+    { types: ['selector'], style: color('selector') },
+    { types: ['tag'], style: color('tag') },
+    { types: ['punctuation', 'operator'], style: color('punctuation') },
+    { types: ['function'], style: color('function') },
+    { types: ['class-name'], style: color('class') },
+  ],
 }
 
 const languages: Record<string, string> = {
@@ -42,7 +62,7 @@ export function commentPrefix(language: string) {
 /** Highlighted code, one div per line, so callers can line it up with a gutter. */
 export function CodeLines({ code, language, wrap = false, lineClassName }: { code: string; language: string; wrap?: boolean; lineClassName?: string }) {
   return (
-    <Highlight code={code} language={language} theme={themes.vsDark}>
+    <Highlight code={code} language={language} theme={ideTheme}>
       {({ tokens, getLineProps, getTokenProps }) => (
         <>
           {tokens.map((line, index) => {
@@ -70,7 +90,7 @@ const icons: Record<string, [LucideIcon, string]> = {
   java: [FileCode, 'text-[#e76f00]'],
   xml: [FileCode, 'text-[#e37933]'],
   json: [FileJson, 'text-[#cbcb41]'],
-  txt: [FileText, 'text-[#9d9d9d]'],
+  txt: [FileText, 'text-(--ide-muted)'],
   md: [FileText, 'text-[#519aba]'],
 }
 

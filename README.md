@@ -186,6 +186,9 @@ account, progress and GitHub connection.
 5. **Follow along** at `/admin` → **Learners**: the level each learner is on, XP, GitHub account and
    repository, last activity, and how many learners passed each level. It refreshes every minute,
    and **CSV** downloads the table.
+6. **Reviewers and mentors** who need to jump to any level: expand them under **Learners** and tick
+   **Open every level**. They can then open and attempt levels in any order; a level still only
+   counts once it is solved.
 
 The free Supabase plan handles a group this size. It pauses after a week with no activity, so
 open the site before a session if it has been quiet (see Troubleshooting).
@@ -212,7 +215,7 @@ app/                    pages and API routes (App Router)
   api/                  auth, progress, journeys, admin, GitHub
 components/
   journey/              the level workspace (mission panel, terminal, architecture board)
-  home/                 map, stack picker, profile
+  home/                 island map, stack picker, profile
   admin/                admin dashboard and editor
   ide/                  VS Code-style pieces shared by levels and challenges
 data/

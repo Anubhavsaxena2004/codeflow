@@ -113,13 +113,13 @@ function ActivityItem({ icon: Icon, label, active, onClick, disabled, indicator 
   )
 }
 
-export default function CodeFlowApp({ challenge = signupChallenge, sync = true }: { challenge?: Challenge; sync?: boolean }) {
+export default function CodeFlowApp({ challenge = signupChallenge, sync = true, initialStack }: { challenge?: Challenge; sync?: boolean; initialStack?: Stack }) {
   const pathname = usePathname()
   const session = useSession()
   const stacks = useMemo(() => availableStacks(challenge), [challenge])
   const order = useMemo(() => solutionOrder(challenge), [challenge])
 
-  const [stack, setStack] = useState<Stack>(stacks[0])
+  const [stack, setStack] = useState<Stack>(initialStack && stacks.includes(initialStack) ? initialStack : stacks[0])
   const workspace = useMemo(() => workspaceFor(challenge, stack), [challenge, stack])
   const language = languageFor(workspace.challengePath)
   const challengeFileName = workspace.challengePath.split('/').pop() ?? workspace.challengePath

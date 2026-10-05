@@ -33,6 +33,11 @@ as the Explorer; clicking Explorer switches back). The view offers:
 
 The GitHub icon is hidden in mentor preview mode (`sync={false}`).
 
+The profile page (`components/home/github-card.tsx`) offers the same from one place: connect
+(OAuth or a token), reconnect, disconnect, and one row per project with its linked repository,
+last push and a **Push latest** / **Create repo & push** button. `GET /api/github/status` lists
+`repos` with their `journeyId` so each repo can be shown next to its project.
+
 ## Setup
 
 ### 1. Environment variables

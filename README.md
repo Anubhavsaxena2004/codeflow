@@ -119,8 +119,9 @@ CodeFlow table. **Any migration that adds a table must also enable row level sec
 
 ## 4. GitHub push
 
-Learners push the project they built to **their own** GitHub repository from the GitHub view (the
-branch icon in any level). Every learner connects their own GitHub account, and their token is
+Learners push the project they built to **their own** GitHub repository, either from the GitHub
+view (the branch icon in any level) or from **Profile → GitHub**, which connects the account and
+lists every project with its repository and a push button. Every learner connects their own GitHub account, and their token is
 stored encrypted in `github_connections`, one row per CodeFlow user, so 15 or 1,500 learners each
 push to their own repositories. The only server setting it needs is `TOKEN_ENCRYPTION_KEY`.
 

@@ -56,15 +56,16 @@ export async function getLinkedRepo(userId: string, journeyId: string): Promise<
   return row ? { owner: row.owner, repo: row.repo, branch: row.branch, lastCommitSha: row.lastCommitSha } : null
 }
 
-export async function listLinkedRepos(userId: string): Promise<LinkedRepo[]> {
-  const rows = await query<{ owner: string; repo: string; branch: string; lastCommitSha: string | null }>(
-    `SELECT owner, repo, branch, last_commit_sha AS "lastCommitSha"
+/** Every repo the learner linked, with the journey (project) each one belongs to. */
+export async function listLinkedRepos(userId: string): Promise<(LinkedRepo & { journeyId: string })[]> {
+  const rows = await query<{ journeyId: string; owner: string; repo: string; branch: string; lastCommitSha: string | null }>(
+    `SELECT journey_id AS "journeyId", owner, repo, branch, last_commit_sha AS "lastCommitSha"
        FROM github_repos
       WHERE user_id = $1
       ORDER BY journey_id`,
     [userId],
   )
-  return rows.map((row) => ({ owner: row.owner, repo: row.repo, branch: row.branch, lastCommitSha: row.lastCommitSha }))
+  return rows.map((row) => ({ journeyId: row.journeyId, owner: row.owner, repo: row.repo, branch: row.branch, lastCommitSha: row.lastCommitSha }))
 }
 
 export async function linkRepo(userId: string, journeyId: string, repo: Omit<LinkedRepo, 'lastCommitSha'>): Promise<void> {

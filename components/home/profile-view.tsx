@@ -1,31 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, ExternalLink, Flame, GitBranch, Shield, Star } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Flame, Shield, Star } from 'lucide-react'
 import { Stars } from '@/components/journey/level-meta'
 import { achievementsFor, indexProgress, rankFor, streakDays } from '@/lib/journeys/progress'
 import { tracks, trackIds, type Track } from '@/lib/journeys/types'
 import type { ProjectSummary } from '@/lib/server/journeys'
 import { useLearner } from '@/lib/use-learner'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { GithubCard } from './github-card'
 import { Mascot } from './mascot'
 import { TrackPicker } from './track-picker'
 
-type GithubStatus = { connected: boolean; login: string | null; repos: { owner: string; repo: string }[] }
-
 export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
   const { session, track, setTrack, levels, ready } = useLearner()
-  const [github, setGithub] = useState<GithubStatus | null>(null)
   const signedIn = session.status === 'signed-in'
-
-  useEffect(() => {
-    if (!signedIn) return
-    fetch('/api/github/status')
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => data && setGithub({ connected: !!data.connected, login: data.login ?? null, repos: data.repos ?? [] }))
-      .catch(() => undefined)
-  }, [signedIn])
 
   const totalXp = levels.reduce((sum, row) => sum + row.xp, 0)
   const rank = rankFor(totalXp)
@@ -110,45 +99,33 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
           </ul>
         </section>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          <section className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-5 shadow-(--cf-shadow)">
-            <h2 className="font-semibold">Achievements</h2>
-            {earned.length ? (
-              <ul className="mt-3 flex flex-col gap-2 text-sm">
-                {earned.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between gap-2">
-                    <span><span className="font-medium">{item.title}</span> <span className="text-xs text-(--cf-muted)">{item.description}</span></span>
-                    <Stars count={3} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-sm text-(--cf-muted)">None yet. Pass a level to earn First Steps.</p>
-            )}
-          </section>
+        <GithubCard
+          signedIn={signedIn}
+          projects={started.map((journey) => ({
+            id: journey.id,
+            title: journey.title,
+            stack: tracks[journey.track].label,
+            projectName: journey.projectName,
+            passed: journey.levels.filter((level) => byProject[journey.id]?.[level.id]).length,
+            total: journey.levels.length,
+          }))}
+        />
 
-          <section className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-5 shadow-(--cf-shadow)">
-            <h2 className="flex items-center gap-2 font-semibold"><GitBranch className="size-4" /> GitHub</h2>
-            {!signedIn ? (
-              <p className="mt-2 text-sm text-(--cf-muted)">Sign in to push the projects you build to your own GitHub repositories.</p>
-            ) : github?.connected ? (
-              <>
-                <p className="mt-2 text-sm">Connected as <span className="font-semibold">@{github.login}</span>.</p>
-                <ul className="mt-2 flex flex-col gap-1 text-sm">
-                  {github.repos.map((repo) => (
-                    <li key={`${repo.owner}/${repo.repo}`}>
-                      <a href={`https://github.com/${repo.owner}/${repo.repo}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[#2563eb] dark:text-[#60a5fa] hover:underline">
-                        {repo.owner}/{repo.repo} <ExternalLink className="size-3" />
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : (
-              <p className="mt-2 text-sm text-(--cf-muted)">Not connected. Open any level and use the GitHub view (the branch icon) to connect and push.</p>
-            )}
-          </section>
-        </div>
+        <section className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-5 shadow-(--cf-shadow)">
+          <h2 className="font-semibold">Achievements</h2>
+          {earned.length ? (
+            <ul className="mt-3 flex flex-col gap-2 text-sm">
+              {earned.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-2">
+                  <span><span className="font-medium">{item.title}</span> <span className="text-xs text-(--cf-muted)">{item.description}</span></span>
+                  <Stars count={3} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-(--cf-muted)">None yet. Pass a level to earn First Steps.</p>
+          )}
+        </section>
       </div>
     </main>
   )

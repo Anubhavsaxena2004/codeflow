@@ -1,4 +1,4 @@
-import type { Project } from '@/lib/journeys/types'
+import type { JourneyTerm, Project } from '@/lib/journeys/types'
 
 // Django Todo API. Setup and database worlds for now: every startproject/startapp command
 // generates the same files the real one does, so learners see where each file comes from.
@@ -232,6 +232,32 @@ class Migration(migrations.Migration):
 `
 
 const VENV = '(venv)'
+
+// Explained in the workspace's Glossary tab; each level lists the terms its code uses.
+const GLOSSARY: JourneyTerm[] = [
+  { term: 'venv', definition: 'A virtual environment: a private Python and package folder for this project, so its packages never clash with others.' },
+  { term: 'activate', definition: 'Points python and pip at the venv for this terminal. The prompt shows (venv) while it is active; deactivate leaves it.', match: ['activate', 'Activate.ps1'] },
+  { term: 'pip', definition: "Python's package installer. With a venv active, packages go into venv/ instead of your system Python.", match: ['pip install', 'pip freeze', 'pip3 '] },
+  { term: 'requirements.txt', definition: 'Exact package versions. pip install -r requirements.txt rebuilds the same environment anywhere.' },
+  { term: 'django-admin', definition: "Django's global command. startproject creates a new project skeleton." },
+  { term: 'manage.py', definition: "The project's own command-line tool: runserver, startapp, makemigrations, migrate and more." },
+  { term: 'project vs app', definition: 'The project holds site-wide settings and URLs (config/); apps are features (todos/) with their own models and views.', match: ['startproject', 'startapp'] },
+  { term: 'settings.py', definition: 'Every setting of the site: installed apps, middleware, database, time zone.' },
+  { term: 'INSTALLED_APPS', definition: 'The apps Django loads. An app missing from this list gets no tables, migrations or admin pages.' },
+  { term: 'SECRET_KEY', definition: 'Signs sessions and tokens. Fine as generated for local work; production needs its own, kept outside the code.' },
+  { term: 'DEBUG', definition: 'Shows detailed error pages. Useful locally, never on in production.' },
+  { term: 'urls.py', definition: "Maps URL paths to views. The project's root table includes each app's URLs." },
+  { term: 'models.Model', definition: 'Base class for database tables: every field you declare becomes a column.' },
+  { term: 'CharField', definition: 'A text column. max_length is required.' },
+  { term: 'BooleanField', definition: 'A true/false column. default=False sets the value for new rows.' },
+  { term: 'DateTimeField', definition: 'A date and time column. auto_now_add sets it once when the row is created; auto_now updates it on every save.' },
+  { term: 'class Meta', definition: 'Options for a model, like the default ordering. ["-created_at"] means newest first.' },
+  { term: '__str__', definition: 'How a row prints, for example in the admin site. It must return a string.' },
+  { term: 'makemigrations', definition: 'Compares your models with existing migrations and writes a new migration file describing the change.' },
+  { term: 'migrate', definition: 'Applies every migration that has not run yet to the database.', match: ['manage.py migrate'] },
+  { term: 'runserver', definition: 'Starts the development server at http://127.0.0.1:8000/, reloading when files change.' },
+  { term: 'db.sqlite3', definition: "The file-based SQLite database Django uses by default. Local only; it's in .gitignore.", match: ['db.sqlite3', 'sqlite3'] },
+]
 
 export const djangoTodo: Project = {
   id: 'django-todo',
@@ -472,4 +498,5 @@ Migration files are code: commit them, so every copy of the project builds the s
       ],
     },
   ],
+  glossary: GLOSSARY,
 }

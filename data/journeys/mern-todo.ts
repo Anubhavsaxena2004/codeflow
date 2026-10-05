@@ -1,5 +1,5 @@
 import type { ScaffoldLine } from '@/data/challenges'
-import type { Project } from '@/lib/journeys/types'
+import type { JourneyTerm, Project } from '@/lib/journeys/types'
 
 // MERN Todo App: the folder structure from mern-todo-folder-structure.pdf, built world by world.
 // One deviation from the PDF: Vite keeps index.html at client/ (not client/public/), so that is
@@ -688,7 +688,66 @@ const APP_BUGGY = APP_SOLUTION.replace('// Load the list once, when the page fir
   .replace('updateTodo(todo._id,', 'updateTodo(todo.id,')
   .replace('current.filter((item) => item._id !== id)', 'current.filter((item) => item._id === id)')
 
-const NODE_MODULES_ABOUT = 'Downloaded packages. Never edit or commit it: `npm install` recreates it from package.json.'
+// Explained in the workspace's Glossary tab; each level lists the terms its code uses.
+const GLOSSARY: JourneyTerm[] = [
+  // Node and npm
+  { term: 'package.json', definition: "The project's manifest: its name, scripts, dependencies and devDependencies." },
+  { term: 'npm init -y', definition: 'Creates package.json with the default answers (-y means yes to everything).', match: ['npm init'] },
+  { term: 'npm install', definition: 'Downloads packages into node_modules and records them in package.json. --save-dev (or -D) records them as devDependencies instead.', match: ['npm install', 'npm i'] },
+  { term: 'npm run', definition: 'Runs a script from package.json. npm test is a shortcut for the "test" script.', match: ['npm run', 'npm test', 'npm pkg'] },
+  { term: 'node_modules', definition: 'Where npm puts downloaded packages. Never edited or committed: npm install recreates it.' },
+  { term: 'nodemon', definition: 'Restarts the server every time you save a file. Only needed while developing.' },
+  { term: '.env', definition: 'Local settings and secrets as NAME=value lines. Listed in .gitignore so it is never committed.' },
+  { term: 'process.env', definition: 'Environment variables available to the running program. dotenv copies .env into it at startup.' },
+  { term: 'dotenv', definition: 'Package that loads the .env file into process.env. Called first, before anything reads a setting.' },
+  { term: 'require', definition: 'Loads a package or another file (CommonJS): const express = require("express").' },
+  { term: 'module.exports', definition: 'What a file hands to whoever requires it. Whatever you assign here is the result of require().' },
+  { term: 'async / await', definition: 'await pauses the function until a Promise settles, without blocking the server. Only allowed inside an async function.', match: ['async (', 'await '] },
+  { term: 'try / catch', definition: 'If anything inside try throws (the database is down, say), execution jumps to catch so the server can still answer.', match: ['try {'] },
+  // Express
+  { term: 'app.use', definition: 'Runs middleware on every request, or mounts a router under a path prefix like /api/todos.' },
+  { term: 'app.listen', definition: 'Starts accepting HTTP requests on a port.' },
+  { term: 'express.json()', definition: 'Middleware that parses JSON request bodies. Without it, req.body is undefined.', match: ['express.json'] },
+  { term: 'cors()', definition: 'Lets pages from another origin (the React dev server on port 5173) call this API.', match: ['cors'] },
+  { term: 'express.Router()', definition: 'A mini app for related routes. Mounted with app.use, so its paths are relative to the mount point.', match: ['express.Router', 'router.'] },
+  { term: 'req.body', definition: 'The parsed JSON the client sent with the request.' },
+  { term: 'req.params', definition: 'Values from the URL path: for the route /:id, the id is in req.params.id.' },
+  { term: 'res.status()', definition: 'Sets the HTTP status code of the response. Chain .json() to send it.', match: ['res.status'] },
+  { term: 'res.json()', definition: 'Sends a JSON response and ends the request. Only one response per request.', match: ['res.json', ').json('] },
+  { term: '200', definition: 'OK: the request worked.', match: ['(200)'] },
+  { term: '201', definition: 'Created: a new resource was saved. The right answer to a successful POST.', match: ['(201)'] },
+  { term: '400', definition: 'Bad Request: the client sent missing or invalid data.', match: ['(400)'] },
+  { term: '404', definition: 'Not Found: nothing exists with that id.', match: ['(404)'] },
+  { term: '500', definition: 'Internal Server Error: something failed on the server side.', match: ['(500)'] },
+  { term: 'curl', definition: 'A command-line HTTP client: -X sets the method, -H adds a header, -d sends a body.' },
+  // MongoDB and Mongoose
+  { term: 'mongoose.connect', definition: 'Opens the MongoDB connection once, at startup. Returns a Promise.' },
+  { term: 'Schema', definition: 'Describes a document: its fields and their rules (type, required, default, maxlength).', match: ['Schema', 'schema'] },
+  { term: 'mongoose.model', definition: 'Turns a schema into a model you query with. Model "Todo" stores documents in the "todos" collection.' },
+  { term: 'timestamps', definition: 'Schema option that adds createdAt and updatedAt to every document automatically.' },
+  { term: 'Todo.find()', definition: 'Finds documents; with no filter, all of them. Chain .sort({ createdAt: -1 }) for newest first.', match: ['Todo.find('] },
+  { term: 'Todo.create()', definition: 'Validates and inserts a document, then resolves to the saved copy with its _id.', match: ['Todo.create'] },
+  { term: 'findByIdAndUpdate', definition: 'Updates one document by id. Resolves to the old version unless you pass { new: true }.' },
+  { term: 'findByIdAndDelete', definition: 'Deletes one document by id and resolves to it, or to null when nothing matched.' },
+  { term: '_id', definition: "MongoDB's unique id, generated for every document." },
+  // React
+  { term: 'Vite', definition: 'The dev server and build tool for the React app: npm run dev serves it, npm run build bundles it.', match: ['vite', 'Vite'] },
+  { term: 'import / export', definition: 'ES modules: export makes something available, import uses it. export default is the main thing a file provides.', match: ['import ', 'export '] },
+  { term: 'useState', definition: 'A React hook that keeps a value between renders. Calling its setter re-renders the component.' },
+  { term: 'useEffect', definition: 'Runs code after a render. The dependency array decides when it runs again; [] means only once.' },
+  { term: 'props', definition: 'Inputs a component receives from its parent, like todos or onAdd. Data flows down as props, events flow up as callbacks.', match: ['props', 'onAdd', 'onToggle', 'onDelete'] },
+  { term: 'key', definition: 'Lets React match list items between renders. Use a stable id such as _id, never the array index.', match: ['key='] },
+  { term: 'axios', definition: 'An HTTP client. axios.create makes an instance with a shared baseURL; response.data holds the parsed body.' },
+  // Testing and git
+  { term: 'jest.mock', definition: 'Replaces a module with a fake, so tests never touch the real thing (here, the database).' },
+  { term: 'jest.fn()', definition: 'A fake function that records every call, so a test can check how it was used.', match: ['jest.fn'] },
+  { term: 'expect', definition: 'Starts an assertion: expect(value).toBe(...), expect(mock).toHaveBeenCalledWith(...). .not flips it.', match: ['expect('] },
+  { term: 'describe / test', definition: 'describe groups related tests; each test is one scenario with arrange, act and assert.', match: ['describe(', 'test('] },
+  { term: 'git', definition: 'git init creates a repository, git add stages files, git commit records a snapshot with a message.', match: ['git init', 'git add', 'git commit'] },
+  { term: '.gitignore', definition: 'Paths git must never commit, like node_modules/ and .env.' },
+]
+
+const NODE_MODULES_ABOUT ='Downloaded packages. Never edit or commit it: `npm install` recreates it from package.json.'
 const LOCK_ABOUT = 'Exact versions of every installed package. Commit it in real projects; npm writes the real one on your machine.'
 const lockfile = (name: string) => json({ name, version: name === 'server' ? '1.0.0' : '0.0.0', lockfileVersion: 3, requires: true, packages: {} })
 
@@ -1291,4 +1350,5 @@ A user types "Buy milk" and presses Add. Put the stops that request passes throu
       returnTrip: 'Then back the same way: MongoDB hands the saved document to the model, the controller responds 201 with it, api.js returns response.data, handleAdd puts it into state, and React re-renders the list.',
     },
   ],
+  glossary: GLOSSARY,
 }

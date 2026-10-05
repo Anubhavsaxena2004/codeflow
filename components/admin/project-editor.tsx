@@ -304,6 +304,14 @@ function ProjectSettings({ draft, onChange }: { draft: Project; onChange: (proje
         })}
       </ul>
       <JsonField key={`${draft.id}-folders`} label="Folder explanations" hint='Folder path → what lives there, e.g. { "server/models": "What a todo looks like." }' value={draft.folders} onChange={(value) => value && typeof value === 'object' && set({ folders: value as Record<string, string> })} rows={8} />
+      <JsonField
+        key={`${draft.id}-glossary`}
+        label="Glossary"
+        hint='Shown in each level&apos;s Glossary tab when the term appears in its code: [{ "term": "req.body", "definition": "…", "match": ["req.body"] }]. match is optional and defaults to the term.'
+        value={draft.glossary ?? []}
+        onChange={(value) => Array.isArray(value) && set({ glossary: value as Project['glossary'] })}
+        rows={12}
+      />
     </div>
   )
 }

@@ -23,7 +23,7 @@ export interface Problem {
   line?: number
 }
 
-const problemIcons = {
+export const problemIcons = {
   error: <CircleX className="size-3.5 text-[#f14c4c]" />,
   warning: <TriangleAlert className="size-3.5 text-[#cca700]" />,
   hint: <Lightbulb className="size-3.5 text-[#cca700]" />,

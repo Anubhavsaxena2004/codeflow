@@ -19,6 +19,7 @@ import {
 import { ArrowLeft, BookOpen, Check, ChevronRight, Files, GitBranch, Lightbulb, Lock, LogOut, Map as MapIcon, Network, PanelBottom, PanelRight, Play, RotateCcw, SquareTerminal, UserRound, X } from 'lucide-react'
 import { LessonText } from '@/components/lesson-text'
 import { runChecks, type CheckResult } from '@/lib/journeys/checks'
+import { termsFor } from '@/lib/journeys/glossary'
 import { matchesStep } from '@/lib/journeys/commands'
 import { indexProgress, isUnlocked, levelStars, rankFor, xpFor } from '@/lib/journeys/progress'
 import { buildOrder, filesBefore, layer, outputOf } from '@/lib/journeys/snapshot'
@@ -28,6 +29,7 @@ import { useLearner } from '@/lib/use-learner'
 import { loginHref } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
 import { BlockCard, BlockPalette } from '../ide/block-palette'
+import type { Problem, SlotGuideRow } from '../ide/bottom-panel'
 import { ChallengeEditor, FileView, type SlotStatus } from '../ide/code-editor'
 import { FileIcon, languageFor } from '../ide/code'
 import { EditableCode } from '../ide/editable-code'
@@ -36,6 +38,7 @@ import { GithubPanel, type GithubRepo } from '../ide/github-panel'
 import { Sash } from '../ide/sash'
 import { Terminal, type TerminalLine } from '../ide/terminal'
 import { FlowBoard } from './flow-board'
+import { JourneyPanel, type FlowContext, type JourneyTab } from './journey-panel'
 import { CommandSteps, CompletionCard, HintNote, MissionHeader, MissionSection, NewFiles, QuizCard, TestList } from './mission'
 
 type IconType = ComponentType<{ className?: string; strokeWidth?: number }>
@@ -183,6 +186,9 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const [sidebar, setSidebar] = useState<'explorer' | 'github' | null>('explorer')
   const [missionOpen, setMissionOpen] = useState(true)
   const [panelOpen, setPanelOpen] = useState(true)
+  const [panelTab, setPanelTab] = useState<JourneyTab>('terminal')
+  // Commands the current step rejected, listed under Problems.
+  const [rejected, setRejected] = useState<string[]>([])
   const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT)
   const firstTab = isCodeLevel(level) || level.kind === 'build' ? (level as { path: string }).path : level.kind === 'architecture' ? FLOW_TAB : LESSON_TAB
   const [tabs, setTabs] = useState<string[]>(() => [...new Set([firstTab, ...(level.kind === 'architecture' ? [LESSON_TAB] : [])])])
@@ -285,6 +291,14 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     }
   }, [base, level, stepIndex, code])
   const fileList = useMemo(() => [...files.values()], [files])
+  const terms = useMemo(() => termsFor(project.glossary, level), [project.glossary, level])
+  // The journey's request flow, with the stops this level's files belong to. Hidden on the architecture level itself.
+  const flow = useMemo<FlowContext | null>(() => {
+    const finale = project.levels.find((item) => item.kind === 'architecture')
+    if (!finale || finale.kind !== 'architecture' || finale.id === level.id) return null
+    const paths = new Set(outputOf(level).map((file) => file.path))
+    return { nodes: finale.nodes, current: new Set(finale.nodes.filter((node) => node.files.some((path) => paths.has(path))).map((node) => node.id)), returnTrip: finale.returnTrip }
+  }, [project, level])
 
   const openFile = (path: string) => {
     if (path.endsWith('/') || !files.has(path)) return
@@ -350,6 +364,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     const failing = outcome.filter((result) => !result.passed)
     setResults(outcome)
     setPanelOpen(true)
+    setPanelTab('terminal')
     print(
       { kind: 'input', prompt: prompt, text: 'npm test' },
       { kind: failing.length ? 'error' : 'success', text: `${failing.length ? ' FAIL ' : ' PASS '} ${codeLevel.path}` },
@@ -358,6 +373,11 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     )
     if (failing.length) setWrong((count) => count + 1)
     else void submit({ code })
+  }
+
+  const showProblems = () => {
+    setPanelOpen(true)
+    setPanelTab('problems')
   }
 
   // ---- build -------------------------------------------------------------------
@@ -407,8 +427,8 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   }
   const checkBuild = async () => {
     setBuildChecked(true)
-    const decoy = slots.map(blockById).find((block) => block?.whyWrong)
-    if (!(await submit({ order: slots })) && decoy) setHintNote(`“${decoy.label}” looks right but isn't: ${decoy.whyWrong}`)
+    // Problems explains each wrong slot, including why a decoy block is wrong.
+    if (!(await submit({ order: slots }))) showProblems()
   }
 
   // ---- architecture --------------------------------------------------------------
@@ -424,7 +444,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   }
   const checkFlow = async () => {
     setFlowChecked(true)
-    await submit({ order: arrangement })
+    if (!(await submit({ order: arrangement }))) showProblems()
   }
 
   // ---- terminal ------------------------------------------------------------------
@@ -526,10 +546,12 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         setStepIndex(nextTyped.length)
         setHintLevel(0)
         setHintNote(null)
+        setRejected([])
         if (nextTyped.length === level.steps.length) void submit({ commands: nextTyped })
         return
       }
       setWrong((count) => count + 1)
+      setRejected((current) => [...current.slice(-4), command])
       const sameTool = command.split(' ')[0] === step.accept[0].split(' ')[0]
       return print({ kind: 'error', text: sameTool ? 'Right tool, but not quite the right arguments. Type hint for a clue.' : 'That is not what this step needs. Type hint for a clue.' })
     }
@@ -564,6 +586,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     setHinted(new Set())
     if (level.kind === 'architecture') setArrangement(Array(level.nodes.length).fill(null))
     setFlowChecked(false)
+    setRejected([])
     setTerminal(welcome)
   }
 
@@ -571,6 +594,35 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const initials = session.user?.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
   const passed = phase === 'passed'
   const activeFile = activeTab ? files.get(activeTab) : undefined
+
+  // ---- bottom panel: slot guide and problems -----------------------------------------
+  const slotGuide: SlotGuideRow[] | null =
+    level.kind === 'build'
+      ? order.map((_, index) => ({ kind: level.steps?.[index]?.kind ?? `Step ${index + 1}`, goal: level.steps?.[index]?.goal ?? '', placed: blockById(slots[index])?.label, status: statuses[index] }))
+      : null
+  const focusStep = (index: number) => {
+    if (level.kind !== 'build') return
+    openFile(level.path)
+    // Wait for the file to render if another tab was active.
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => document.querySelector(`[data-slot="${index}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })))
+  }
+  const problems: Problem[] = []
+  if (passed) problems.push({ severity: 'success', message: `${level.title}: passed.` })
+  else {
+    if (isCodeLevel(level)) for (const result of results ?? []) if (!result.passed) problems.push({ severity: 'error', message: `Failing test: ${result.name}` })
+    if (level.kind === 'build' && buildChecked)
+      statuses.forEach((status, index) => {
+        if (status === 'empty') problems.push({ severity: 'warning', message: `Step ${index + 1} is empty.` })
+        if (status === 'wrong') problems.push({ severity: 'error', message: `“${blockById(slots[index])?.label}” doesn't belong at step ${index + 1}.`, detail: blockById(slots[index])?.whyWrong })
+      })
+    if (level.kind === 'architecture' && flowChecked)
+      arrangement.forEach((id, index) => {
+        if (id && id !== level.nodes[index].id) problems.push({ severity: 'error', message: `Stop ${index + 1}: “${level.nodes.find((node) => node.id === id)?.label}” is not in the right place.` })
+      })
+    if (level.kind === 'explore' && quizResult === 'wrong') problems.push({ severity: 'error', message: 'That answer is not right yet.' })
+    for (const command of rejected) problems.push({ severity: 'warning', message: `“${command}” is not what step ${stepIndex + 1} needs.` })
+    if (hintNote) problems.push({ severity: 'hint', message: hintNote })
+  }
   const primary =
     isCodeLevel(level) ? { label: 'Run tests', icon: Play, action: runTests } : level.kind === 'build' ? { label: 'Check', icon: Check, action: checkBuild } : level.kind === 'architecture' ? { label: 'Check order', icon: Check, action: checkFlow } : null
   const pushPath = isCodeLevel(level) || level.kind === 'build' ? (level as { path: string }).path : outputOf(level).filter((file) => !file.path.endsWith('/') && !file.generated).at(-1)?.path ?? 'README.md'
@@ -808,18 +860,21 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
               {panelOpen && (
                 <div className="relative h-64 shrink-0 border-t border-[#2b2b2b] bg-[#181818] lg:h-(--panel-h) lg:max-h-[60vh]">
-                  <Sash axis="y" invert label="Resize terminal" value={layout.panel} min={LAYOUT_MIN.panel} max={maxPanelHeight} onChange={resize('panel')} onReset={resetSize('panel')} className="top-0 -translate-y-1/2" />
-                  <div className="flex h-full min-h-0 flex-col">
-                    <div className="flex h-9 shrink-0 items-center gap-1 px-2">
-                      <span className="flex h-full items-center border-b border-[#0078d4] px-2 text-[11px] tracking-wide text-[#e7e7e7]">TERMINAL</span>
-                      <button type="button" onClick={() => setPanelOpen(false)} aria-label="Close terminal" className="ml-auto rounded p-1 text-[#9d9d9d] hover:bg-[#2b2b2b] hover:text-[#cccccc]">
-                        <X className="size-4" />
-                      </button>
-                    </div>
-                    <div className="min-h-0 flex-1">
-                      <Terminal lines={terminal} prompt={prompt} onCommand={runCommand} autoFocus={level.kind === 'command'} placeholder={level.kind === 'command' && phase === 'playing' ? 'type a command…' : undefined} />
-                    </div>
-                  </div>
+                  <Sash axis="y" invert label="Resize panel" value={layout.panel} min={LAYOUT_MIN.panel} max={maxPanelHeight} onChange={resize('panel')} onReset={resetSize('panel')} className="top-0 -translate-y-1/2" />
+                  <JourneyPanel
+                    tab={panelTab}
+                    onTab={setPanelTab}
+                    onClose={() => setPanelOpen(false)}
+                    terminal={<Terminal lines={terminal} prompt={prompt} onCommand={runCommand} autoFocus={level.kind === 'command'} placeholder={level.kind === 'command' && phase === 'playing' ? 'type a command…' : undefined} />}
+                    steps={slotGuide}
+                    fileName={level.kind === 'build' ? level.path.split('/').pop() ?? level.path : ''}
+                    onStepClick={focusStep}
+                    problems={problems}
+                    terms={terms}
+                    allTerms={project.glossary ?? []}
+                    flow={flow}
+                    onOpenFile={openFile}
+                  />
                 </div>
               )}
             </main>
@@ -867,7 +922,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                     <MissionSection title={`STEPS ${Math.min(stepIndex, level.steps.length)}/${level.steps.length}`}>
                       <CommandSteps steps={level.steps} current={stepIndex} typed={typed} />
                       {!panelOpen && (
-                        <button type="button" onClick={() => setPanelOpen(true)} className="mt-3 w-full rounded-sm border border-[#3c3c3c] py-1.5 text-[12px] hover:bg-[#2b2b2b]">Open the terminal</button>
+                        <button type="button" onClick={() => { setPanelOpen(true); setPanelTab('terminal') }} className="mt-3 w-full rounded-sm border border-[#3c3c3c] py-1.5 text-[12px] hover:bg-[#2b2b2b]">Open the terminal</button>
                       )}
                     </MissionSection>
                   )}
@@ -897,7 +952,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
                   {level.kind === 'build' && (
                     <>
-                      <MissionSection title="LESSON">
+                      <MissionSection title="LESSON" defaultOpen={false}>
                         <LessonText text={level.lesson} className="text-[12px] leading-5 text-[#cccccc]" />
                       </MissionSection>
                       <div className="h-[32rem] min-h-0 border-t border-[#2b2b2b] lg:h-auto lg:flex-1">

@@ -1,22 +1,27 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Check, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles } from 'lucide-react'
 import type { CheckResult } from '@/lib/journeys/checks'
 import { kindLabels, type Check as CheckDefinition, type CommandStep, type LevelKind, type Quiz } from '@/lib/journeys/types'
 import { cn } from '@/lib/utils'
 import { FileIcon } from '../ide/code'
 import { kindIcons, Stars } from './level-meta'
 
-export function MissionSection({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
+/** A collapsible block of the mission panel, so the parts that matter right now get the room. */
+export function MissionSection({ title, children, aside, defaultOpen = true }: { title: string; children: ReactNode; aside?: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   return (
-    <section className="border-t border-[#2b2b2b] px-4 py-3">
-      <div className="mb-2 flex items-center justify-between text-[11px] font-bold tracking-wide text-[#bbbbbb]">
-        {title}
+    <section className="border-t border-[#2b2b2b] px-4 py-2">
+      <div className="flex items-center justify-between gap-2 text-[11px] font-bold tracking-wide text-[#bbbbbb]">
+        <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="-ml-1 flex flex-1 items-center gap-1 rounded py-1 text-left hover:text-white">
+          {open ? <ChevronDown aria-hidden className="size-3.5" /> : <ChevronRight aria-hidden className="size-3.5" />}
+          {title}
+        </button>
         {aside}
       </div>
-      {children}
+      {open && <div className="pb-1 pt-1.5">{children}</div>}
     </section>
   )
 }

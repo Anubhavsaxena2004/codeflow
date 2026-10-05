@@ -1,0 +1,92 @@
+---
+description: CodeFlow UI polish — hard limits and design system for all visual work
+globs:
+alwaysApply: true
+---
+
+# CodeFlow UI polish rules
+
+## What this work is
+CodeFlow teaches backend development as a game. A learner picks a stack (MERN, Django, Spring Boot) and plays island worlds of levels. Level kinds: Concept, Terminal, Code, Bug hunt, Build, Architecture. Levels unlock in order. Passing gives 1–3 stars and XP. Every 500 XP is a rank. There are day streaks, 6 achievements and boss levels.
+We are making it look and feel like a polished game: the clarity of Duolingo, the juicy feedback of Supercell games and the polish of a AAA launcher. This is visual and interaction polish ONLY.
+
+## Hard rules
+1. Visual and interaction polish only. Do NOT change any of these:
+   - routes or URLs
+   - anything in app/api/**, lib/server/**, lib/journeys/**, lib/github/**, data/**, db/**
+   - request/response shapes or auth
+   - scoring, XP, ranks, stars or streaks
+   - level unlock order or how answers are checked
+   - the GitHub push logic
+   - the localStorage keys codeflow-theme, codeflow-map-mode, codeflow-track, codeflow-journeys
+2. Every existing button, link, form, handler and aria-label stays and does the same thing. Keep visible button and link text identical, because tests and users rely on it. Restyle and rearrange freely, but never remove or rename a feature.
+3. Support light AND dark mode. Use the existing tokens. Every new token gets a light and a dark value in app/globals.css, following the file's existing pattern.
+4. Respect prefers-reduced-motion. Every animation has a still fallback, both in a CSS media query and in framer-motion (MotionConfig / useReducedMotion).
+5. Accessibility:
+   - visible :focus-visible ring
+   - text contrast ≥ 4.5:1, icons and large text ≥ 3:1
+   - real <button> and <a> elements
+   - never colour alone to carry meaning; pair it with an icon and/or text
+6. Responsive from 390px to 1920px, with no horizontal page scroll.
+7. Performance:
+   - Prefer CSS, SVG and framer-motion.
+   - No new heavy dependency. If one is truly needed, justify it and run `npx pnpm@12.3.4 install --lockfile-only` so pnpm-lock.yaml matches.
+   - The 3D map stays lazy-loaded.
+   - Pause animation loops when off-screen or in a hidden tab.
+8. Before finishing, run `npx tsc --noEmit`, `npm run test:journeys`, `npm run test:github` and `npm run build`. Fix anything you broke. Tests may only change to keep passing.
+9. End with a short list of the files changed and where to see each change in the app.
+
+## UI file map
+Only edit these, plus new files under components/ui/, components/home/, components/journey/ or components/auth/ when a prompt asks for them.
+- Theme and global styles: app/globals.css, app/layout.tsx, lib/theme.ts, components/theme-toggle.tsx
+- Home: components/home/journey-home.tsx, journey-map.tsx, world-map-3d.tsx, world-map.tsx, island-art.tsx
+- Profile and onboarding: components/home/profile-view.tsx, github-card.tsx, track-picker.tsx, mascot.tsx
+- Auth: components/auth-form.tsx
+- Level page: components/journey/journey-workspace.tsx, mission.tsx, journey-panel.tsx, flow-board.tsx, level-meta.tsx, and components/ide/*
+- Logic challenge: components/codeflow-app.tsx
+- Effects: components/effects/celebration.tsx, tilt.tsx
+- Admin and mentor: components/admin/*, app/mentor/page.tsx
+
+## Design system (extend it, never replace it)
+- Token families:
+  - --cf-* for home, profile and sign-in
+  - --ide-* for the level page (VS Code Light/Dark Modern)
+  - --adm-* for admin
+  - --syn-* for code colours
+  - Light and dark are switched by the class "light"/"dark" on <html>.
+- Palette:
+  - green #22c55e→#15803d for primary actions
+  - purple #a855f7→#6d28d9 for XP and rank
+  - orange #f97316 for streaks
+  - gold #f5b301 for stars
+  - red #ef4444→#b91c1c for bosses
+  - World colours come from worldThemes in level-meta.tsx (village, forest, dungeon, castle, lab, city).
+- Contrast-safe pairings:
+  - White text only on #15803d, #6d28d9, #b91c1c or darker. (White on #22c55e is about 2.3:1, on #a855f7 about 4:1, on #ef4444 about 3.8:1. All of these fail.)
+  - Gold takes dark text. On light backgrounds, gold icons get a #b45309 outline.
+  - Orange text is #c2410c on light backgrounds and #fb923c on dark ones.
+  - Use the light ends of the gradients for fills, rims, glows and icons.
+- Effect classes: .tilt, .btn-shine, .btn-shine-idle, .glow-border, .animate-rise (staggered with --delay), .animate-star-pop, .animate-banner, .animate-flash, .animate-island, .animate-waves.
+- Mascot: SVG in mascot.tsx, 3D in world-map-3d.tsx.
+- Added by the polish passes. Use these whenever they exist and never create parallel versions:
+  - tokens: --font-display and .num (display font with tabular numbers), --fs-*, --radius-*, --elev-*, --depth-*, --dur-*, --ease-*
+  - components/ui/motion.ts and components/ui/motion-provider.tsx
+  - components/ui/game.tsx: GamePanel, GameButton, gameButtonClasses, Pill, SegmentedProgress, RankEmblem, StatTile, GameTooltip, ModalShell
+  - components/ui/states.tsx, components/home/level-pin.tsx, components/home/achievement-medal.tsx, components/journey/feedback.tsx
+
+## Design principles
+- The game layer wraps content and never covers it. On the level page, the IDE stays a real IDE; game accents go around the code (header, status bar, mission panel, feedback).
+- Each view has one primary action: the chunky green button.
+- Presses respond within 100ms. Important outcomes get a "moment": stars, XP, rank.
+- Motion explains rather than decorates:
+  - press 90ms, hover/state 160ms, enter 240ms with ease-out
+  - celebrations last 2.5s at most
+  - never more than 3 flashes per second
+- Headings, numbers and button labels use the display font. Code, terminal and file tree stay monospace.
+- Admin and mentor are professional: flat, dense, readable, with only 120–160ms fades.
+
+## Working style
+- Read the files before editing, summarise the current behaviour, and preserve it.
+- Keep each diff under about 400 lines. If it would be bigger, propose a split.
+- No hard-coded hex values in components when a token exists.
+- Don't invent data, features or APIs: no coins, shops or timers.

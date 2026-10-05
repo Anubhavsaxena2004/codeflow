@@ -47,6 +47,8 @@ export interface ProjectFile {
   /** Read-only contents. The challenge file has none: it is built from the scaffold and blocks. */
   content?: string
   challenge?: boolean
+  /** Created by a tool (node_modules, venv, lock files): dimmed in the explorer and never pushed. */
+  generated?: boolean
 }
 
 export interface StackVariant {

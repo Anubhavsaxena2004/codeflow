@@ -1,13 +1,15 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
-import { Check, LockKeyhole, Skull } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Check, LockKeyhole, Skull, Star } from 'lucide-react'
 import { Stars, worldThemes, type WorldPalette } from '@/components/journey/level-meta'
-import type { LevelProgress } from '@/lib/journeys/types'
+import { kindLabels, type LevelProgress } from '@/lib/journeys/types'
 import type { LevelSummary, ProjectSummary } from '@/lib/server/journeys'
 import { cn } from '@/lib/utils'
 import { IslandArt, ISLAND_H, ISLAND_W } from './island-art'
 import { Mascot } from './mascot'
+import { LevelPin } from './level-pin'
+import { GameTooltip } from '@/components/ui/game'
 
 // The journey as a sea of islands: one island per world, joined by bridges in the order you play
 // them, with each level on the island's path. Islands are laid out in rows that snake back and
@@ -121,48 +123,48 @@ function LevelNode({ level, number, state, row, selected, palette, point, onSele
   onSelect: () => void
 }) {
   const boss = !!level.boss
-  const locked = state === 'locked'
-  const fill = locked ? undefined : boss ? 'linear-gradient(145deg, #f87171, #b91c1c)' : state === 'done' ? `linear-gradient(145deg, ${palette.color}, ${palette.deep})` : '#ffffff'
+  const ariaLabel = `Level ${number}: ${level.title}${boss ? ' (boss)' : ''}, ${state === 'done' ? 'passed' : state === 'current' ? 'next up' : state === 'open' ? 'open' : 'locked'}`
+  const tooltipContent = `${level.title} · ${kindLabels[level.kind] || level.kind}${boss ? ' (Boss)' : ''}`
+
   return (
     <div className="absolute z-10 -translate-x-1/2 -translate-y-1/2" style={{ left: pct(point.x, ISLAND_W), top: pct(point.y, ISLAND_H) }}>
       {state === 'current' && (
-        <span className="pointer-events-none absolute bottom-full left-1/2 mb-2.5 flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded-full bg-white py-0.5 pl-0.5 pr-2 text-[10px] font-bold text-[#1b2140] shadow-md">
-          <span className="grid size-5 place-items-center overflow-hidden rounded-full bg-[#dcfce7]">
-            <Mascot className="size-5" />
-          </span>
-          You are here
-          <span aria-hidden className="absolute left-1/2 top-full -translate-x-1/2 border-x-[5px] border-t-[5px] border-x-transparent border-t-white" />
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={onSelect}
-        aria-pressed={selected}
-        title={level.title}
-        aria-label={`Level ${number}: ${level.title}${boss ? ' (boss)' : ''}, ${state === 'done' ? 'passed' : state === 'current' ? 'next up' : state === 'open' ? 'open' : 'locked'}`}
-        className={cn(
-          'relative grid place-items-center rounded-full border-[3px] font-extrabold shadow-[0_4px_10px_rgb(0_0_0/0.25)] transition hover:-translate-y-0.5 hover:scale-105 focus-visible:outline-none',
-          boss ? 'size-12 text-base' : 'size-10 text-sm',
-          locked ? 'border-white/70 bg-slate-300 text-slate-500 dark:border-slate-400/40 dark:bg-slate-600 dark:text-slate-300' : boss || state === 'done' ? 'border-white text-white' : '',
-          selected ? 'outline-[3px] outline-offset-[3px] outline-(--cf-text) outline-solid' : 'focus-visible:outline-[3px] focus-visible:outline-offset-[3px] focus-visible:outline-(--cf-text) focus-visible:outline-solid',
-        )}
-        style={{ background: fill, ...(!locked && !boss && state !== 'done' ? { borderColor: palette.color, color: palette.deep } : {}) }}
-      >
-        {state === 'current' && (
-          <span aria-hidden className="absolute -inset-2 animate-ping rounded-full border-2 motion-reduce:animate-none" style={{ borderColor: boss ? '#ef4444' : palette.color }} />
-        )}
-        {boss ? <Skull className="size-6" /> : locked ? <LockKeyhole className="size-4" /> : number}
-      </button>
-      {(boss || row) && (
-        <span className="pointer-events-none absolute left-1/2 top-full mt-1 flex -translate-x-1/2 flex-col items-center gap-0.5">
-          {boss && <span className="rounded bg-[#dc2626] px-1.5 text-[9px] font-extrabold leading-4 tracking-wider text-white shadow">BOSS</span>}
-          {row && (
-            <span className="rounded-full bg-white/90 px-1 leading-none shadow-sm dark:bg-[#0a1022]/75">
-              <Stars count={row.stars} />
+        <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 flex -translate-x-1/2 flex-col items-center">
+          <div className="flex animate-[bounce_3s_ease-in-out_infinite] motion-reduce:animate-none flex-col items-center">
+            <div className="mb-0.5 grid size-6 place-items-center overflow-hidden rounded-full bg-[#dcfce7] shadow-sm">
+              <Mascot className="size-5" />
+            </div>
+            <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2.5 py-0.5 text-[10px] font-display font-extrabold text-[#0f172a] shadow-md ring-1 ring-black/10 dark:bg-[#0f172a] dark:text-white dark:ring-white/20">
+              You are here
             </span>
-          )}
-        </span>
+            <span className="-mt-0.5 size-0 border-x-4 border-x-transparent border-t-4 border-t-white dark:border-t-[#0f172a]" />
+          </div>
+        </div>
       )}
+      <GameTooltip content={tooltipContent} side="top">
+        <button
+          type="button"
+          onClick={onSelect}
+          aria-pressed={selected}
+          aria-label={ariaLabel}
+          className={cn(
+            'group relative min-h-[44px] min-w-[44px] rounded-full flex items-center justify-center transition-transform duration-[var(--dur-fast,160ms)] ease-[var(--ease-pop)]',
+            'hover:scale-110 focus-visible:scale-110',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--focus-ring)]',
+          )}
+        >
+          <LevelPin
+            number={number}
+            kind={level.kind}
+            state={state}
+            isBoss={boss}
+            stars={row?.stars ?? 0}
+            selected={selected}
+            accentColor={palette.color}
+            deepColor={palette.deep}
+          />
+        </button>
+      </GameTooltip>
     </div>
   )
 }
@@ -200,7 +202,15 @@ export function WorldMap({ journey, done, stateOf, selectedId, onSelect }: World
       complete: levels.length > 0 && levels.every(({ level }) => done[level.id]),
     }
   })
-  const stars = scatter(70, width, height, 7)
+  const stars = useMemo(
+    () =>
+      scatter(40, width, height, 7).map((star, index) => ({
+        ...star,
+        period: 2 + (index % 4) * 0.9,
+        delay: (index * 0.35) % 2.5,
+      })),
+    [width, height],
+  )
 
   return (
     <div ref={wrapper} className="relative overflow-hidden rounded-3xl border border-(--cf-border) shadow-(--cf-shadow)">
@@ -208,14 +218,12 @@ export function WorldMap({ journey, done, stateOf, selectedId, onSelect }: World
         <svg viewBox={`0 0 ${width} ${height}`} className="absolute inset-0 size-full" aria-hidden>
           <defs>
             <linearGradient id={`${uid}-sea`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#8be4ff" />
-              <stop offset="0.55" stopColor="#3cc0f2" />
-              <stop offset="1" stopColor="#1d9bdc" />
+              <stop offset="0" stopColor="#bfe9ff" />
+              <stop offset="1" stopColor="#7dd3fc" />
             </linearGradient>
             <linearGradient id={`${uid}-night`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#0a1430" />
-              <stop offset="0.6" stopColor="#0b2446" />
-              <stop offset="1" stopColor="#0d3356" />
+              <stop offset="0" stopColor="#0b1026" />
+              <stop offset="1" stopColor="#172554" />
             </linearGradient>
             <radialGradient id={`${uid}-shallow`}>
               <stop offset="0.55" stopColor="#c9f4ff" stopOpacity="0.75" />
@@ -238,12 +246,24 @@ export function WorldMap({ journey, done, stateOf, selectedId, onSelect }: World
           <rect width={width} height={height} fill={`url(#${uid}-sea)`} className="dark:hidden" />
           <rect width={width} height={height} fill={`url(#${uid}-night)`} className="hidden dark:inline" />
           <g className="animate-waves">
-            <rect width={width + 80} height={height} fill={`url(#${uid}-waves)`} className="dark:hidden" />
-            <rect width={width + 80} height={height} fill={`url(#${uid}-ripples)`} className="hidden dark:inline" />
+            <rect width={width + 80} height={height} fill={`url(#${uid}-waves)`} className="dark:hidden" opacity="0.10" />
+            <rect width={width + 80} height={height} fill={`url(#${uid}-ripples)`} className="hidden dark:inline" opacity="0.08" />
           </g>
           <g className="hidden dark:inline">
             {stars.map((star, index) => (
-              <circle key={index} cx={star.x} cy={star.y} r={star.r} fill="#e0f2fe" opacity={star.o} />
+              <circle
+                key={index}
+                cx={star.x}
+                cy={star.y}
+                r={star.r}
+                fill="#e0f2fe"
+                className="animate-pulse motion-reduce:animate-none"
+                style={{
+                  animationDuration: `${star.period}s`,
+                  animationDelay: `${star.delay}s`,
+                  opacity: star.o,
+                }}
+              />
             ))}
           </g>
 
@@ -270,6 +290,9 @@ export function WorldMap({ journey, done, stateOf, selectedId, onSelect }: World
           const cell = cells[worldIndex]
           const points = levelPoints(levels.length)
           const WorldIcon = palette.icon
+          const doneCount = levels.filter(({ level }) => done[level.id]).length
+          const totalCount = levels.length
+
           return (
             <div
               key={world.id}
@@ -277,33 +300,74 @@ export function WorldMap({ journey, done, stateOf, selectedId, onSelect }: World
               className="animate-island absolute scroll-mt-24"
               style={{ left: pct(cell.x, width), top: pct(cell.y, height), width: pct(ISLAND_W, width), height: pct(ISLAND_H, height), animationDelay: `${-worldIndex * 1.4}s` }}
             >
-              <svg viewBox={`0 0 ${ISLAND_W} ${ISLAND_H}`} className={cn('absolute inset-0 size-full overflow-visible', !reached && 'opacity-90 saturate-[0.55]')} aria-hidden>
-                <IslandArt theme={world.theme} palette={palette} uid={`${uid}-${worldIndex}`} />
+              <svg viewBox={`0 0 ${ISLAND_W} ${ISLAND_H}`} className={cn('absolute inset-0 size-full overflow-visible', !reached && 'opacity-90')} aria-hidden>
+                <IslandArt theme={world.theme} palette={palette} uid={`${uid}-${worldIndex}`} locked={!reached} />
                 {points.slice(1).map((point, index) => {
                   const from = points[index]
                   const walked = !!done[levels[index].level.id] && !!done[levels[index + 1].level.id]
                   const d = `M${from.x} ${from.y} Q${(from.x + point.x) / 2} ${(from.y + point.y) / 2 - 12} ${point.x} ${point.y}`
                   return (
                     <g key={index}>
-                      <path d={d} fill="none" stroke="#000000" strokeOpacity="0.12" strokeWidth="8" strokeLinecap="round" />
-                      <path d={d} fill="none" stroke={walked ? '#fde047' : '#ffffff'} strokeOpacity="0.95" strokeWidth="4" strokeLinecap="round" strokeDasharray={walked ? undefined : '1 9'} />
+                      {walked ? (
+                        <>
+                          <path
+                            d={d}
+                            fill="none"
+                            stroke={palette.deep}
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                            className="animate-path-draw"
+                          />
+                          <path
+                            d={d}
+                            fill="none"
+                            stroke="#ffffff"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeOpacity="0.85"
+                            className="animate-path-draw"
+                          />
+                        </>
+                      ) : (
+                        <path
+                          d={d}
+                          fill="none"
+                          stroke="#94a3b8"
+                          strokeOpacity="0.65"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeDasharray="2 10"
+                        />
+                      )}
                     </g>
                   )
                 })}
               </svg>
 
               <div
-                className="absolute left-[4%] top-0 z-20 flex max-w-[64%] items-center gap-2 rounded-xl py-1.5 pl-1.5 pr-2.5 text-white shadow-lg ring-1 ring-white/35"
-                style={{ background: `linear-gradient(135deg, ${palette.color}, ${palette.deep})` }}
+                className="absolute left-[4%] top-0 z-20 flex max-w-[70%] items-center gap-2 px-3 py-1.5 text-white shadow-lg"
+                style={{
+                  backgroundColor: palette.deep,
+                  clipPath: 'polygon(0% 0%, calc(100% - 10px) 0%, 100% 50%, calc(100% - 10px) 100%, 0% 100%, 8px 50%)',
+                }}
               >
-                <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-white/20">
-                  <WorldIcon className="size-4" />
+                <span className="grid size-6 shrink-0 place-items-center rounded bg-white/20">
+                  <WorldIcon className="size-3.5" />
                 </span>
                 <span className="min-w-0 leading-tight">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wider opacity-85">World {worldIndex + 1}</span>
-                  <span className="block truncate text-[13px] font-bold">{world.title}</span>
+                  <span className="block text-[9px] font-display font-extrabold uppercase tracking-wider text-white/80">World {worldIndex + 1}</span>
+                  <span className="block truncate font-display text-[12px] font-extrabold text-white drop-shadow-sm">{world.title}</span>
                 </span>
-                {complete ? <Check aria-label="World complete" className="size-4 shrink-0" /> : !reached ? <LockKeyhole aria-label="Locked" className="size-3.5 shrink-0 opacity-90" /> : null}
+                {complete ? (
+                  <Check aria-label="World complete" className="size-3.5 shrink-0" />
+                ) : !reached ? (
+                  <LockKeyhole aria-label="Locked" className="size-3 shrink-0 opacity-90" />
+                ) : (
+                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-white/90">
+                    <Star aria-hidden="true" className="size-2.5 fill-[#f5b301] text-[#f5b301]" />
+                    <span>{doneCount}/{totalCount}</span>
+                  </span>
+                )}
               </div>
 
               {levels.map(({ level, index }, position) => (

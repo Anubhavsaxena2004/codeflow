@@ -2,22 +2,43 @@
 
 import { Component, useEffect, useState, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
+import { motion } from 'framer-motion'
 import { Box, Map as MapIcon } from 'lucide-react'
 import type { LevelProgress } from '@/lib/journeys/types'
 import type { ProjectSummary } from '@/lib/server/journeys'
 import { cn } from '@/lib/utils'
+import { GameTooltip } from '@/components/ui/game'
 import { WorldMap, type LevelState } from './world-map'
 
 // Picks between the 3D world (three.js, loaded only when it is shown) and the 2D island map. The
 // 2D map is the fallback without WebGL, with reduced motion, while 3D loads, and if 3D crashes.
 
+function MapSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="relative grid h-[clamp(420px,62vh,620px)] w-full place-items-center overflow-hidden rounded-3xl border border-(--cf-border) bg-gradient-to-b from-[#bfe9ff] to-[#7dd3fc] dark:from-[#0b1026] dark:to-[#172554]"
+    >
+      {/* Island silhouettes */}
+      <div className="absolute inset-0 flex items-center justify-around px-8 opacity-40">
+        <div className="h-44 w-56 rounded-full bg-white/40 blur-sm dark:bg-white/10" />
+        <div className="h-52 w-64 rounded-full bg-white/40 blur-sm dark:bg-white/10" />
+        <div className="hidden h-40 w-52 rounded-full bg-white/40 blur-sm md:block dark:bg-white/10" />
+      </div>
+      {/* Shimmer sweep */}
+      <div className="pointer-events-none absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent motion-reduce:hidden" />
+      <div className="relative z-10 flex flex-col items-center gap-2.5 rounded-2xl bg-black/45 px-6 py-3.5 text-white shadow-xl backdrop-blur-md">
+        <div className="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none" />
+        <span className="font-display text-sm font-bold tracking-wide">Loading world…</span>
+      </div>
+    </div>
+  )
+}
+
 const WorldMap3D = dynamic(() => import('./world-map-3d'), {
   ssr: false,
-  loading: () => (
-    <div className="grid h-[clamp(420px,62vh,620px)] place-items-center rounded-3xl border border-(--cf-border) bg-gradient-to-b from-[#bfe8ff] to-[#2fb5ec] text-sm font-bold text-white dark:from-[#081226] dark:to-[#0c2f52]">
-      Building your world…
-    </div>
-  ),
+  loading: () => <MapSkeleton />,
 })
 
 type Mode = '3d' | '2d'
@@ -113,24 +134,72 @@ export function JourneyMap(props: JourneyMapProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      {canUse3d && (
-        <div className="flex justify-end">
-          <div role="radiogroup" aria-label="Map view" className="inline-flex rounded-xl border border-(--cf-border) bg-(--cf-surface) p-0.5 shadow-sm">
-            {([['3d', '3D world', Box], ['2d', '2D map', MapIcon]] as const).map(([value, label, Icon]) => (
+      <div className="flex justify-end">
+        <div
+          role="radiogroup"
+          aria-label="Map view"
+          className="relative inline-flex h-9 items-center rounded-xl border border-(--cf-border) bg-(--cf-surface) p-0.5 shadow-sm"
+        >
+          {canUse3d ? (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={mode === '3d'}
+              onClick={() => choose('3d')}
+              className={cn(
+                'relative z-10 flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-display font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--focus-ring)',
+                mode === '3d' ? 'text-white' : 'text-(--cf-muted) hover:text-(--cf-text)',
+              )}
+            >
+              {mode === '3d' && (
+                <motion.div
+                  layoutId="map-mode-thumb"
+                  className="absolute inset-0 rounded-lg bg-[#16a34a] shadow-sm"
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                />
+              )}
+              <Box className="relative z-10 size-3.5" />
+              <span className="relative z-10">3D world</span>
+            </button>
+          ) : (
+            <GameTooltip content="3D needs WebGL" side="top">
               <button
-                key={value}
                 type="button"
                 role="radio"
-                aria-checked={mode === value}
-                onClick={() => choose(value)}
-                className={cn('flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold transition', mode === value ? 'bg-[#16a34a] text-white shadow' : 'text-(--cf-muted) hover:text-(--cf-text)')}
+                aria-checked={false}
+                disabled
+                aria-label="3D world (3D needs WebGL)"
+                className="relative z-10 flex h-full cursor-not-allowed items-center gap-1.5 rounded-lg px-3 text-xs font-display font-bold opacity-45 text-(--cf-muted)"
               >
-                <Icon className="size-3.5" /> {label}
+                <Box className="size-3.5" />
+                <span>3D world</span>
               </button>
-            ))}
-          </div>
+            </GameTooltip>
+          )}
+
+          <button
+            type="button"
+            role="radio"
+            aria-checked={mode === '2d'}
+            onClick={() => choose('2d')}
+            className={cn(
+              'relative z-10 flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-display font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--focus-ring)',
+              mode === '2d' ? 'text-white' : 'text-(--cf-muted) hover:text-(--cf-text)',
+            )}
+          >
+            {mode === '2d' && (
+              <motion.div
+                layoutId="map-mode-thumb"
+                className="absolute inset-0 rounded-lg bg-[#16a34a] shadow-sm"
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              />
+            )}
+            <MapIcon className="relative z-10 size-3.5" />
+            <span className="relative z-10">2D map</span>
+          </button>
         </div>
-      )}
+      </div>
+
       {mode === '3d' ? (
         <Fallback onError={() => setMode('2d')}>
           <WorldMap3D {...props} night={night} motion={!reduced} />
@@ -138,7 +207,7 @@ export function JourneyMap(props: JourneyMapProps) {
       ) : mode === '2d' ? (
         <WorldMap journey={props.journey} done={props.done} stateOf={props.stateOf} selectedId={props.selectedId} onSelect={props.onSelect} />
       ) : (
-        <div className="h-[clamp(420px,62vh,620px)] rounded-3xl border border-(--cf-border) bg-(--cf-surface-2)" />
+        <MapSkeleton />
       )}
     </div>
   )

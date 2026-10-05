@@ -265,9 +265,9 @@ function decorations(theme: WorldTheme, leaf: Leaf): ReactNode {
 }
 
 /** One island: shadow, cliff, grass and the world's landmark. `uid` keeps gradient ids unique. */
-export function IslandArt({ theme, palette, uid }: { theme: WorldTheme; palette: WorldPalette; uid: string }) {
+export function IslandArt({ theme, palette, uid, locked = false }: { theme: WorldTheme; palette: WorldPalette; uid: string; locked?: boolean }) {
   return (
-    <g>
+    <g style={locked ? { filter: 'saturate(0.25) brightness(0.95)' } : undefined}>
       <defs>
         <linearGradient id={`${uid}-top`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={palette.top[0]} />
@@ -278,13 +278,37 @@ export function IslandArt({ theme, palette, uid }: { theme: WorldTheme; palette:
           <stop offset="1" stopColor={palette.cliff[1]} />
         </linearGradient>
       </defs>
+      {/* Soft shadow ellipse on water */}
       <ellipse cx="205" cy="314" rx="150" ry="14" fill="#04223a" opacity="0.22" />
+      {/* Cliff base */}
       <path d={CLIFF} fill={`url(#${uid}-cliff)`} />
       <path d="M78 248 C120 262 160 266 200 264 M232 266 C268 262 300 252 330 236 M110 268 C140 276 170 278 196 278" fill="none" stroke="#000000" strokeOpacity="0.18" strokeWidth="2" strokeLinecap="round" />
+      {/* 8px darker cliff band beneath top face */}
+      <path d={TOP} transform="translate(0 8)" fill={palette.cliff[1]} />
+      {/* Top face */}
       <path d={TOP} fill={`url(#${uid}-top)`} />
-      <path d={TOP} fill="none" stroke="#ffffff" strokeOpacity="0.4" strokeWidth="3" />
+      {/* Lighter rim highlight along the top edge */}
+      <path d={TOP} fill="none" stroke="#ffffff" strokeOpacity="0.45" strokeWidth="2.5" />
       <ellipse cx="185" cy="112" rx="120" ry="36" fill="#ffffff" opacity="0.13" />
       {decorations(theme, palette.leaf)}
+
+      {/* Cloud cluster overlay and lock badge if locked */}
+      {locked && (
+        <g>
+          <g opacity="0.88">
+            <ellipse cx="205" cy="180" rx="90" ry="32" fill="#cbd5e1" opacity="0.8" />
+            <circle cx="160" cy="165" r="40" fill="#e2e8f0" opacity="0.85" />
+            <circle cx="210" cy="155" r="50" fill="#f1f5f9" opacity="0.9" />
+            <circle cx="255" cy="168" r="38" fill="#e2e8f0" opacity="0.85" />
+          </g>
+          <g transform="translate(205 170)">
+            <circle cx="0" cy="0" r="22" fill="#0f172a" opacity="0.85" />
+            <path d="M-6 -2 L-6 -8 C-6 -13 6 -13 6 -8 L6 -2" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" />
+            <rect x="-9" y="-2" width="18" height="14" rx="3" fill="#ffffff" />
+            <circle cx="0" cy="4" r="2" fill="#0f172a" />
+          </g>
+        </g>
+      )}
     </g>
   )
 }

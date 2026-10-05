@@ -207,6 +207,13 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
     document.getElementById(`island-${worldId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
+  const activeChipRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (activeChipRef.current) {
+      activeChipRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    }
+  }, [selected?.world])
+
   const nav = (
     <>
       <NavLink href="/" icon={House} label="Home" active onClick={() => setMobileOpen(false)} />
@@ -633,30 +640,72 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                       </Link>
                     </div>
 
-                    <div className="-mb-1 flex gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible" aria-label="Worlds">
-                      {journey.worlds.map((world, worldIndex) => {
-                        const palette = worldThemes[world.theme]
-                        const WorldIcon = palette.icon
-                        const inWorld = journey.levels.map((level, index) => ({ level, index })).filter(({ level }) => level.world === world.id)
-                        const complete = inWorld.length > 0 && inWorld.every(({ level }) => done[level.id])
-                        const reached = inWorld.some(({ index }) => stateOf(index) !== 'locked')
-                        return (
-                          <button
-                            key={world.id}
-                            type="button"
-                            onClick={() => goToWorld(world.id)}
-                            className={cn('flex shrink-0 items-center gap-2 rounded-xl py-1.5 pl-1.5 pr-3 text-left text-white shadow-md ring-1 ring-white/30 transition hover:-translate-y-0.5', !reached && 'opacity-60 saturate-50')}
-                            style={{ background: `linear-gradient(135deg, ${palette.color}, ${palette.deep})` }}
-                          >
-                            <span className="grid size-8 place-items-center rounded-lg bg-white/20"><WorldIcon className="size-4" /></span>
-                            <span className="leading-tight">
-                              <span className="block text-[10px] font-semibold uppercase tracking-wider opacity-85">World {worldIndex + 1}</span>
-                              <span className="block text-[13px] font-bold">{world.title}</span>
-                            </span>
-                            {complete ? <Check aria-label="World complete" className="size-4" /> : !reached ? <LockKeyhole aria-label="Locked" className="size-3.5" /> : null}
-                          </button>
-                        )
-                      })}
+                    <div className="relative -mx-2 px-2">
+                      <div
+                        className="no-scrollbar flex gap-2 overflow-x-auto pb-1 pt-0.5 scroll-smooth [scroll-snap-type:x_mandatory] [mask-image:linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]"
+                        aria-label="Worlds"
+                      >
+                        {journey.worlds.map((world, worldIndex) => {
+                          const palette = worldThemes[world.theme]
+                          const WorldIcon = palette.icon
+                          const inWorld = journey.levels.map((level, index) => ({ level, index })).filter(({ level }) => level.world === world.id)
+                          const doneCount = inWorld.filter(({ level }) => done[level.id]).length
+                          const totalCount = inWorld.length
+                          const complete = totalCount > 0 && doneCount === totalCount
+                          const reached = inWorld.some(({ index }) => stateOf(index) !== 'locked')
+                          const isActive = world.id === (selected?.world ?? journey.worlds[0]?.id)
+                          return (
+                            <button
+                              key={world.id}
+                              ref={isActive ? activeChipRef : undefined}
+                              type="button"
+                              onClick={() => goToWorld(world.id)}
+                              aria-current={isActive ? 'true' : undefined}
+                              aria-pressed={isActive}
+                              className={cn(
+                                'flex shrink-0 [scroll-snap-align:start] items-center gap-2.5 rounded-2xl px-3 py-2 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--focus-ring)',
+                                isActive
+                                  ? 'text-white shadow-(--elev-2)'
+                                  : 'border border-(--cf-border) bg-(--cf-panel) text-(--cf-text) shadow-sm hover:border-(--cf-border-hover) hover:bg-(--cf-surface-2)',
+                                !reached && 'opacity-65 saturate-60',
+                              )}
+                              style={isActive ? { backgroundColor: palette.deep } : undefined}
+                            >
+                              <span
+                                className="grid size-7 shrink-0 place-items-center rounded-xl"
+                                style={{
+                                  backgroundColor: isActive ? 'rgba(255,255,255,0.2)' : `${palette.color}25`,
+                                  color: isActive ? '#ffffff' : palette.deep,
+                                }}
+                              >
+                                <WorldIcon className="size-3.5" />
+                              </span>
+                              <span className="leading-tight">
+                                <span className={cn('block text-[10px] font-display font-extrabold uppercase tracking-wider', isActive ? 'text-white/80' : 'text-(--cf-muted)')}>
+                                  World {worldIndex + 1}
+                                </span>
+                                <span className="block font-display text-[13px] font-extrabold leading-tight">
+                                  {world.title}
+                                </span>
+                              </span>
+                              <div className="ml-1 flex items-center gap-1.5 pl-1">
+                                {!reached ? (
+                                  <LockKeyhole aria-label="Locked" className="size-3.5 shrink-0 opacity-80" />
+                                ) : complete ? (
+                                  <span className="flex items-center gap-1 rounded-full bg-black/15 px-1.5 py-0.5 text-[10px] font-bold">
+                                    <Check aria-label="World complete" className="size-3.5 text-[#22c55e]" />
+                                    <span>{doneCount}/{totalCount}</span>
+                                  </span>
+                                ) : (
+                                  <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-bold font-display', isActive ? 'bg-black/20 text-white/95' : 'bg-(--cf-surface-2) text-(--cf-muted)')}>
+                                    {doneCount}/{totalCount}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
 
                     <JourneyMap journey={journey} done={done} stateOf={stateOf} selectedId={selected?.id ?? null} onSelect={setSelectedId} onSelectWorld={goToWorld} focus={focus} />

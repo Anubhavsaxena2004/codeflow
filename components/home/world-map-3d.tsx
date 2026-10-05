@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Line, OrbitControls, Sparkles, Stars } from '@react-three/drei'
+import { Line, OrbitControls, PerformanceMonitor, Sparkles, Stars } from '@react-three/drei'
 import * as THREE from 'three'
 import { Check, LockKeyhole, Minus, Plus, RotateCcw, Skull } from 'lucide-react'
 import { Stars as StarRating, worldThemes, type WorldPalette } from '@/components/journey/level-meta'
@@ -276,8 +276,14 @@ function Crystal({ position, color, scale = 1, night }: { position: [number, num
 
 function Torch({ position, motion, night }: { position: [number, number]; motion: boolean; night: boolean }) {
   const flame = useRef<THREE.Mesh>(null)
+  const flameMat = useRef<THREE.MeshStandardMaterial>(null)
+  const light = useRef<THREE.PointLight>(null)
   useFrame(({ clock }) => {
-    if (motion && flame.current) flame.current.scale.y = 1 + Math.sin(clock.elapsedTime * 12 + position[0] * 5) * 0.18
+    if (!motion) return
+    const t = clock.elapsedTime
+    if (flame.current) flame.current.scale.y = 1 + Math.sin(t * 12 + position[0] * 5) * 0.18
+    if (flameMat.current) flameMat.current.emissiveIntensity = 1 + Math.sin(t * 10 + position[1] * 3) * 0.4
+    if (light.current) light.current.intensity = 2.4 + Math.sin(t * 15 + position[0] * 3) * 0.8
   })
   return (
     <group position={[position[0], TOP, position[1]]}>
@@ -287,9 +293,9 @@ function Torch({ position, motion, night }: { position: [number, number]; motion
       </mesh>
       <mesh ref={flame} position={[0, 0.7, 0]}>
         <coneGeometry args={[0.09, 0.24, 6]} />
-        <meshBasicMaterial color="#fb923c" />
+        <meshStandardMaterial ref={flameMat} color="#fb923c" emissive="#ea580c" emissiveIntensity={1} roughness={0.2} />
       </mesh>
-      {night && <pointLight position={[0, 0.8, 0]} color="#fb923c" intensity={3} distance={3.5} />}
+      {night && <pointLight ref={light} position={[0, 0.8, 0]} color="#fb923c" intensity={3} distance={3.5} />}
     </group>
   )
 }
@@ -555,6 +561,33 @@ interface IslandProps {
   night: boolean
 }
 
+function IslandShadow({ radius }: { radius: number }) {
+  return (
+    <mesh position={[0, SEA + 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <circleGeometry args={[radius * 1.15, 24]} />
+      <meshBasicMaterial color="#000000" transparent opacity={0.22} depthWrite={false} />
+    </mesh>
+  )
+}
+
+function FoamRing({ radius, index, motion }: { radius: number; index: number; motion: boolean }) {
+  const ringRef = useRef<THREE.Mesh>(null)
+  const matRef = useRef<THREE.MeshBasicMaterial>(null)
+  useFrame(({ clock }) => {
+    if (!ringRef.current || !matRef.current || !motion) return
+    const t = (clock.elapsedTime * 0.33 + index * 0.4) % 1
+    const scale = 1 + t * 0.15
+    ringRef.current.scale.set(scale, scale, 1)
+    matRef.current.opacity = (1 - t) * 0.45
+  })
+  return (
+    <mesh ref={ringRef} position={[0, -0.15, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[radius * 0.96, radius * 1.1, 24]} />
+      <meshBasicMaterial ref={matRef} color="#ffffff" transparent opacity={0.4} depthWrite={false} />
+    </mesh>
+  )
+}
+
 function Island({ id, index, position, theme, palette, levels, done, stateOf, selectedId, onIsland, anchor, reached, motion, night }: IslandProps) {
   const radius = islandRadius(levels.length)
   const float = useRef<THREE.Group>(null)
@@ -580,7 +613,7 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
-    if (float.current) float.current.position.y = motion ? Math.sin(t * 0.7 + index * 1.3) * 0.08 + (hovered ? 0.12 : 0) : hovered ? 0.12 : 0
+    if (float.current) float.current.position.y = motion ? Math.sin(t * 0.6 + index * 1.4) * 0.12 + (hovered ? 0.12 : 0) : hovered ? 0.12 : 0
     if (pulse.current) {
       const scale = motion ? 1 + ((t * 0.9) % 1) * 0.9 : 1.3
       pulse.current.scale.set(scale, scale, scale)
@@ -591,7 +624,9 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
 
   return (
     <group position={position}>
+      <IslandShadow radius={radius} />
       <group ref={float}>
+        <FoamRing radius={radius} index={index} motion={motion} />
         <group
           onClick={(event) => {
             event.stopPropagation()
@@ -619,6 +654,23 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
         </group>
 
         <Decorations theme={theme} palette={palette} radius={radius} motion={motion} night={night} />
+
+        {!reached && (
+          <group position={[0, TOP + 1.2, 0]} scale={radius * 0.45}>
+            <mesh position={[-0.4, 0, 0]}>
+              <sphereGeometry args={[0.7, 8, 8]} />
+              <meshStandardMaterial color="#cbd5e1" transparent opacity={0.7} flatShading roughness={1} />
+            </mesh>
+            <mesh position={[0.4, 0.1, 0]}>
+              <sphereGeometry args={[0.8, 8, 8]} />
+              <meshStandardMaterial color="#cbd5e1" transparent opacity={0.75} flatShading roughness={1} />
+            </mesh>
+            <mesh position={[0, 0.3, 0.2]}>
+              <sphereGeometry args={[0.6, 8, 8]} />
+              <meshStandardMaterial color="#94a3b8" transparent opacity={0.7} flatShading roughness={1} />
+            </mesh>
+          </group>
+        )}
 
         {/* The path between levels: dotted ahead, gold where it has been walked */}
         {points.slice(1).map((point, step) => {
@@ -843,6 +895,85 @@ function CameraRig({ goal, controls, motion }: { goal: { position: THREE.Vector3
   return null
 }
 
+function Atmosphere({ night, motion, islandBounds }: { night: boolean; motion: boolean; islandBounds: number }) {
+  const hemiRef = useRef<THREE.HemisphereLight>(null)
+  const dirRef = useRef<THREE.DirectionalLight>(null)
+  const { scene } = useThree()
+
+  const daySky = useMemo(() => new THREE.Color('#dff3ff'), [])
+  const dayGround = useMemo(() => new THREE.Color('#a3d977'), [])
+  const daySun = useMemo(() => new THREE.Color('#fff1d6'), [])
+  const dayFog = useMemo(() => new THREE.Color('#eaf7ff'), [])
+
+  const nightSky = useMemo(() => new THREE.Color('#6b7cff'), [])
+  const nightGround = useMemo(() => new THREE.Color('#1a1f3a'), [])
+  const nightMoon = useMemo(() => new THREE.Color('#b8c7ff'), [])
+  const nightFog = useMemo(() => new THREE.Color('#101833'), [])
+
+  useEffect(() => {
+    scene.fog = new THREE.Fog(night ? '#101833' : '#eaf7ff', islandBounds * 2.2, islandBounds * 5)
+    return () => {
+      scene.fog = null
+    }
+  }, [scene, night, islandBounds])
+
+  useFrame((_, delta) => {
+    const k = 1 - Math.exp(-5 * delta)
+    const targetHemiSky = night ? nightSky : daySky
+    const targetHemiGnd = night ? nightGround : dayGround
+    const targetHemiInt = night ? 0.5 : 0.9
+
+    const targetDirCol = night ? nightMoon : daySun
+    const targetDirInt = night ? 0.7 : 1.3
+    const targetFogCol = night ? nightFog : dayFog
+
+    if (hemiRef.current) {
+      hemiRef.current.color.lerp(targetHemiSky, k)
+      hemiRef.current.groundColor.lerp(targetHemiGnd, k)
+      hemiRef.current.intensity = THREE.MathUtils.lerp(hemiRef.current.intensity, targetHemiInt, k)
+    }
+
+    if (dirRef.current) {
+      dirRef.current.color.lerp(targetDirCol, k)
+      dirRef.current.intensity = THREE.MathUtils.lerp(dirRef.current.intensity, targetDirInt, k)
+      const targetPos = night ? [14, 22, 10] : [-16, 24, 12]
+      dirRef.current.position.x = THREE.MathUtils.lerp(dirRef.current.position.x, targetPos[0], k)
+      dirRef.current.position.y = THREE.MathUtils.lerp(dirRef.current.position.y, targetPos[1], k)
+      dirRef.current.position.z = THREE.MathUtils.lerp(dirRef.current.position.z, targetPos[2], k)
+    }
+
+    if (scene.fog && 'color' in scene.fog) {
+      (scene.fog as THREE.Fog).color.lerp(targetFogCol, k)
+    }
+  })
+
+  return (
+    <>
+      <hemisphereLight ref={hemiRef} args={['#dff3ff', '#a3d977', 0.9]} />
+      <directionalLight
+        ref={dirRef}
+        position={[-16, 24, 12]}
+        intensity={1.3}
+        color="#fff1d6"
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-camera-left={-islandBounds}
+        shadow-camera-right={islandBounds}
+        shadow-camera-top={islandBounds}
+        shadow-camera-bottom={-islandBounds}
+        shadow-bias={-0.0005}
+      />
+      <ambientLight intensity={night ? 0.35 : 0.25} />
+      {night && (
+        <>
+          <Stars radius={80} depth={40} count={1200} factor={3.5} fade speed={motion ? 0.5 : 0} />
+          {motion && <Sparkles count={90} scale={[islandBounds * 1.4, 5, islandBounds * 1.2]} position={[0, 1.5, 0]} size={3.5} speed={0.35} color="#fde68a" opacity={0.85} />}
+        </>
+      )}
+    </>
+  )
+}
+
 // ---- the map -----------------------------------------------------------------------------
 
 export interface WorldMap3DProps {
@@ -872,11 +1003,18 @@ export default function WorldMap3D({ journey, done, stateOf, selectedId, onSelec
     if (node) marks.current.set(key, node)
     else marks.current.delete(key)
   }
-  // Zero until measured: the first camera shot depends on the real shape of the map.
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [visible, setVisible] = useState(true)
+  const [tabHidden, setTabHidden] = useState(false)
   const [goal, setGoal] = useState<{ position: THREE.Vector3; target: THREE.Vector3; nonce: number } | null>(null)
   const coarse = useMemo(() => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches, [])
+  const [dpr, setDpr] = useState(coarse ? 1.5 : 1.75)
+
+  useEffect(() => {
+    const handleVis = () => setTabHidden(document.hidden)
+    document.addEventListener('visibilitychange', handleVis)
+    return () => document.removeEventListener('visibilitychange', handleVis)
+  }, [])
 
   useEffect(() => {
     const element = wrapper.current
@@ -955,39 +1093,26 @@ export default function WorldMap3D({ journey, done, stateOf, selectedId, onSelec
   const islandBounds = Math.max(columns * SPACING_X, rows * SPACING_Z)
 
   return (
-    <div ref={wrapper} className="relative h-[clamp(420px,62vh,620px)] w-full overflow-hidden rounded-3xl border border-(--cf-border) shadow-(--cf-shadow)" onWheelCapture={onWheelCapture}>
+    <div
+      ref={wrapper}
+      className="relative h-[clamp(420px,62vh,620px)] w-full overflow-hidden rounded-3xl border border-(--cf-border) shadow-(--cf-shadow) transition-colors duration-500"
+      style={{
+        background: night
+          ? 'linear-gradient(to bottom, #0b1026, #1b1f4a)'
+          : 'linear-gradient(to bottom, #bfe9ff, #eaf7ff)',
+      }}
+      onWheelCapture={onWheelCapture}
+    >
       <Canvas
         flat
         shadows={!coarse}
-        dpr={[1, coarse ? 1.5 : 1.75]}
-        frameloop={visible ? 'always' : 'never'}
+        dpr={dpr}
+        frameloop={visible && !tabHidden ? 'always' : 'never'}
         camera={{ fov: FOV, position: motion ? startAt : (home().position.toArray() as Vec3), near: 0.5, far: 260 }}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        gl={{ antialias: true, powerPreference: 'high-performance', alpha: true }}
       >
-        <color attach="background" args={[sky]} />
-        <fog attach="fog" args={[sky, islandBounds * 2.2, islandBounds * 5]} />
-
-        <hemisphereLight args={night ? ['#6d7fe0', '#101830', 1.05] : ['#e0f2fe', '#3a7d4a', 0.85]} />
-        <directionalLight
-          position={night ? [-14, 22, 10] : [16, 24, 12]}
-          intensity={night ? 1.35 : 1.9}
-          color={night ? '#c7d2fe' : '#fff4e0'}
-          castShadow={!coarse}
-          shadow-mapSize={[1024, 1024]}
-          shadow-camera-left={-islandBounds}
-          shadow-camera-right={islandBounds}
-          shadow-camera-top={islandBounds}
-          shadow-camera-bottom={-islandBounds}
-          shadow-bias={-0.0005}
-        />
-        <ambientLight intensity={night ? 0.45 : 0.3} />
-
-        {night ? (
-          <>
-            <Stars radius={120} depth={50} count={2200} factor={4} fade speed={motion ? 0.6 : 0} />
-            {motion && <Sparkles count={90} scale={[islandBounds * 1.4, 5, islandBounds * 1.2]} position={[0, 1.5, 0]} size={3.5} speed={0.35} color="#fde68a" opacity={0.85} />}
-          </>
-        ) : null}
+        <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(coarse ? 1.5 : 1.75)} />
+        <Atmosphere night={night} motion={motion} islandBounds={islandBounds} />
         <Clouds motion={motion} night={night} />
 
         <Ocean night={night} motion={motion} />

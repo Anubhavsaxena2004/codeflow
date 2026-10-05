@@ -59,6 +59,8 @@ function PaletteBlock({ block, code, language, dimmed, active, onPlace, onHover 
 interface BlockPaletteProps {
   blocks: Block[]
   total: number
+  /** Blocks in slots. Defaults to total minus the blocks left, which only holds when no distractors are shown. */
+  placedCount?: number
   language: string
   codeFor: (blockId: string) => string
   activeBlock: string | null
@@ -69,7 +71,7 @@ interface BlockPaletteProps {
   onHover: (blockId: string | null) => void
 }
 
-export function BlockPalette({ blocks, total, language, codeFor, activeBlock, relatedTo, inspected, completed, onPlace, onHover }: BlockPaletteProps) {
+export function BlockPalette({ blocks, total, placedCount = total - blocks.length, language, codeFor, activeBlock, relatedTo, inspected, completed, onPlace, onHover }: BlockPaletteProps) {
   const { setNodeRef, isOver, active } = useDroppable({ id: 'palette' })
   const draggingPlaced = typeof active?.id === 'string' && active.id.startsWith('placed:')
 
@@ -77,7 +79,7 @@ export function BlockPalette({ blocks, total, language, codeFor, activeBlock, re
     <div className="flex h-full min-h-0 flex-col text-[13px] text-[#cccccc]">
       <div className="flex h-9 shrink-0 items-center justify-between px-4 text-[11px] tracking-wide text-[#bbbbbb]">
         <span>BLOCKS</span>
-        <span className="rounded-full bg-[#2b2b2b] px-2 py-0.5 text-[10px] text-[#cccccc]">{total - blocks.length}/{total} placed</span>
+        <span className="rounded-full bg-[#2b2b2b] px-2 py-0.5 text-[10px] text-[#cccccc]">{placedCount}/{total} placed</span>
       </div>
 
       <div

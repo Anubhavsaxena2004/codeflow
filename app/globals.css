@@ -185,6 +185,16 @@ body.is-resizing-y * {
   user-select: none !important;
 }
 
+/* A file a command or level just created flashes in the explorer */
+@keyframes file-in {
+  from { background-color: rgba(115, 201, 145, 0.35); }
+  to { background-color: transparent; }
+}
+.animate-file-in { animation: file-in 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-file-in { animation: none; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

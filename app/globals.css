@@ -176,6 +176,7 @@
 :root {
   --ide-bar: #f8f8f8;
   --ide-bg: #ffffff;
+  --ide-accent: #0078d4;
   --ide-bg-alt: #f3f3f3;
   --ide-border: #e5e5e5;
   --ide-border-strong: #cecece;
@@ -320,6 +321,7 @@
 :root.dark {
   --ide-bar: #181818;
   --ide-bg: #1f1f1f;
+  --ide-accent: #0078d4;
   --ide-bg-alt: #252526;
   --ide-border: #2b2b2b;
   --ide-border-strong: #3c3c3c;

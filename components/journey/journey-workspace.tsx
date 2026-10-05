@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -16,7 +16,8 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { ArrowLeft, BookOpen, Check, ChevronRight, Files, GitBranch, Lightbulb, Lock, LogOut, Map as MapIcon, Network, PanelBottom, PanelRight, Play, RotateCcw, SquareTerminal, UserRound, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, Files, FlaskConical, GitBranch, Lightbulb, Lock, LogOut, Map as MapIcon, Network, PanelBottom, PanelRight, Play, RotateCcw, Skull, SquareTerminal, Star, Target, UserRound, X } from 'lucide-react'
+import { GameTooltip } from '@/components/ui/game'
 import { LessonText } from '@/components/lesson-text'
 import { runChecks, type CheckResult } from '@/lib/journeys/checks'
 import { termsFor } from '@/lib/journeys/glossary'
@@ -42,7 +43,7 @@ import { FlowBoard } from './flow-board'
 import { JourneyPanel, type FlowContext, type JourneyTab } from './journey-panel'
 import { Celebration } from '@/components/effects/celebration'
 import { CommandSteps, CompletionCard, HintNote, MissionHeader, MissionSection, NewFiles, QuizCard, TestList } from './mission'
-import { worldThemes } from './level-meta'
+import { kindIcons, worldThemes } from './level-meta'
 
 type IconType = ComponentType<{ className?: string; strokeWidth?: number }>
 type Phase = 'playing' | 'saving' | 'passed'
@@ -637,6 +638,59 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const primary =
     isCodeLevel(level) ? { label: 'Run tests', icon: Play, action: runTests } : level.kind === 'build' ? { label: 'Check', icon: Check, action: checkBuild } : level.kind === 'architecture' ? { label: 'Check order', icon: Check, action: checkFlow } : null
   const pushPath = isCodeLevel(level) || level.kind === 'build' ? (level as { path: string }).path : outputOf(level).filter((file) => !file.path.endsWith('/') && !file.generated).at(-1)?.path ?? 'README.md'
+
+  const palette = world ? worldThemes[world.theme] : worldThemes.village
+  const isBoss = !!level.boss
+  const bestStars = previous ? previous.stars : null
+  const KindIcon = kindIcons[level.kind]
+
+  const objectiveCounts = useMemo(() => {
+    if (level.kind === 'command') {
+      const total = level.steps.length
+      const doneCount = Math.min(total, stepIndex)
+      return { done: doneCount, total }
+    }
+    if (level.kind === 'edit' || level.kind === 'bugfix') {
+      const checks = (level as Extract<Level, { kind: 'edit' | 'bugfix' }>).checks
+      const total = checks.length
+      const doneCount = phase === 'passed' ? total : results ? results.filter((r) => r.passed).length : 0
+      return { done: doneCount, total }
+    }
+    if (level.kind === 'build') {
+      const total = order.length
+      const doneCount = phase === 'passed' ? total : slots.filter((id, i) => id !== null && statuses[i] === 'correct').length
+      return { done: doneCount, total }
+    }
+    if (level.kind === 'architecture') {
+      const total = level.nodes.length
+      const doneCount = phase === 'passed' ? total : arrangement.filter((id, i) => id === level.nodes[i].id).length
+      return { done: doneCount, total }
+    }
+    if (level.kind === 'explore') {
+      const total = newFiles.length + (level.quiz ? 1 : 0)
+      const filesDone = opened.size
+      const quizDone = phase === 'passed' || quizResult === 'right' ? 1 : 0
+      return { done: Math.min(total, filesDone + quizDone), total }
+    }
+    return { done: phase === 'passed' ? 1 : 0, total: 1 }
+  }, [level, stepIndex, phase, results, order.length, slots, statuses, arrangement, newFiles.length, opened.size, quizResult])
+
+  const [objectiveFlashed, setObjectiveFlashed] = useState(false)
+  const prevObjectiveDoneRef = useRef(objectiveCounts.done)
+  useEffect(() => {
+    if (objectiveCounts.done > prevObjectiveDoneRef.current) {
+      setObjectiveFlashed(true)
+      const timer = window.setTimeout(() => setObjectiveFlashed(false), 600)
+      prevObjectiveDoneRef.current = objectiveCounts.done
+      return () => window.clearTimeout(timer)
+    }
+    prevObjectiveDoneRef.current = objectiveCounts.done
+  }, [objectiveCounts.done])
+
+  const testCounts = useMemo(() => {
+    if (!results) return null
+    return { pass: results.filter((r) => r.passed).length, total: results.length }
+  }, [results])
   const nextLink = next ? { title: next.title, href: preview ? undefined : levelHref(next.id) } : null
 
   if (!preview && !learner.ready) {
@@ -726,22 +780,94 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
           className="flex min-h-dvh flex-col bg-(--ide-bg) font-sans text-[13px] text-(--ide-fg) lg:h-dvh lg:min-h-0"
           style={{ '--explorer-w': `${layout.explorer}px`, '--mission-w': `${layout.mission}px`, '--panel-h': `${layout.panel}px` } as CSSProperties}
         >
-          {/* Title bar */}
-          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-(--ide-border) bg-(--ide-bar) px-2">
-            {preview ? (
-              <button type="button" onClick={onExit} className="flex shrink-0 items-center gap-1.5 rounded px-1.5 py-1 text-[12px] hover:bg-(--ide-border)">
-                <ArrowLeft className="size-3.5" /> Back to editor
-              </button>
-            ) : (
-              <Link href={mapHref} className="flex shrink-0 items-center gap-2 rounded px-1.5 py-1 hover:bg-(--ide-border)" title="Back to the map">
-                <span className="grid size-5 place-items-center rounded-sm bg-[#0078d4] text-[9px] font-bold text-white">{'<>'}</span>
-                <span className="hidden text-[13px] text-(--ide-fg) sm:inline">CodeFlow</span>
-              </Link>
-            )}
-            <div className="mx-auto hidden h-6 min-w-0 max-w-lg flex-1 items-center justify-center truncate rounded-md border border-(--ide-border-strong) bg-(--ide-bg) px-3 text-[12px] text-(--ide-muted) md:flex">
-              {project.projectName} — {world?.title} · {level.title}
+          {/* Level header / title bar */}
+          <header className="relative flex h-11 shrink-0 items-center justify-between border-b border-(--ide-border) bg-(--ide-bar) px-2 sm:h-12 sm:px-3 overflow-hidden">
+            {/* Faint wash across left 40% */}
+            <div
+              className="pointer-events-none absolute inset-y-0 left-0 w-2/5"
+              style={{
+                background: isBoss
+                  ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(239, 68, 68, 0.03) 70%, transparent 100%)'
+                  : `linear-gradient(90deg, ${palette.color}1f 0%, ${palette.color}05 70%, transparent 100%)`,
+              }}
+              aria-hidden
+            />
+
+            {/* Left side */}
+            <div className="relative z-1 flex min-w-0 items-center gap-2 sm:gap-2.5">
+              {preview ? (
+                <button
+                  type="button"
+                  onClick={onExit}
+                  aria-label="Back to editor"
+                  className="flex shrink-0 items-center gap-1.5 rounded px-2 py-1 text-[12px] font-medium text-(--ide-fg) hover:bg-(--ide-border) transition-colors"
+                >
+                  <ArrowLeft className="size-4" />
+                  <span className="hidden sm:inline">Back to editor</span>
+                </button>
+              ) : (
+                <Link
+                  href={mapHref}
+                  aria-label="Back to the map"
+                  className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[12px] font-medium text-(--ide-fg) hover:bg-(--ide-border) transition-colors"
+                  title="Back to the map"
+                >
+                  <ChevronLeft className="size-4" />
+                  <span className="hidden sm:inline">Map</span>
+                </Link>
+              )}
+
+              {/* 4px vertical stripe */}
+              <span
+                className="h-5 w-1 shrink-0 rounded-full"
+                style={{ backgroundColor: isBoss ? '#ef4444' : palette.color }}
+                aria-hidden
+              />
+
+              {/* Kind or Boss pill */}
+              {isBoss ? (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#ef4444]/30 bg-[#ef4444]/15 px-2 py-0.5 text-[11px] font-semibold text-[#ef4444]">
+                  <Skull className="size-3" aria-hidden />
+                  <span>BOSS</span>
+                </span>
+              ) : (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-(--ide-border-strong) bg-(--ide-bg) px-2 py-0.5 text-[11px] font-medium text-(--ide-fg)">
+                  <KindIcon className="size-3" aria-hidden />
+                  <span className="hidden xs:inline">{kindLabels[level.kind]}</span>
+                </span>
+              )}
+
+              {/* Breadcrumb */}
+              <span className="hidden text-[13px] text-(--ide-muted) truncate md:inline">
+                {world?.title ?? 'World'} · Level {index + 1}
+              </span>
+
+              {/* Level title */}
+              <h1
+                className="font-display text-[16px] sm:text-[18px] font-semibold text-(--ide-heading) truncate max-w-[160px] sm:max-w-xs lg:max-w-md"
+                title={level.title}
+              >
+                {level.title}
+              </h1>
             </div>
-            <div className="ml-auto flex items-center gap-1">
+
+            {/* Right side */}
+            <div className="relative z-1 ml-auto flex shrink-0 items-center gap-1.5">
+              {bestStars !== null && (
+                <span
+                  className="mr-1 hidden items-center gap-0.5 text-[#f5b301] sm:inline-flex"
+                  aria-label={`Best score: ${bestStars} of 3 stars`}
+                >
+                  {[0, 1, 2].map((i) => (
+                    <Star
+                      key={i}
+                      aria-hidden
+                      className={cn('size-3.5', i < bestStars ? 'fill-current' : 'opacity-30')}
+                    />
+                  ))}
+                </span>
+              )}
+
               {preview && <span className="rounded-sm bg-(--ide-warning)/20 px-2 py-0.5 text-[11px] text-(--ide-warning-soft)">Preview</span>}
               <ToolButton icon={RotateCcw} label="Reset" onClick={reset} />
               <ToolButton icon={Lightbulb} label="Hint" onClick={giveHint} disabled={passed} />
@@ -755,12 +881,6 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                 />
               )}
               <div className="ml-1 flex items-center gap-1 border-l border-(--ide-border) pl-2">
-                {!preview && (
-                  <Link href={mapHref} className="flex h-7 items-center gap-1.5 rounded px-2 text-[12px] text-(--ide-fg) hover:bg-(--ide-border)">
-                    <MapIcon className="size-3.5" />
-                    <span className="hidden lg:inline">Map</span>
-                  </Link>
-                )}
                 <ThemeToggle className="size-7 rounded text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)" iconClassName="size-3.5" />
                 {session.status === 'signed-in' ? (
                   <>
@@ -898,7 +1018,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                 <Sash axis="x" invert label="Resize mission panel" value={layout.mission} min={LAYOUT_MIN.mission} max={maxSideWidth(sidebar ? layout.explorer : 0, 0.45)} onChange={resize('mission')} onReset={resetSize('mission')} className="left-0 -translate-x-1/2" />
                 <div className={cn('flex min-h-0 flex-col', level.kind === 'build' ? 'lg:h-full' : 'overflow-y-auto lg:h-full')}>
                   <div className="flex h-9 shrink-0 items-center px-4 text-[11px] tracking-wide text-(--ide-fg-title)">MISSION</div>
-                  <MissionHeader place={place} kind={level.kind} boss={level.boss} title={level.title} summary={level.summary} stars={reward?.stars ?? previous?.stars ?? null} />
+                  <MissionHeader place={place} kind={level.kind} boss={level.boss} title={level.title} summary={level.summary} stars={reward?.stars ?? previous?.stars ?? null} worldColor={palette.color} />
                   {passed && reward && world && <Celebration key={level.id} colors={[worldThemes[world.theme].color, worldThemes[world.theme].deep]} boss={!!level.boss} rankUp={reward.rankUp} />}
                   {passed && reward && <CompletionCard stars={reward.stars} xp={reward.xp} next={nextLink} mapHref={mapHref} onNext={next && onNavigate ? () => onNavigate(next.id) : undefined} />}
                   {!passed && previous && (
@@ -934,7 +1054,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
                   {level.kind === 'command' && (
                     <MissionSection title={`STEPS ${Math.min(stepIndex, level.steps.length)}/${level.steps.length}`}>
-                      <CommandSteps steps={level.steps} current={stepIndex} typed={typed} />
+                      <CommandSteps steps={level.steps} current={stepIndex} typed={typed} worldColor={palette.color} />
                       {!panelOpen && (
                         <button type="button" onClick={() => { setPanelOpen(true); setPanelTab('terminal') }} className="mt-3 w-full rounded-sm border border-(--ide-border-strong) py-1.5 text-[12px] hover:bg-(--ide-border)">Open the terminal</button>
                       )}
@@ -999,7 +1119,50 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
             <span className="flex items-center gap-1"><GitBranch className="size-3.5" />{project.projectName}</span>
             <span>{tracks[project.track].label}</span>
             <span className="hidden sm:inline">{kindLabels[level.kind]}</span>
+
             <div className="ml-auto flex items-center gap-3">
+              {/* Game HUD items */}
+              <div className="flex items-center gap-2 border-r border-white/20 pr-3">
+                <GameTooltip content={`Objectives completed: ${objectiveCounts.done} of ${objectiveCounts.total}`}>
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors duration-600',
+                      objectiveFlashed && 'bg-[#22c55e] text-white shadow-sm'
+                    )}
+                  >
+                    <Target className="size-3.5" aria-hidden />
+                    <span className="num font-semibold">
+                      Objectives {objectiveCounts.done}/{objectiveCounts.total}
+                    </span>
+                    <span className="sr-only">({objectiveCounts.done} of {objectiveCounts.total} objectives completed)</span>
+                  </span>
+                </GameTooltip>
+
+                {testCounts && (
+                  <div className="hidden sm:inline-flex">
+                    <GameTooltip content={`Test checks passing: ${testCounts.pass} of ${testCounts.total}`}>
+                      <span className="inline-flex items-center gap-1 px-1">
+                        <FlaskConical className="size-3.5" aria-hidden />
+                        <span className="num">Tests {testCounts.pass}/{testCounts.total}</span>
+                        <span className="sr-only">({testCounts.pass} of {testCounts.total} tests passing)</span>
+                      </span>
+                    </GameTooltip>
+                  </div>
+                )}
+
+                {bestStars !== null && (
+                  <div className="hidden sm:inline-flex">
+                    <GameTooltip content={`Best rating: ${bestStars} of 3 stars`}>
+                      <span className="inline-flex items-center gap-1 px-1">
+                        <Star className="size-3.5 fill-current text-[#f5b301]" aria-hidden />
+                        <span className="num">Best {bestStars}/3</span>
+                        <span className="sr-only">({bestStars} of 3 stars earned)</span>
+                      </span>
+                    </GameTooltip>
+                  </div>
+                )}
+              </div>
+
               <span>Rank {rank.rank} · {totalXp} XP</span>
               <span>Level reward {xpFor(level)} XP</span>
               <span>Tries {wrong}</span>

@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Check, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles, Star as StarIcon } from 'lucide-react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { ArrowRight, Check, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles, Star as StarIcon } from 'lucide-react'
 import type { CheckResult } from '@/lib/journeys/checks'
 import { kindLabels, type Check as CheckDefinition, type CommandStep, type LevelKind, type Quiz } from '@/lib/journeys/types'
 import { cn } from '@/lib/utils'
@@ -12,26 +13,53 @@ import { kindIcons, Stars } from './level-meta'
 /** A collapsible block of the mission panel, so the parts that matter right now get the room. */
 export function MissionSection({ title, children, aside, defaultOpen = true }: { title: string; children: ReactNode; aside?: ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
+  const id = useId()
+  const prefersReduced = useReducedMotion()
+
   return (
     <section className="border-t border-(--ide-border) px-4 py-2">
       <div className="flex items-center justify-between gap-2 text-[11px] font-bold tracking-wide text-(--ide-fg-title)">
-        <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="-ml-1 flex flex-1 items-center gap-1 rounded py-1 text-left hover:text-(--ide-heading)">
-          {open ? <ChevronDown aria-hidden className="size-3.5" /> : <ChevronRight aria-hidden className="size-3.5" />}
-          {title}
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-controls={id}
+          className="-ml-1 flex flex-1 items-center gap-1.5 rounded py-1 text-left hover:text-(--ide-heading) transition-colors"
+        >
+          <ChevronRight
+            aria-hidden
+            className={cn('size-3.5 transition-transform duration-(--dur-fast) ease-out', open && 'rotate-90')}
+          />
+          <span>{title}</span>
         </button>
         {aside}
       </div>
-      {open && <div className="pb-1 pt-1.5">{children}</div>}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            id={id}
+            initial={prefersReduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+            animate={prefersReduced ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+            exit={prefersReduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden pb-1 pt-1.5"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }
 
-export function MissionHeader({ place, kind, boss, title, summary, stars }: { place: string; kind: LevelKind; boss?: boolean; title: string; summary: string; stars: number | null }) {
+export function MissionHeader({ place, kind, boss, title, summary, stars, worldColor }: { place: string; kind: LevelKind; boss?: boolean; title: string; summary: string; stars: number | null; worldColor?: string }) {
   const Icon = kindIcons[kind]
+  const tileColor = boss ? '#ef4444' : (worldColor ?? '#0078d4')
+
   return (
-    <header className="px-4 pb-3 pt-3">
+    <header className="sticky top-0 z-10 border-b border-(--ide-border) bg-(--ide-bar)/95 px-4 py-3 backdrop-blur">
       <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold tracking-wide text-(--ide-muted)">
-        <span>{place}</span>
+        <span className="uppercase tracking-wider">Quest · {place}</span>
         <span className="inline-flex items-center gap-1 rounded-sm bg-(--ide-border) px-1.5 py-0.5 text-(--ide-fg)">
           <Icon aria-hidden className="size-3" />
           {kindLabels[kind].toUpperCase()}
@@ -43,8 +71,19 @@ export function MissionHeader({ place, kind, boss, title, summary, stars }: { pl
         )}
         {stars !== null && <Stars count={stars} className="ml-auto" />}
       </div>
-      <h1 className="mt-2 text-[15px] font-semibold text-(--ide-heading)">{title}</h1>
-      <p className="mt-1 text-[12px] leading-5 text-(--ide-muted)">{summary}</p>
+      <div className="mt-2.5 flex items-start gap-2.5">
+        <div
+          className="grid size-7 shrink-0 place-items-center rounded-md text-white shadow-sm"
+          style={{ backgroundColor: tileColor }}
+          aria-hidden
+        >
+          <Icon className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-[15px] font-semibold text-(--ide-heading) leading-tight truncate">{title}</h1>
+          <p className="mt-0.5 text-[12px] leading-5 text-(--ide-muted) truncate">{summary}</p>
+        </div>
+      </div>
     </header>
   )
 }
@@ -113,19 +152,43 @@ export function CompletionCard({ stars, xp, next, mapHref, onNext }: { stars: nu
   )
 }
 
-export function CommandSteps({ steps, current, typed }: { steps: CommandStep[]; current: number; typed: string[] }) {
+export function CommandSteps({ steps, current, typed, worldColor }: { steps: CommandStep[]; current: number; typed: string[]; worldColor?: string }) {
+  const accent = worldColor ?? '#0078d4'
   return (
     <ol className="flex flex-col gap-2">
       {steps.map((step, index) => {
         const done = index < current
         const active = index === current
         return (
-          <li key={index} className={cn('flex gap-2 text-[12px] leading-5', !done && !active && 'opacity-50')}>
-            <span className={cn('mt-0.5 grid size-4 shrink-0 place-items-center rounded-full text-[10px]', done ? 'bg-(--ide-success)/20 text-(--ide-success)' : active ? 'bg-[#0078d4] text-white' : 'bg-(--ide-border) text-(--ide-fg)')}>
-              {done ? <Check aria-hidden className="size-3" /> : index + 1}
+          <li
+            key={index}
+            className={cn(
+              'relative flex gap-2.5 rounded px-2 py-1.5 text-[12px] leading-5 transition-colors',
+              active && 'bg-(--ide-hover)',
+              !done && !active && 'opacity-60'
+            )}
+            style={active ? { borderLeft: `3px solid ${accent}` } : { borderLeft: '3px solid transparent' }}
+          >
+            <span
+              className={cn(
+                'mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full text-[10px] font-semibold transition-all',
+                done && 'bg-[#15803d] text-white',
+                active && 'border-2 text-(--ide-heading)',
+                !done && !active && 'border border-(--ide-border-strong) text-(--ide-muted)'
+              )}
+              style={active ? { borderColor: accent } : undefined}
+            >
+              {done ? (
+                <Check aria-hidden className="size-3 stroke-[3] animate-star-pop" />
+              ) : (
+                <span>{index + 1}</span>
+              )}
             </span>
-            <div className="min-w-0">
-              <div className={active ? 'text-(--ide-heading)' : 'text-(--ide-fg)'}>{step.goal}</div>
+            <div className="min-w-0 flex-1">
+              <div className={cn(active ? 'font-medium text-(--ide-heading)' : done ? 'text-(--ide-muted)' : 'text-(--ide-fg)')}>
+                {step.goal}
+                {done && <span className="sr-only"> (completed)</span>}
+              </div>
               {done && <code className="ide-mono block truncate text-[11px] text-(--ide-success)">$ {typed[index]}</code>}
               {done && step.explain && <p className="text-[11px] text-(--ide-muted)">{step.explain}</p>}
             </div>
@@ -143,22 +206,46 @@ export function TestList({ checks, results }: { checks: CheckDefinition[]; resul
       <ul className="flex flex-col gap-1.5">
         {checks.map((check) => {
           const result = results?.find((item) => item.id === check.id)
+          const isPass = result?.passed === true
+          const isFail = result && !result.passed
+          const isPending = !result
+
           return (
-            <li key={check.id} className="flex gap-2 text-[12px] leading-5">
-              {!result ? (
-                <CircleDashed aria-label="not run yet" className="mt-0.5 size-3.5 shrink-0 text-(--ide-dim)" />
-              ) : result.passed ? (
-                <CircleCheck aria-label="passing" className="mt-0.5 size-3.5 shrink-0 text-(--ide-success)" />
-              ) : (
-                <CircleX aria-label="failing" className="mt-0.5 size-3.5 shrink-0 text-(--ide-error)" />
+            <li
+              key={check.id}
+              className={cn(
+                'flex items-center gap-2 rounded px-2 py-1 text-[12px] leading-5 transition-colors',
+                isFail && 'border-l-2 border-[#ef4444] bg-(--ide-error)/5',
+                !isFail && 'border-l-2 border-transparent'
               )}
-              <span className={cn(result?.passed ? 'text-(--ide-success-soft)' : 'text-(--ide-fg)')}>{check.name}</span>
+            >
+              {isPending && (
+                <>
+                  <CircleDashed aria-label="not run yet" className="size-3.5 shrink-0 text-(--ide-dim)" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-(--ide-dim)">pending</span>
+                </>
+              )}
+              {isPass && (
+                <>
+                  <CircleCheck aria-label="passing" className="size-3.5 shrink-0 text-[#22c55e]" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#15803d] dark:text-[#4ade80]">pass</span>
+                </>
+              )}
+              {isFail && (
+                <>
+                  <CircleX aria-label="failing" className="size-3.5 shrink-0 text-[#ef4444]" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#b91c1c] dark:text-[#f87171]">fail</span>
+                </>
+              )}
+              <span className={cn('min-w-0 flex-1 truncate', isPass ? 'text-(--ide-success-soft)' : 'text-(--ide-fg)')}>
+                {check.name}
+              </span>
             </li>
           )
         })}
       </ul>
       {results && (
-        <p className={cn('mt-2 text-[11px]', passed === checks.length ? 'text-(--ide-success)' : 'text-(--ide-muted)')}>
+        <p className={cn('mt-2 text-[11px] font-medium', passed === checks.length ? 'text-[#15803d] dark:text-[#4ade80]' : 'text-(--ide-muted)')}>
           {passed}/{checks.length} passing
         </p>
       )}

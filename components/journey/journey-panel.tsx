@@ -6,6 +6,7 @@ import type { ArchitectureNode, JourneyTerm } from '@/lib/journeys/types'
 import { cn } from '@/lib/utils'
 import { problemIcons, type Problem, type SlotGuideRow } from '../ide/bottom-panel'
 import { FileIcon } from '../ide/code'
+import { Pill } from '@/components/ui/game'
 
 export type JourneyTab = 'terminal' | 'steps' | 'problems' | 'glossary' | 'architecture'
 
@@ -57,10 +58,23 @@ export function JourneyPanel({ tab: requested, onTab, onClose, terminal, steps, 
             role="tab"
             aria-selected={tab === item.id}
             onClick={() => onTab(item.id)}
-            className={cn('flex h-full shrink-0 items-center gap-1.5 border-b px-2 text-[11px] tracking-wide', tab === item.id ? 'border-[#0078d4] text-(--ide-fg-strong)' : 'border-transparent text-(--ide-muted) hover:text-(--ide-fg)')}
+            className={cn(
+              'flex h-full shrink-0 items-center gap-1.5 px-3 text-[11px] font-medium tracking-wide transition-colors border-t-2',
+              tab === item.id
+                ? 'border-t-(--ide-accent) bg-(--ide-bg) text-(--ide-fg-strong)'
+                : 'border-t-transparent text-(--ide-muted) hover:text-(--ide-fg) hover:bg-(--ide-hover)/50'
+            )}
           >
             {item.label}
-            {!!item.badge && <span className="rounded-full bg-[#616161] px-1.5 text-[10px] leading-4 text-white">{item.badge}</span>}
+            {!!item.badge && (
+              <Pill
+                size="sm"
+                tone={item.id === 'problems' && problemCount > 0 ? 'boss' : 'neutral'}
+                className="px-1.5 py-0 text-[10px] leading-tight font-semibold"
+              >
+                {item.badge}
+              </Pill>
+            )}
           </button>
         ))}
         <button type="button" onClick={onClose} aria-label="Close panel" className="ml-auto rounded p-1 text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-fg)">

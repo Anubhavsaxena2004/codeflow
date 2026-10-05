@@ -129,6 +129,11 @@ pnpm db:migrate          # adds users.track, journey_projects, level_progress
 pnpm test:journeys       # validates every bundled journey and the engine
 ```
 
+On Supabase, migration 004 matters: Supabase serves the `public` schema through its Data API
+and grants the `anon` role (anyone with the publishable key) full access to new tables by
+default. 004 turns on row level security and revokes those grants, so only the server can
+read users, sessions or GitHub tokens. Any new table needs the same treatment in its migration.
+
 Add `ADMIN_EMAILS=you@example.com` to `.env.local` to get the admin.
 
 ## Adding a bundled journey in code

@@ -1,11 +1,21 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual, type ScryptOptions } from 'node:crypto'
 import { cookies } from 'next/headers'
+import type { Track } from '@/lib/journeys/types'
 import { query } from './db'
 
 export interface SessionUser {
   id: string
   name: string
   email: string
+  /** The tech stack the learner picked; null until they choose. */
+  track: Track | null
+  isAdmin: boolean
+}
+
+/** Admins are listed by email in ADMIN_EMAILS (comma-separated), so granting access needs no UI or migration. */
+export function isAdminEmail(email: string) {
+  const admins = (process.env.ADMIN_EMAILS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
+  return admins.includes(email.toLowerCase())
 }
 
 const SESSION_COOKIE = 'codeflow_session'
@@ -65,14 +75,14 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value
   if (!token) return null
 
-  const [user] = await query<SessionUser>(
-    `SELECT u.id::text AS id, u.name, u.email
+  const [user] = await query<Omit<SessionUser, 'isAdmin'>>(
+    `SELECT u.id::text AS id, u.name, u.email, u.track
        FROM sessions s
        JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = $1 AND s.expires_at > now()`,
     [hashToken(token)],
   )
-  return user ?? null
+  return user ? { ...user, isAdmin: isAdminEmail(user.email) } : null
 }
 
 export async function endSession() {

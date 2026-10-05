@@ -26,6 +26,11 @@ export async function withUser(handler: (user: SessionUser) => Promise<Response>
   return handler(user)
 }
 
+/** Runs the handler for an admin (see ADMIN_EMAILS), or answers 401/403. */
+export async function withAdmin(handler: (user: SessionUser) => Promise<Response>) {
+  return withUser((user) => (user.isAdmin ? handler(user) : Promise.resolve(jsonError(403, 'Admins only.'))))
+}
+
 export type ChallengeRouteContext = { params: Promise<{ id: string }> }
 
 /** Resolves the `[id]` route param to a challenge and the signed-in user, or answers 404/401. */

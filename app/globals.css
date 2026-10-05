@@ -153,6 +153,190 @@
   }
 }
 
+/* ---- Light and dark mode ---------------------------------------------------------------
+   lib/theme.ts puts "light" or "dark" on <html>. Components use these variables, e.g.
+   bg-(--ide-bg), so one class switches the whole app. */
+
+/* The VS Code-style workspace: Light Modern and Dark Modern. */
+:root {
+  --ide-bar: #f8f8f8;
+  --ide-bg: #ffffff;
+  --ide-bg-alt: #f3f3f3;
+  --ide-border: #e5e5e5;
+  --ide-border-strong: #cecece;
+  --ide-input: #ffffff;
+  --ide-hover: #ececec;
+  --ide-active: #e4e6f1;
+  --ide-scrollbar: #c4c4c4;
+  --ide-heading: #1f1f1f;
+  --ide-fg-strong: #1f1f1f;
+  --ide-fg: #3b3b3b;
+  --ide-fg-soft: #424242;
+  --ide-fg-title: #616161;
+  --ide-muted: #6f6f6f;
+  --ide-icon: #7a7a7a;
+  --ide-dim: #8c8c8c;
+  --ide-faint: #a6a6a6;
+  --ide-caret: #000000;
+  --ide-link: #005fb8;
+  --ide-success: #388a34;
+  --ide-success-soft: #2e6b2a;
+  --ide-added: #587c0c;
+  --ide-error: #e51400;
+  --ide-error-soft: #c4314b;
+  --ide-warning: #bf8803;
+  --ide-warning-soft: #895503;
+  --ide-code: #0070c1;
+  --ide-string: #a31515;
+  --ide-comment: #008000;
+  --ide-keyword: #af00db;
+  --ide-selection: #add6ff;
+
+  --syn-plain: #1f1f1f;
+  --syn-comment: #008000;
+  --syn-keyword: #0000ff;
+  --syn-builtin: #0070c1;
+  --syn-number: #098658;
+  --syn-constant: #811f3f;
+  --syn-variable: #001080;
+  --syn-string: #a31515;
+  --syn-selector: #800000;
+  --syn-tag: #800000;
+  --syn-attr: #e50000;
+  --syn-punctuation: #383a42;
+  --syn-function: #795e26;
+  --syn-class: #267f99;
+
+  /* Home, profile and sign-in: bright and friendly. */
+  --cf-bg: #eef4fb;
+  --cf-surface: #ffffff;
+  --cf-surface-2: #f4f7fc;
+  --cf-border: #e1e8f2;
+  --cf-text: #1b2140;
+  --cf-muted: #5b6480;
+  --cf-faint: #8a93ad;
+  --cf-track: #e5eaf3;
+  --cf-shadow: 0 1px 2px rgb(27 33 64 / 0.06), 0 4px 14px rgb(27 33 64 / 0.06);
+
+  /* The admin and the mentor sandbox. */
+  --adm-bg: #f4f6fa;
+  --adm-panel: #ffffff;
+  --adm-panel-deep: #f7f9fc;
+  --adm-row-hover: #f2f5fa;
+  --adm-hover: #eaeef5;
+  --adm-selected: #dbe8ff;
+  --adm-border: #e0e5ee;
+  --adm-border-strong: #c9d1de;
+  --adm-track: #d5dbe5;
+  --adm-heading: #0f172a;
+  --adm-fg-strong: #111827;
+  --adm-fg: #2b3245;
+  --adm-muted: #5d6680;
+  --adm-dim: #8a93a8;
+  --adm-teal: #0f8a76;
+  --adm-warning: #9a6700;
+  --adm-error: #c4314b;
+  --adm-link: #0b62d6;
+  --adm-code: #0070c1;
+  --adm-string: #a31515;
+}
+
+:root.dark {
+  --ide-bar: #181818;
+  --ide-bg: #1f1f1f;
+  --ide-bg-alt: #252526;
+  --ide-border: #2b2b2b;
+  --ide-border-strong: #3c3c3c;
+  --ide-input: #313131;
+  --ide-hover: #2a2d2e;
+  --ide-active: #37373d;
+  --ide-scrollbar: #454545;
+  --ide-heading: #ffffff;
+  --ide-fg-strong: #e7e7e7;
+  --ide-fg: #cccccc;
+  --ide-fg-soft: #c5c5c5;
+  --ide-fg-title: #bbbbbb;
+  --ide-muted: #9d9d9d;
+  --ide-icon: #868686;
+  --ide-dim: #6e7681;
+  --ide-faint: #5a5a5a;
+  --ide-caret: #aeafad;
+  --ide-link: #3794ff;
+  --ide-success: #89d185;
+  --ide-success-soft: #b5e2b0;
+  --ide-added: #73c991;
+  --ide-error: #f14c4c;
+  --ide-error-soft: #f48771;
+  --ide-warning: #cca700;
+  --ide-warning-soft: #e2c08d;
+  --ide-code: #9cdcfe;
+  --ide-string: #ce9178;
+  --ide-comment: #6a9955;
+  --ide-keyword: #c586c0;
+  --ide-selection: #264f78;
+
+  --syn-plain: #9cdcfe;
+  --syn-comment: #6a9955;
+  --syn-keyword: #569cd6;
+  --syn-builtin: #569cd6;
+  --syn-number: #b5cea8;
+  --syn-constant: #646695;
+  --syn-variable: #9cdcfe;
+  --syn-string: #ce9178;
+  --syn-selector: #d7ba7d;
+  --syn-tag: #4ec9b0;
+  --syn-attr: #9cdcfe;
+  --syn-punctuation: #d4d4d4;
+  --syn-function: #dcdcaa;
+  --syn-class: #4ec9b0;
+
+  --cf-bg: #0a1022;
+  --cf-surface: #111a31;
+  --cf-surface-2: #17213b;
+  --cf-border: #233050;
+  --cf-text: #e9edf9;
+  --cf-muted: #a3aecb;
+  --cf-faint: #6d7a9c;
+  --cf-track: #24304d;
+  --cf-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 18px rgb(0 0 0 / 0.25);
+
+  --adm-bg: #0d0f12;
+  --adm-panel: #111318;
+  --adm-panel-deep: #0f1116;
+  --adm-row-hover: #151820;
+  --adm-hover: #1c1f26;
+  --adm-selected: #1f2a37;
+  --adm-border: #292d35;
+  --adm-border-strong: #343a46;
+  --adm-track: #3a3f4b;
+  --adm-heading: #ffffff;
+  --adm-fg-strong: #e7e7e7;
+  --adm-fg: #d4d4d4;
+  --adm-muted: #9da5b4;
+  --adm-dim: #6e7681;
+  --adm-teal: #4ec9b0;
+  --adm-warning: #e2c08d;
+  --adm-error: #f48771;
+  --adm-link: #3794ff;
+  --adm-code: #9cdcfe;
+  --adm-string: #ce9178;
+}
+
+/* The journey map: islands bob gently, the current level pulses. */
+@keyframes island-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-island { animation: island-float 6s ease-in-out infinite; }
+@keyframes wave-drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-60px); }
+}
+.animate-waves { animation: wave-drift 9s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-island, .animate-waves { animation: none; }
+}
+
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }

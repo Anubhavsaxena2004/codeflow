@@ -16,5 +16,5 @@ export function JourneyContinue({ projectId, levelIds }: { projectId: string; le
     router.replace(`/learn/${projectId}/${target}`)
   }, [ready, levels, levelIds, projectId, router])
 
-  return <div className="grid min-h-dvh place-items-center bg-[#1f1f1f] text-[13px] text-[#9d9d9d]">Opening your next level…</div>
+  return <div className="grid min-h-dvh place-items-center bg-(--ide-bg) text-[13px] text-(--ide-muted)">Opening your next level…</div>
 }

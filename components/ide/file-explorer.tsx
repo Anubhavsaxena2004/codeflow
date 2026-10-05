@@ -14,8 +14,8 @@ type FolderNode = { kind: 'folder'; name: string; path: string; chain: string[];
 type TreeNode = FolderNode | { kind: 'file'; name: string; path: string; file: ExplorerFile }
 
 const changeMarks: Record<FileChange, { letter: string; className: string; label: string }> = {
-  added: { letter: 'U', className: 'text-[#73c991]', label: 'new in this level' },
-  modified: { letter: 'M', className: 'text-[#e2c08d]', label: 'changed in this level' },
+  added: { letter: 'U', className: 'text-(--ide-added)', label: 'new in this level' },
+  modified: { letter: 'M', className: 'text-(--ide-warning-soft)', label: 'changed in this level' },
 }
 
 function buildTree(files: ExplorerFile[]): TreeNode[] {
@@ -120,19 +120,19 @@ export function FileExplorer({ projectName, files, folders, activePath, challeng
               title={folderAbout(node)}
               aria-expanded={open}
               className={cn(
-                'flex h-[22px] w-full items-center gap-0.5 pr-2 text-left hover:bg-[#2a2d2e]',
-                selected === node.path && 'bg-[#37373d] hover:bg-[#37373d]',
-                node.generated ? 'text-[#8b8b8b]' : node.changed && 'text-[#73c991]',
+                'flex h-[22px] w-full items-center gap-0.5 pr-2 text-left hover:bg-(--ide-hover)',
+                selected === node.path && 'bg-(--ide-active) hover:bg-(--ide-active)',
+                node.generated ? 'text-(--ide-icon)' : node.changed && 'text-(--ide-added)',
               )}
               style={{ paddingLeft: pad }}
             >
-              {open ? <ChevronDown className="size-4 shrink-0 text-[#c5c5c5]" /> : <ChevronRight className="size-4 shrink-0 text-[#c5c5c5]" />}
+              {open ? <ChevronDown className="size-4 shrink-0 text-(--ide-fg-soft)" /> : <ChevronRight className="size-4 shrink-0 text-(--ide-fg-soft)" />}
               <span className="truncate">{node.name}</span>
-              {node.changed && !node.generated && <span aria-hidden className="ml-auto size-1.5 shrink-0 rounded-full bg-[#73c991]/80" />}
+              {node.changed && !node.generated && <span aria-hidden className="ml-auto size-1.5 shrink-0 rounded-full bg-(--ide-added)/80" />}
             </button>
             {open && node.children.length > 0 && (
               <ul className="relative">
-                <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-[#585858]/50" style={{ left: pad + 7 }} />
+                <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-(--ide-faint)/50" style={{ left: pad + 7 }} />
                 {renderNodes(node.children, depth + 1)}
               </ul>
             )}
@@ -152,17 +152,17 @@ export function FileExplorer({ projectName, files, folders, activePath, challeng
             }}
             title={mark ? `${node.file.about} (${mark.label})` : node.file.about}
             className={cn(
-              'flex h-[22px] w-full items-center gap-1.5 pr-2 text-left hover:bg-[#2a2d2e]',
-              activePath === node.path && 'text-white',
-              selected === node.path && 'bg-[#37373d] hover:bg-[#37373d]',
-              node.file.generated && 'text-[#8b8b8b]',
+              'flex h-[22px] w-full items-center gap-1.5 pr-2 text-left hover:bg-(--ide-hover)',
+              activePath === node.path && 'text-(--ide-heading)',
+              selected === node.path && 'bg-(--ide-active) hover:bg-(--ide-active)',
+              node.file.generated && 'text-(--ide-icon)',
             )}
             style={{ paddingLeft: pad + 18 }}
           >
             <FileIcon path={node.path} />
-            <span className={cn('truncate', isChallenge ? 'text-[#e2c08d]' : mark?.className)}>{node.name}</span>
+            <span className={cn('truncate', isChallenge ? 'text-(--ide-warning-soft)' : mark?.className)}>{node.name}</span>
             {isChallenge && challengeBadge ? (
-              <span className="ml-auto shrink-0 pl-2 text-[11px] text-[#e2c08d]">{challengeBadge}</span>
+              <span className="ml-auto shrink-0 pl-2 text-[11px] text-(--ide-warning-soft)">{challengeBadge}</span>
             ) : (
               mark && (
                 <span aria-label={mark.label} className={cn('ml-auto shrink-0 pl-2 text-[11px] font-semibold', mark.className)}>
@@ -178,20 +178,20 @@ export function FileExplorer({ projectName, files, folders, activePath, challeng
   const about = selectedNode ? (selectedNode.kind === 'folder' ? folderAbout(selectedNode) : selectedNode.file.about) : undefined
 
   return (
-    <div className="flex h-full min-h-0 flex-col text-[13px] text-[#cccccc]">
-      <div className="flex h-9 shrink-0 items-center px-5 text-[11px] tracking-wide text-[#bbbbbb]">EXPLORER</div>
+    <div className="flex h-full min-h-0 flex-col text-[13px] text-(--ide-fg)">
+      <div className="flex h-9 shrink-0 items-center px-5 text-[11px] tracking-wide text-(--ide-fg-title)">EXPLORER</div>
       <div className="flex h-[22px] shrink-0 items-center gap-0.5 px-1 text-[11px] font-bold tracking-wide">
         <ChevronDown className="size-4" /> {projectName.toUpperCase()}
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto pb-2" aria-label="Project files">
-        {tree.length > 0 ? renderNodes(tree, 0) : <li className="px-5 py-2 text-[12px] text-[#6e7681]">Empty for now. Files appear here as you build.</li>}
+        {tree.length > 0 ? renderNodes(tree, 0) : <li className="px-5 py-2 text-[12px] text-(--ide-dim)">Empty for now. Files appear here as you build.</li>}
       </ul>
-      <section className="shrink-0 border-t border-[#2b2b2b]">
+      <section className="shrink-0 border-t border-(--ide-border)">
         <div className="flex h-[22px] items-center gap-0.5 px-1 text-[11px] font-bold tracking-wide">
           <ChevronDown className="size-4" /> ABOUT
         </div>
-        <div className="px-5 pb-3 pt-1 text-[12px] leading-5 text-[#9d9d9d]">
-          {selectedNode && <div className="mb-1 font-mono text-[11px] text-[#cccccc]">{selectedNode.kind === 'folder' ? `${selectedNode.chain[selectedNode.chain.length - 1]}/` : selectedNode.path}</div>}
+        <div className="px-5 pb-3 pt-1 text-[12px] leading-5 text-(--ide-muted)">
+          {selectedNode && <div className="mb-1 font-mono text-[11px] text-(--ide-fg)">{selectedNode.kind === 'folder' ? `${selectedNode.chain[selectedNode.chain.length - 1]}/` : selectedNode.path}</div>}
           {about ?? 'Select a file or folder to see what it is for.'}
         </div>
       </section>

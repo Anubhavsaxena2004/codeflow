@@ -28,6 +28,7 @@ import { verifyLevel } from '@/lib/journeys/verify'
 import { useLearner } from '@/lib/use-learner'
 import { loginHref } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { BlockCard, BlockPalette } from '../ide/block-palette'
 import type { Problem, SlotGuideRow } from '../ide/bottom-panel'
 import { ChallengeEditor, FileView, type SlotStatus } from '../ide/code-editor'
@@ -83,7 +84,7 @@ function ToolButton({ icon: Icon, label, onClick, disabled, variant = 'ghost' }:
       aria-label={label}
       className={cn(
         'flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[12px] transition-colors disabled:pointer-events-none disabled:opacity-40',
-        variant === 'primary' ? 'bg-[#0078d4] text-white hover:bg-[#026ec1]' : 'text-[#cccccc] hover:bg-[#2b2b2b]',
+        variant === 'primary' ? 'bg-[#0078d4] text-white hover:bg-[#026ec1]' : 'text-(--ide-fg) hover:bg-(--ide-border)',
       )}
     >
       <Icon className="size-3.5" />
@@ -100,7 +101,7 @@ function ActivityItem({ icon: Icon, label, active, onClick, indicator }: { icon:
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={cn('relative flex size-12 items-center justify-center text-[#868686] hover:text-[#cccccc]', active && 'text-[#e7e7e7]')}
+      className={cn('relative flex size-12 items-center justify-center text-(--ide-icon) hover:text-(--ide-fg)', active && 'text-(--ide-fg-strong)')}
     >
       {active && <span className="absolute inset-y-0 left-0 w-0.5 bg-[#0078d4]" />}
       <Icon className="size-6" strokeWidth={1.5} />
@@ -131,7 +132,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const place = `WORLD ${project.worlds.indexOf(world!) + 1} · LEVEL ${index + 1}`
   const next = project.levels[index + 1] ?? null
   const done = useMemo(() => indexProgress(learner.levels)[project.id] ?? {}, [learner.levels, project.id])
-  const unlocked = preview || isUnlocked(project, index, done)
+  const unlocked = preview || isUnlocked(project, index, done, !!session.user?.allLevelsOpen)
   const blocking = project.levels.slice(0, index).find((item) => !done[item.id])
   const previous = done[level.id] ?? null
   const totalXp = learner.levels.reduce((sum, row) => sum + row.xp, 0)
@@ -633,18 +634,18 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const nextLink = next ? { title: next.title, href: preview ? undefined : levelHref(next.id) } : null
 
   if (!preview && !learner.ready) {
-    return <div className="grid min-h-dvh place-items-center bg-[#1f1f1f] text-[13px] text-[#9d9d9d]">Loading your progress…</div>
+    return <div className="grid min-h-dvh place-items-center bg-(--ide-bg) text-[13px] text-(--ide-muted)">Loading your progress…</div>
   }
 
   if (!unlocked) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-[#1f1f1f] p-6 text-center text-[13px] text-[#cccccc]">
+      <main className="grid min-h-dvh place-items-center bg-(--ide-bg) p-6 text-center text-[13px] text-(--ide-fg)">
         <div className="max-w-sm">
-          <Lock aria-hidden className="mx-auto mb-3 size-8 text-[#6e7681]" />
-          <h1 className="text-[16px] font-semibold text-white">{level.title} is locked</h1>
-          <p className="mt-2 text-[#9d9d9d]">Levels open in order. Finish “{blocking?.title}” first.</p>
+          <Lock aria-hidden className="mx-auto mb-3 size-8 text-(--ide-dim)" />
+          <h1 className="text-[16px] font-semibold text-(--ide-heading)">{level.title} is locked</h1>
+          <p className="mt-2 text-(--ide-muted)">Levels open in order. Finish “{blocking?.title}” first.</p>
           <div className="mt-5 flex justify-center gap-2">
-            <Link href="/" className="rounded-sm border border-[#3c3c3c] px-3 py-1.5 hover:bg-[#2b2b2b]">Back to the map</Link>
+            <Link href="/" className="rounded-sm border border-(--ide-border-strong) px-3 py-1.5 hover:bg-(--ide-border)">Back to the map</Link>
             {blocking && <Link href={levelHref(blocking.id)} className="rounded-sm bg-[#0078d4] px-3 py-1.5 text-white hover:bg-[#026ec1]">Go to {blocking.title}</Link>}
           </div>
         </div>
@@ -653,13 +654,13 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   }
 
   const lessonView = (
-    <div className="mx-auto max-w-3xl px-6 py-6 text-[13px] leading-6 text-[#cccccc]">
-      <div className="text-[11px] font-semibold tracking-wide text-[#9d9d9d]">{world?.title.toUpperCase()} · {kindLabels[level.kind].toUpperCase()}</div>
-      <h2 className="mt-1 text-[20px] font-semibold text-white">{level.title}</h2>
+    <div className="mx-auto max-w-3xl px-6 py-6 text-[13px] leading-6 text-(--ide-fg)">
+      <div className="text-[11px] font-semibold tracking-wide text-(--ide-muted)">{world?.title.toUpperCase()} · {kindLabels[level.kind].toUpperCase()}</div>
+      <h2 className="mt-1 text-[20px] font-semibold text-(--ide-heading)">{level.title}</h2>
       <LessonText text={level.lesson} className="mt-4" />
       {level.kind === 'command' && (
-        <p className="mt-6 flex items-center gap-2 rounded-md border border-[#3794ff]/40 bg-[#3794ff]/10 p-3 text-[12px] text-[#cccccc]">
-          <SquareTerminal aria-hidden className="size-4 shrink-0 text-[#3794ff]" /> Type in the terminal below. Each step&apos;s goal is in the mission panel on the right.
+        <p className="mt-6 flex items-center gap-2 rounded-md border border-(--ide-link)/40 bg-(--ide-link)/10 p-3 text-[12px] text-(--ide-fg)">
+          <SquareTerminal aria-hidden className="size-4 shrink-0 text-(--ide-link)" /> Type in the terminal below. Each step&apos;s goal is in the mission panel on the right.
         </p>
       )}
     </div>
@@ -701,7 +702,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   ) : activeFile ? (
     <FileView file={activeFile} language={languageFor(activeFile.path)} />
   ) : (
-    <div className="grid h-full min-h-60 place-items-center p-6 text-center text-[13px] text-[#6e7681]">
+    <div className="grid h-full min-h-60 place-items-center p-6 text-center text-[13px] text-(--ide-dim)">
       <div>
         <Files className="mx-auto mb-3 size-10" strokeWidth={1} />
         Open a file from the explorer.
@@ -710,32 +711,32 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   )
 
   const tabLabel = (tab: string) => (tab === LESSON_TAB ? 'Lesson' : tab === FLOW_TAB ? 'Architecture' : tab.split('/').pop())
-  const tabIcon = (tab: string) => (tab === LESSON_TAB ? <BookOpen aria-hidden className="size-4 text-[#519aba]" /> : tab === FLOW_TAB ? <Network aria-hidden className="size-4 text-[#c586c0]" /> : <FileIcon path={tab} />)
+  const tabIcon = (tab: string) => (tab === LESSON_TAB ? <BookOpen aria-hidden className="size-4 text-[#519aba]" /> : tab === FLOW_TAB ? <Network aria-hidden className="size-4 text-(--ide-keyword)" /> : <FileIcon path={tab} />)
 
   return (
     <>
       <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={finishDrag}>
         <div
-          className="flex min-h-dvh flex-col bg-[#1f1f1f] font-sans text-[13px] text-[#cccccc] lg:h-dvh lg:min-h-0"
+          className="flex min-h-dvh flex-col bg-(--ide-bg) font-sans text-[13px] text-(--ide-fg) lg:h-dvh lg:min-h-0"
           style={{ '--explorer-w': `${layout.explorer}px`, '--mission-w': `${layout.mission}px`, '--panel-h': `${layout.panel}px` } as CSSProperties}
         >
           {/* Title bar */}
-          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-[#2b2b2b] bg-[#181818] px-2">
+          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-(--ide-border) bg-(--ide-bar) px-2">
             {preview ? (
-              <button type="button" onClick={onExit} className="flex shrink-0 items-center gap-1.5 rounded px-1.5 py-1 text-[12px] hover:bg-[#2b2b2b]">
+              <button type="button" onClick={onExit} className="flex shrink-0 items-center gap-1.5 rounded px-1.5 py-1 text-[12px] hover:bg-(--ide-border)">
                 <ArrowLeft className="size-3.5" /> Back to editor
               </button>
             ) : (
-              <Link href={mapHref} className="flex shrink-0 items-center gap-2 rounded px-1.5 py-1 hover:bg-[#2b2b2b]" title="Back to the map">
+              <Link href={mapHref} className="flex shrink-0 items-center gap-2 rounded px-1.5 py-1 hover:bg-(--ide-border)" title="Back to the map">
                 <span className="grid size-5 place-items-center rounded-sm bg-[#0078d4] text-[9px] font-bold text-white">{'<>'}</span>
-                <span className="hidden text-[13px] text-[#cccccc] sm:inline">CodeFlow</span>
+                <span className="hidden text-[13px] text-(--ide-fg) sm:inline">CodeFlow</span>
               </Link>
             )}
-            <div className="mx-auto hidden h-6 min-w-0 max-w-lg flex-1 items-center justify-center truncate rounded-md border border-[#3c3c3c] bg-[#1f1f1f] px-3 text-[12px] text-[#9d9d9d] md:flex">
+            <div className="mx-auto hidden h-6 min-w-0 max-w-lg flex-1 items-center justify-center truncate rounded-md border border-(--ide-border-strong) bg-(--ide-bg) px-3 text-[12px] text-(--ide-muted) md:flex">
               {project.projectName} — {world?.title} · {level.title}
             </div>
             <div className="ml-auto flex items-center gap-1">
-              {preview && <span className="rounded-sm bg-[#cca700]/20 px-2 py-0.5 text-[11px] text-[#e2c08d]">Preview</span>}
+              {preview && <span className="rounded-sm bg-(--ide-warning)/20 px-2 py-0.5 text-[11px] text-(--ide-warning-soft)">Preview</span>}
               <ToolButton icon={RotateCcw} label="Reset" onClick={reset} />
               <ToolButton icon={Lightbulb} label="Hint" onClick={giveHint} disabled={passed} />
               {primary && (
@@ -747,22 +748,23 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                   variant="primary"
                 />
               )}
-              <div className="ml-1 flex items-center gap-1 border-l border-[#2b2b2b] pl-2">
+              <div className="ml-1 flex items-center gap-1 border-l border-(--ide-border) pl-2">
                 {!preview && (
-                  <Link href={mapHref} className="flex h-7 items-center gap-1.5 rounded px-2 text-[12px] text-[#cccccc] hover:bg-[#2b2b2b]">
+                  <Link href={mapHref} className="flex h-7 items-center gap-1.5 rounded px-2 text-[12px] text-(--ide-fg) hover:bg-(--ide-border)">
                     <MapIcon className="size-3.5" />
                     <span className="hidden lg:inline">Map</span>
                   </Link>
                 )}
+                <ThemeToggle className="size-7 rounded text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)" iconClassName="size-3.5" />
                 {session.status === 'signed-in' ? (
                   <>
                     <Link href="/profile" title={`${session.user.name} · ${session.user.email}`} className="grid size-6 place-items-center rounded-full bg-[#0078d4] text-[10px] font-semibold text-white">{initials}</Link>
-                    <button type="button" onClick={session.signOut} aria-label="Sign out" title="Sign out" className="rounded p-1 text-[#9d9d9d] hover:bg-[#2b2b2b] hover:text-white">
+                    <button type="button" onClick={session.signOut} aria-label="Sign out" title="Sign out" className="rounded p-1 text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)">
                       <LogOut className="size-3.5" />
                     </button>
                   </>
                 ) : session.status === 'guest' && !preview ? (
-                  <Link href={loginHref(pathname)} className="flex h-7 items-center rounded px-2 text-[12px] text-[#cccccc] hover:bg-[#2b2b2b]">Sign in</Link>
+                  <Link href={loginHref(pathname)} className="flex h-7 items-center rounded px-2 text-[12px] text-(--ide-fg) hover:bg-(--ide-border)">Sign in</Link>
                 ) : null}
               </div>
             </div>
@@ -770,7 +772,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
           <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
             {/* Activity bar */}
-            <nav aria-label="Views" className="hidden w-12 shrink-0 flex-col border-r border-[#2b2b2b] bg-[#181818] lg:flex">
+            <nav aria-label="Views" className="hidden w-12 shrink-0 flex-col border-r border-(--ide-border) bg-(--ide-bar) lg:flex">
               <ActivityItem icon={Files} label="Explorer" active={sidebar === 'explorer'} onClick={() => setSidebar((current) => (current === 'explorer' ? null : 'explorer'))} />
               <ActivityItem icon={PanelRight} label="Mission" active={missionOpen} onClick={() => setMissionOpen((open) => !open)} />
               <ActivityItem icon={PanelBottom} label="Terminal" active={panelOpen} onClick={() => setPanelOpen((open) => !open)} />
@@ -779,11 +781,11 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
               )}
               <div className="mt-auto">
                 {session.status === 'guest' && !preview ? (
-                  <Link href={loginHref(pathname)} aria-label="Sign in" title="Sign in" className="flex size-12 items-center justify-center text-[#868686] hover:text-[#cccccc]">
+                  <Link href={loginHref(pathname)} aria-label="Sign in" title="Sign in" className="flex size-12 items-center justify-center text-(--ide-icon) hover:text-(--ide-fg)">
                     <UserRound className="size-6" strokeWidth={1.5} />
                   </Link>
                 ) : (
-                  <Link href="/profile" aria-label="Profile" title="Profile" className="flex size-12 items-center justify-center text-[#868686] hover:text-[#cccccc]">
+                  <Link href="/profile" aria-label="Profile" title="Profile" className="flex size-12 items-center justify-center text-(--ide-icon) hover:text-(--ide-fg)">
                     <UserRound className="size-6" strokeWidth={1.5} />
                   </Link>
                 )}
@@ -792,7 +794,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
             {/* Explorer / GitHub */}
             {sidebar && (
-              <aside className="relative h-72 shrink-0 border-b border-[#2b2b2b] bg-[#181818] lg:h-auto lg:w-(--explorer-w) lg:max-w-[40vw] lg:border-b-0 lg:border-r">
+              <aside className="relative h-72 shrink-0 border-b border-(--ide-border) bg-(--ide-bar) lg:h-auto lg:w-(--explorer-w) lg:max-w-[40vw] lg:border-b-0 lg:border-r">
                 <Sash axis="x" label="Resize explorer" value={layout.explorer} min={LAYOUT_MIN.explorer} max={maxSideWidth(missionOpen ? layout.mission : 0, 0.4)} onChange={resize('explorer')} onReset={resetSize('explorer')} className="right-0 translate-x-1/2" />
                 {sidebar === 'github' ? (
                   <GithubPanel
@@ -827,44 +829,44 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
             {/* Editor group */}
             <main className="flex min-w-0 flex-1 flex-col lg:min-h-0">
-              <div role="tablist" aria-label="Open files" className="flex h-9 shrink-0 overflow-x-auto border-b border-[#2b2b2b] bg-[#181818]">
+              <div role="tablist" aria-label="Open files" className="flex h-9 shrink-0 overflow-x-auto border-b border-(--ide-border) bg-(--ide-bar)">
                 {tabs.map((tab) => {
                   const isActive = tab === activeTab
                   return (
-                    <div key={tab} className={cn('group flex shrink-0 items-center gap-1.5 border-r border-[#2b2b2b] pl-3 pr-1 text-[13px]', isActive ? 'border-t border-t-[#0078d4] bg-[#1f1f1f] text-white' : 'border-t border-t-transparent text-[#9d9d9d] hover:bg-[#1f1f1f]/60')}>
+                    <div key={tab} className={cn('group flex shrink-0 items-center gap-1.5 border-r border-(--ide-border) pl-3 pr-1 text-[13px]', isActive ? 'border-t border-t-[#0078d4] bg-(--ide-bg) text-(--ide-heading)' : 'border-t border-t-transparent text-(--ide-muted) hover:bg-(--ide-bg)/60')}>
                       <button type="button" role="tab" aria-selected={isActive} onClick={() => setActiveTab(tab)} className="flex h-full items-center gap-1.5">
                         {tabIcon(tab)}
-                        <span className={cn(files.get(tab)?.challenge && 'text-[#e2c08d]')}>{tabLabel(tab)}</span>
+                        <span className={cn(files.get(tab)?.challenge && 'text-(--ide-warning-soft)')}>{tabLabel(tab)}</span>
                       </button>
-                      <button type="button" onClick={() => closeTab(tab)} aria-label={`Close ${tabLabel(tab)}`} className={cn('rounded p-0.5 hover:bg-[#3c3c3c]', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
+                      <button type="button" onClick={() => closeTab(tab)} aria-label={`Close ${tabLabel(tab)}`} className={cn('rounded p-0.5 hover:bg-(--ide-border-strong)', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
                         <X className="size-3.5" />
                       </button>
                     </div>
                   )
                 })}
                 {!tabs.includes(LESSON_TAB) && (
-                  <button type="button" onClick={() => { setTabs((current) => [...current, LESSON_TAB]); setActiveTab(LESSON_TAB) }} className="flex shrink-0 items-center gap-1.5 px-3 text-[12px] text-[#9d9d9d] hover:text-white">
+                  <button type="button" onClick={() => { setTabs((current) => [...current, LESSON_TAB]); setActiveTab(LESSON_TAB) }} className="flex shrink-0 items-center gap-1.5 px-3 text-[12px] text-(--ide-muted) hover:text-(--ide-heading)">
                     <BookOpen aria-hidden className="size-3.5" /> Lesson
                   </button>
                 )}
               </div>
 
               {activeTab && !activeTab.startsWith('#') && (
-                <div className="flex h-6 shrink-0 items-center gap-0.5 overflow-x-auto px-3 text-[12px] text-[#9d9d9d]">
+                <div className="flex h-6 shrink-0 items-center gap-0.5 overflow-x-auto px-3 text-[12px] text-(--ide-muted)">
                   {activeTab.split('/').map((part, position, parts) => (
                     <span key={position} className="flex shrink-0 items-center gap-0.5">
                       {position === parts.length - 1 && <FileIcon path={part} className="size-3.5" />}
-                      <span className={position === parts.length - 1 ? 'text-[#cccccc]' : undefined}>{part}</span>
+                      <span className={position === parts.length - 1 ? 'text-(--ide-fg)' : undefined}>{part}</span>
                       {position < parts.length - 1 && <ChevronRight className="size-3.5" />}
                     </span>
                   ))}
                 </div>
               )}
 
-              <div className="flex-1 overflow-auto bg-[#1f1f1f] lg:min-h-0">{editor}</div>
+              <div className="flex-1 overflow-auto bg-(--ide-bg) lg:min-h-0">{editor}</div>
 
               {panelOpen && (
-                <div className="relative h-64 shrink-0 border-t border-[#2b2b2b] bg-[#181818] lg:h-(--panel-h) lg:max-h-[60vh]">
+                <div className="relative h-64 shrink-0 border-t border-(--ide-border) bg-(--ide-bar) lg:h-(--panel-h) lg:max-h-[60vh]">
                   <Sash axis="y" invert label="Resize panel" value={layout.panel} min={LAYOUT_MIN.panel} max={maxPanelHeight} onChange={resize('panel')} onReset={resetSize('panel')} className="top-0 -translate-y-1/2" />
                   <JourneyPanel
                     tab={panelTab}
@@ -886,20 +888,20 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
             {/* Mission */}
             {missionOpen && (
-              <aside aria-label="Mission" className="relative flex shrink-0 flex-col border-t border-[#2b2b2b] bg-[#181818] lg:w-(--mission-w) lg:max-w-[45vw] lg:border-l lg:border-t-0">
+              <aside aria-label="Mission" className="relative flex shrink-0 flex-col border-t border-(--ide-border) bg-(--ide-bar) lg:w-(--mission-w) lg:max-w-[45vw] lg:border-l lg:border-t-0">
                 <Sash axis="x" invert label="Resize mission panel" value={layout.mission} min={LAYOUT_MIN.mission} max={maxSideWidth(sidebar ? layout.explorer : 0, 0.45)} onChange={resize('mission')} onReset={resetSize('mission')} className="left-0 -translate-x-1/2" />
                 <div className={cn('flex min-h-0 flex-col', level.kind === 'build' ? 'lg:h-full' : 'overflow-y-auto lg:h-full')}>
-                  <div className="flex h-9 shrink-0 items-center px-4 text-[11px] tracking-wide text-[#bbbbbb]">MISSION</div>
+                  <div className="flex h-9 shrink-0 items-center px-4 text-[11px] tracking-wide text-(--ide-fg-title)">MISSION</div>
                   <MissionHeader place={place} kind={level.kind} boss={level.boss} title={level.title} summary={level.summary} stars={reward?.stars ?? previous?.stars ?? null} />
                   {passed && reward && <CompletionCard stars={reward.stars} xp={reward.xp} next={nextLink} mapHref={mapHref} onNext={next && onNavigate ? () => onNavigate(next.id) : undefined} />}
                   {!passed && previous && (
-                    <p className="mx-4 mb-3 rounded border border-[#3c3c3c] p-2 text-[12px] leading-5 text-[#9d9d9d]">
+                    <p className="mx-4 mb-3 rounded border border-(--ide-border-strong) p-2 text-[12px] leading-5 text-(--ide-muted)">
                       You passed this level before. Replay it, or{' '}
-                      {next ? (preview ? <button type="button" onClick={() => onNavigate?.(next.id)} className="text-[#3794ff] hover:underline">go to the next one</button> : <Link href={levelHref(next.id)} className="text-[#3794ff] hover:underline">go to the next one</Link>) : 'head back to the map'}.
+                      {next ? (preview ? <button type="button" onClick={() => onNavigate?.(next.id)} className="text-(--ide-link) hover:underline">go to the next one</button> : <Link href={levelHref(next.id)} className="text-(--ide-link) hover:underline">go to the next one</Link>) : 'head back to the map'}.
                     </p>
                   )}
                   {saveError && pending && (
-                    <div className="mx-4 mb-3 rounded border border-[#f14c4c]/50 bg-[#f14c4c]/10 p-2.5 text-[12px] text-[#f48771]" role="alert">
+                    <div className="mx-4 mb-3 rounded border border-(--ide-error)/50 bg-(--ide-error)/10 p-2.5 text-[12px] text-(--ide-error-soft)" role="alert">
                       {saveError}
                       <button type="button" onClick={() => void submit(pending)} className="mt-2 block rounded-sm bg-[#0078d4] px-2 py-1 text-white hover:bg-[#026ec1]">Save again</button>
                     </div>
@@ -927,7 +929,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                     <MissionSection title={`STEPS ${Math.min(stepIndex, level.steps.length)}/${level.steps.length}`}>
                       <CommandSteps steps={level.steps} current={stepIndex} typed={typed} />
                       {!panelOpen && (
-                        <button type="button" onClick={() => { setPanelOpen(true); setPanelTab('terminal') }} className="mt-3 w-full rounded-sm border border-[#3c3c3c] py-1.5 text-[12px] hover:bg-[#2b2b2b]">Open the terminal</button>
+                        <button type="button" onClick={() => { setPanelOpen(true); setPanelTab('terminal') }} className="mt-3 w-full rounded-sm border border-(--ide-border-strong) py-1.5 text-[12px] hover:bg-(--ide-border)">Open the terminal</button>
                       )}
                     </MissionSection>
                   )}
@@ -935,7 +937,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                   {isCodeLevel(level) && (
                     <>
                       <MissionSection title="LESSON">
-                        <LessonText text={level.lesson} className="text-[12px] leading-5 text-[#cccccc]" />
+                        <LessonText text={level.lesson} className="text-[12px] leading-5 text-(--ide-fg)" />
                       </MissionSection>
                       <MissionSection title="TESTS" aside={<button type="button" onClick={runTests} disabled={passed} className="rounded-sm bg-[#0078d4] px-2 py-0.5 text-[11px] font-normal tracking-normal text-white hover:bg-[#026ec1] disabled:opacity-40">Run tests</button>}>
                         <TestList checks={(level as Extract<Level, { kind: 'edit' | 'bugfix' }>).checks} results={results} />
@@ -945,8 +947,8 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
                   {level.kind === 'architecture' && (
                     <MissionSection title="HOW TO PLAY">
-                      <LessonText text={level.lesson} className="text-[12px] leading-5 text-[#cccccc]" />
-                      <p className="mt-2 text-[12px] text-[#9d9d9d]">Click a stop to place it next; click a placed stop to take it back.</p>
+                      <LessonText text={level.lesson} className="text-[12px] leading-5 text-(--ide-fg)" />
+                      <p className="mt-2 text-[12px] text-(--ide-muted)">Click a stop to place it next; click a placed stop to take it back.</p>
                       {!passed && (
                         <button type="button" onClick={() => void checkFlow()} disabled={arrangement.includes(null)} className="mt-3 w-full rounded-sm bg-[#0078d4] py-1.5 text-[12px] font-semibold text-white hover:bg-[#026ec1] disabled:opacity-40">
                           Check order
@@ -958,9 +960,9 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                   {level.kind === 'build' && (
                     <>
                       <MissionSection title="LESSON" defaultOpen={false}>
-                        <LessonText text={level.lesson} className="text-[12px] leading-5 text-[#cccccc]" />
+                        <LessonText text={level.lesson} className="text-[12px] leading-5 text-(--ide-fg)" />
                       </MissionSection>
-                      <div className="h-[32rem] min-h-0 border-t border-[#2b2b2b] lg:h-auto lg:flex-1">
+                      <div className="h-[32rem] min-h-0 border-t border-(--ide-border) lg:h-auto lg:flex-1">
                         <BlockPalette
                           blocks={unplaced}
                           total={order.length}

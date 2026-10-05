@@ -186,20 +186,20 @@ export function GithubPanel({
 
   const tokenForm = (
     <form
-      className="mt-3 border-t border-[#2b2b2b] pt-3"
+      className="mt-3 border-t border-(--ide-border) pt-3"
       onSubmit={(event) => {
         event.preventDefault()
         void saveToken()
       }}
     >
-      <div className="mb-2 flex items-center gap-1.5 text-[12px] text-[#e7e7e7]">
+      <div className="mb-2 flex items-center gap-1.5 text-[12px] text-(--ide-fg-strong)">
         <KeyRound className="size-3.5" /> Connect with a personal access token
       </div>
-      <ol className="list-decimal space-y-1 pl-4 text-[11px] leading-[18px] text-[#9d9d9d]">
+      <ol className="list-decimal space-y-1 pl-4 text-[11px] leading-[18px] text-(--ide-muted)">
         <li>
-          <a href={NEW_TOKEN_URL} target="_blank" rel="noreferrer" className="text-[#3794ff] hover:underline">Create a token on GitHub</a>. It opens with the <code className="text-[#ce9178]">repo</code> scope ticked; pick an expiry.
+          <a href={NEW_TOKEN_URL} target="_blank" rel="noreferrer" className="text-(--ide-link) hover:underline">Create a token on GitHub</a>. It opens with the <code className="text-(--ide-string)">repo</code> scope ticked; pick an expiry.
         </li>
-        <li>Click <span className="text-[#cccccc]">Generate token</span> and copy it. GitHub shows it only once.</li>
+        <li>Click <span className="text-(--ide-fg)">Generate token</span> and copy it. GitHub shows it only once.</li>
         <li>Paste it here. It is encrypted before it is stored and only used to push your projects.</li>
       </ol>
       <input
@@ -210,7 +210,7 @@ export function GithubPanel({
         aria-label="GitHub personal access token"
         autoComplete="off"
         spellCheck={false}
-        className="mt-2 h-7 w-full rounded border border-[#3c3c3c] bg-[#313131] px-2 text-[12px] text-[#cccccc] outline-none focus:border-[#0078d4]"
+        className="mt-2 h-7 w-full rounded border border-(--ide-border-strong) bg-(--ide-input) px-2 text-[12px] text-(--ide-fg) outline-none focus:border-[#0078d4]"
       />
       <button
         type="submit"
@@ -276,28 +276,28 @@ export function GithubPanel({
     })
 
   return (
-    <div className="flex h-full min-h-0 flex-col text-[13px] text-[#cccccc]">
-      <div className="flex h-9 shrink-0 items-center gap-1.5 px-5 text-[11px] tracking-wide text-[#bbbbbb]">
+    <div className="flex h-full min-h-0 flex-col text-[13px] text-(--ide-fg)">
+      <div className="flex h-9 shrink-0 items-center gap-1.5 px-5 text-[11px] tracking-wide text-(--ide-fg-title)">
         GITHUB
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {!signedIn ? (
-          <div className="mt-4 rounded border border-[#3c3c3c] bg-[#1f1f1f] p-4 text-[12px] text-[#9d9d9d]">
-            <FolderGit2 className="mb-2 size-6 text-[#868686]" strokeWidth={1.5} />
-            <p className="text-[#cccccc]">Sign in to connect GitHub and push your project.</p>
+          <div className="mt-4 rounded border border-(--ide-border-strong) bg-(--ide-bg) p-4 text-[12px] text-(--ide-muted)">
+            <FolderGit2 className="mb-2 size-6 text-(--ide-icon)" strokeWidth={1.5} />
+            <p className="text-(--ide-fg)">Sign in to connect GitHub and push your project.</p>
             <a href={signInHref} className="mt-3 inline-flex h-7 items-center rounded bg-[#0078d4] px-3 text-[12px] font-medium text-white hover:bg-[#026ec1]">
               Sign in
             </a>
           </div>
         ) : loading ? (
-          <div className="mt-4 flex items-center gap-2 text-[12px] text-[#9d9d9d]">
+          <div className="mt-4 flex items-center gap-2 text-[12px] text-(--ide-muted)">
             <LoaderCircle className="size-4 animate-spin" /> Loading GitHub status…
           </div>
         ) : (
           <>
             {notice && (
-              <div className={cn('mt-3 flex items-start gap-2 rounded border p-2.5 text-[12px]', notice.kind === 'ok' ? 'border-[#2ea043]/50 bg-[#2ea043]/10 text-[#89d185]' : 'border-[#f14c4c]/50 bg-[#f14c4c]/10 text-[#f48771]')}>
+              <div className={cn('mt-3 flex items-start gap-2 rounded border p-2.5 text-[12px]', notice.kind === 'ok' ? 'border-[#2ea043]/50 bg-[#2ea043]/10 text-(--ide-success)' : 'border-(--ide-error)/50 bg-(--ide-error)/10 text-(--ide-error-soft)')}>
                 {notice.kind === 'ok' ? <CircleCheck className="mt-0.5 size-3.5 shrink-0" /> : <CircleAlert className="mt-0.5 size-3.5 shrink-0" />}
                 <span>{notice.text}</span>
               </div>
@@ -305,12 +305,12 @@ export function GithubPanel({
 
             {/* Account / connection */}
             <section className="mt-4">
-              <div className="mb-2 text-[11px] font-bold tracking-wide text-[#bbbbbb]">ACCOUNT</div>
+              <div className="mb-2 text-[11px] font-bold tracking-wide text-(--ide-fg-title)">ACCOUNT</div>
               {connected ? (
-                <div className="rounded border border-[#2b2b2b] bg-[#1f1f1f] p-3">
+                <div className="rounded border border-(--ide-border) bg-(--ide-bg) p-3">
                   <div className="flex items-center gap-2">
-                    <CircleCheck className="size-4 text-[#89d185]" />
-                    <span className="text-[#e7e7e7]">Connected as <span className="font-semibold">@{login}</span></span>
+                    <CircleCheck className="size-4 text-(--ide-success)" />
+                    <span className="text-(--ide-fg-strong)">Connected as <span className="font-semibold">@{login}</span></span>
                   </div>
                   <div className="mt-3 flex gap-2">
                     <PanelButton icon={RefreshCw} label="Reconnect" onClick={reconnect} disabled={busy !== null} />
@@ -319,8 +319,8 @@ export function GithubPanel({
                   {tokenOpen && tokenForm}
                 </div>
               ) : (
-                <div className="rounded border border-[#2b2b2b] bg-[#1f1f1f] p-3">
-                  <p className="text-[12px] text-[#9d9d9d]">Connect your GitHub account to push this project to your own repository.</p>
+                <div className="rounded border border-(--ide-border) bg-(--ide-bg) p-3">
+                  <p className="text-[12px] text-(--ide-muted)">Connect your GitHub account to push this project to your own repository.</p>
                   {oauthAvailable && (
                     <>
                       <button
@@ -333,7 +333,7 @@ export function GithubPanel({
                         Connect GitHub
                       </button>
                       {!tokenOpen && (
-                        <button type="button" onClick={() => setTokenOpen(true)} className="mt-2 block text-[11px] text-[#3794ff] hover:underline">
+                        <button type="button" onClick={() => setTokenOpen(true)} className="mt-2 block text-[11px] text-(--ide-link) hover:underline">
                           Use a personal access token instead
                         </button>
                       )}
@@ -347,24 +347,24 @@ export function GithubPanel({
             {/* Repository */}
             {connected && (
               <section className="mt-4">
-                <div className="mb-2 text-[11px] font-bold tracking-wide text-[#bbbbbb]">REPOSITORY</div>
+                <div className="mb-2 text-[11px] font-bold tracking-wide text-(--ide-fg-title)">REPOSITORY</div>
                 {repo ? (
-                  <div className="rounded border border-[#2b2b2b] bg-[#1f1f1f] p-3">
+                  <div className="rounded border border-(--ide-border) bg-(--ide-bg) p-3">
                     <div className="flex items-center gap-2">
-                      <FolderGit2 className="size-4 text-[#cccccc]" />
-                      <a href={repoUrl ?? undefined} target="_blank" rel="noreferrer" className="truncate font-medium text-[#3794ff] hover:underline">
+                      <FolderGit2 className="size-4 text-(--ide-fg)" />
+                      <a href={repoUrl ?? undefined} target="_blank" rel="noreferrer" className="truncate font-medium text-(--ide-link) hover:underline">
                         {repo.owner}/{repo.repo}
                       </a>
-                      <ExternalLink className="size-3 text-[#868686]" />
+                      <ExternalLink className="size-3 text-(--ide-icon)" />
                     </div>
-                    <p className="mt-1 text-[11px] text-[#9d9d9d]">Branch: {repo.branch}</p>
-                    <button type="button" onClick={unlink} disabled={busy !== null} className="mt-3 inline-flex h-7 items-center gap-1.5 rounded border border-[#3c3c3c] px-2.5 text-[12px] text-[#cccccc] hover:bg-[#2a2d2e] disabled:opacity-40">
+                    <p className="mt-1 text-[11px] text-(--ide-muted)">Branch: {repo.branch}</p>
+                    <button type="button" onClick={unlink} disabled={busy !== null} className="mt-3 inline-flex h-7 items-center gap-1.5 rounded border border-(--ide-border-strong) px-2.5 text-[12px] text-(--ide-fg) hover:bg-(--ide-hover) disabled:opacity-40">
                       <Link2 className="size-3.5" /> Change repository
                     </button>
                   </div>
                 ) : (
-                  <div className="rounded border border-[#2b2b2b] bg-[#1f1f1f] p-3">
-                    <p className="mb-2 text-[12px] text-[#9d9d9d]">Where should the first push go? A repo is created (private) or an existing one you own is used.</p>
+                  <div className="rounded border border-(--ide-border) bg-(--ide-bg) p-3">
+                    <p className="mb-2 text-[12px] text-(--ide-muted)">Where should the first push go? A repo is created (private) or an existing one you own is used.</p>
                     <label className="flex items-center gap-2 text-[12px]">
                       <input type="radio" name="repo-mode" checked={repoMode === 'new'} onChange={() => setRepoMode('new')} className="accent-[#0078d4]" />
                       Create a new repository
@@ -375,7 +375,7 @@ export function GithubPanel({
                         onChange={(event) => setRepoName(event.target.value)}
                         placeholder="repo-name"
                         aria-label="New repository name"
-                        className="mt-2 h-7 w-full rounded border border-[#3c3c3c] bg-[#313131] px-2 text-[12px] text-[#cccccc] outline-none focus:border-[#0078d4]"
+                        className="mt-2 h-7 w-full rounded border border-(--ide-border-strong) bg-(--ide-input) px-2 text-[12px] text-(--ide-fg) outline-none focus:border-[#0078d4]"
                       />
                     )}
                     <label className="mt-3 flex items-center gap-2 text-[12px]">
@@ -388,7 +388,7 @@ export function GithubPanel({
                         onChange={(event) => setExistingRepo(event.target.value)}
                         placeholder="owner/repo"
                         aria-label="Existing repository"
-                        className="mt-2 h-7 w-full rounded border border-[#3c3c3c] bg-[#313131] px-2 text-[12px] text-[#cccccc] outline-none focus:border-[#0078d4]"
+                        className="mt-2 h-7 w-full rounded border border-(--ide-border-strong) bg-(--ide-input) px-2 text-[12px] text-(--ide-fg) outline-none focus:border-[#0078d4]"
                       />
                     )}
                   </div>
@@ -399,13 +399,13 @@ export function GithubPanel({
             {/* Pushes */}
             {connected && (
               <section className="mt-4">
-                <div className="mb-2 text-[11px] font-bold tracking-wide text-[#bbbbbb]">PUSH</div>
+                <div className="mb-2 text-[11px] font-bold tracking-wide text-(--ide-fg-title)">PUSH</div>
                 {!completed ? (
-                  <div className="rounded border border-[#cca700]/40 bg-[#cca700]/10 p-3 text-[12px] text-[#e2c08d]">{lockedHint}</div>
+                  <div className="rounded border border-(--ide-warning)/40 bg-(--ide-warning)/10 p-3 text-[12px] text-(--ide-warning-soft)">{lockedHint}</div>
                 ) : (
                   <>
-                    <div className="mb-3 flex items-center gap-2 text-[11px] text-[#9d9d9d]">
-                      {saveState === 'saving' ? <LoaderCircle className="size-3.5 animate-spin" /> : saveState === 'error' ? <CircleAlert className="size-3.5 text-[#f48771]" /> : <CircleCheck className="size-3.5 text-[#89d185]" />}
+                    <div className="mb-3 flex items-center gap-2 text-[11px] text-(--ide-muted)">
+                      {saveState === 'saving' ? <LoaderCircle className="size-3.5 animate-spin" /> : saveState === 'error' ? <CircleAlert className="size-3.5 text-(--ide-error-soft)" /> : <CircleCheck className="size-3.5 text-(--ide-success)" />}
                       {saveState === 'saving' ? 'Saving project…' : saveState === 'error' ? 'Project not saved — try again' : 'Project saved and ready to push'}
                     </div>
 
@@ -433,18 +433,18 @@ export function GithubPanel({
 
             {/* Conflict */}
             {conflict && repoUrl && (
-              <section className="mt-4 rounded border border-[#f14c4c]/50 bg-[#f14c4c]/10 p-3">
-                <div className="flex items-center gap-2 font-semibold text-[#f48771]">
+              <section className="mt-4 rounded border border-(--ide-error)/50 bg-(--ide-error)/10 p-3">
+                <div className="flex items-center gap-2 font-semibold text-(--ide-error-soft)">
                   <CircleAlert className="size-4" /> The repo changed on GitHub
                 </div>
-                <p className="mt-1 text-[12px] text-[#cccccc]">{conflict.message}</p>
+                <p className="mt-1 text-[12px] text-(--ide-fg)">{conflict.message}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {conflict.expectedSha && conflict.remoteSha && (
                     <a
                       href={`${repoUrl}/compare/${conflict.expectedSha}...${conflict.remoteSha}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex h-7 items-center gap-1.5 rounded border border-[#3c3c3c] px-2.5 text-[12px] text-[#cccccc] hover:bg-[#2a2d2e]"
+                      className="inline-flex h-7 items-center gap-1.5 rounded border border-(--ide-border-strong) px-2.5 text-[12px] text-(--ide-fg) hover:bg-(--ide-hover)"
                     >
                       <ExternalLink className="size-3.5" /> Review on GitHub
                     </a>
@@ -465,14 +465,14 @@ export function GithubPanel({
             {/* Success */}
             {result?.ok && repoUrl && (
               <section className="mt-4 rounded border border-[#2ea043]/50 bg-[#2ea043]/10 p-3">
-                <div className="flex items-center gap-2 font-semibold text-[#89d185]">
+                <div className="flex items-center gap-2 font-semibold text-(--ide-success)">
                   <GitCommitHorizontal className="size-4" /> Pushed {result.pushedFiles.length} file{result.pushedFiles.length === 1 ? '' : 's'}
                 </div>
-                <a href={`${repoUrl}/commit/${result.commitSha}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] text-[#3794ff] hover:underline">
+                <a href={`${repoUrl}/commit/${result.commitSha}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[12px] text-(--ide-link) hover:underline">
                   {result.commitSha.slice(0, 7)} <ExternalLink className="size-3" />
                 </a>
                 {result.excludedFiles.length > 0 && (
-                  <p className="mt-1 text-[11px] text-[#9d9d9d]">Skipped for safety: {result.excludedFiles.join(', ')}</p>
+                  <p className="mt-1 text-[11px] text-(--ide-muted)">Skipped for safety: {result.excludedFiles.join(', ')}</p>
                 )}
               </section>
             )}
@@ -504,7 +504,7 @@ function PanelButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'inline-flex h-7 items-center justify-center gap-1.5 rounded border border-[#3c3c3c] px-2.5 text-[12px] text-[#cccccc] hover:bg-[#2a2d2e] disabled:pointer-events-none disabled:opacity-40',
+        'inline-flex h-7 items-center justify-center gap-1.5 rounded border border-(--ide-border-strong) px-2.5 text-[12px] text-(--ide-fg) hover:bg-(--ide-hover) disabled:pointer-events-none disabled:opacity-40',
         full && 'w-full',
       )}
     >

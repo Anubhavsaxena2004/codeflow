@@ -4,11 +4,11 @@ import { getCurrentUser } from '@/lib/server/auth'
 
 function AdminMessage({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="grid min-h-dvh place-items-center bg-[#0d0f12] p-6 text-[13px] text-[#d4d4d4]">
-      <div className="max-w-md rounded border border-[#292d35] bg-[#111318] p-6">
-        <h1 className="text-base font-semibold text-white">{title}</h1>
-        <div className="mt-2 leading-6 text-[#9da5b4]">{children}</div>
-        <Link href="/" className="mt-4 inline-block text-[#3794ff] hover:underline">Back to CodeFlow</Link>
+    <main className="grid min-h-dvh place-items-center bg-(--adm-bg) p-6 text-[13px] text-(--adm-fg)">
+      <div className="max-w-md rounded border border-(--adm-border) bg-(--adm-panel) p-6">
+        <h1 className="text-base font-semibold text-(--adm-heading)">{title}</h1>
+        <div className="mt-2 leading-6 text-(--adm-muted)">{children}</div>
+        <Link href="/" className="mt-4 inline-block text-(--adm-link) hover:underline">Back to CodeFlow</Link>
       </div>
     </main>
   )

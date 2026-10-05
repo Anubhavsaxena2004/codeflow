@@ -9,6 +9,8 @@ export interface SessionUser {
   email: string
   track: Track | null
   isAdmin: boolean
+  /** Every level is open in any order (set by an admin). */
+  allLevelsOpen?: boolean
 }
 
 type SessionState = { status: 'loading'; user: null } | { status: 'guest'; user: null } | { status: 'signed-in'; user: SessionUser }

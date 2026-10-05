@@ -32,9 +32,12 @@ export function unlockedCount(project: { levels: { id: string }[] }, done: Recor
   return firstOpen < 0 ? project.levels.length : firstOpen + 1
 }
 
-/** A passed level stays open even when a level added before it later is not passed yet. */
-export function isUnlocked(project: { levels: { id: string }[] }, levelIndex: number, done: Record<string, LevelProgress> | undefined) {
-  return levelIndex < unlockedCount(project, done) || !!done?.[project.levels[levelIndex]?.id]
+/**
+ * A passed level stays open even when a level added before it later is not passed yet.
+ * `allOpen` is for learners an admin opened every level for.
+ */
+export function isUnlocked(project: { levels: { id: string }[] }, levelIndex: number, done: Record<string, LevelProgress> | undefined, allOpen = false) {
+  return allOpen || levelIndex < unlockedCount(project, done) || !!done?.[project.levels[levelIndex]?.id]
 }
 
 const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10)

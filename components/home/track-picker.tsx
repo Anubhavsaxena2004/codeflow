@@ -24,16 +24,16 @@ export function TrackPicker({ value, onPick, journeyCounts }: { value: Track | n
             aria-checked={selected}
             onClick={() => onPick(track)}
             className={cn(
-              'relative flex flex-col items-start gap-3 rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md',
-              selected ? 'border-[#16a34a] ring-2 ring-[#16a34a]/30' : 'border-[#e6e9f0]',
+              'relative flex flex-col items-start gap-3 rounded-2xl border bg-(--cf-surface) p-4 text-left shadow-(--cf-shadow) transition hover:-translate-y-0.5 hover:shadow-md',
+              selected ? 'border-[#16a34a] ring-2 ring-[#16a34a]/30' : 'border-(--cf-border)',
             )}
           >
             <span className={cn('grid size-10 place-items-center rounded-xl text-sm font-bold text-white', trackArt[track].color)}>{trackArt[track].initials}</span>
             <span>
-              <span className="block text-base font-semibold text-[#1f2440]">{tracks[track].label}</span>
-              <span className="mt-0.5 block text-xs text-[#6b7280]">{tracks[track].tagline}</span>
+              <span className="block text-base font-semibold text-(--cf-text)">{tracks[track].label}</span>
+              <span className="mt-0.5 block text-xs text-(--cf-muted)">{tracks[track].tagline}</span>
             </span>
-            <span className="text-[11px] font-medium text-[#6b7280]">{count ? `${count} journey${count > 1 ? 's' : ''}` : 'Journey coming soon'}</span>
+            <span className="text-[11px] font-medium text-(--cf-muted)">{count ? `${count} journey${count > 1 ? 's' : ''}` : 'Journey coming soon'}</span>
             {selected && <Check aria-hidden className="absolute right-3 top-3 size-4 text-[#16a34a]" />}
           </button>
         )

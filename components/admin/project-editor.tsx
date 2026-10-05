@@ -14,6 +14,7 @@ import { kindLabels, trackIds, tracks, type CommandStep, type Level, type LevelK
 import { validateProject } from '@/lib/journeys/validate'
 import type { CatalogEntry } from '@/lib/server/journeys'
 import { cn } from '@/lib/utils'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { Field, FileListEditor, inputClass, JsonField, TextArea, TextInput, Toggle } from './fields'
 import { levelTemplate } from './level-templates'
 
@@ -149,22 +150,23 @@ export function ProjectEditor({ initial }: { initial: CatalogEntry }) {
   const levelErrors = level ? errors.filter((error) => error.includes(`(${level.id})`)) : errors.filter((error) => !error.startsWith('levels['))
 
   return (
-    <main className="flex min-h-dvh flex-col bg-[#0d0f12] text-[13px] text-[#d4d4d4] lg:h-dvh">
-      <header className="flex flex-wrap items-center gap-2 border-b border-[#292d35] bg-[#111318] px-4 py-2.5">
-        <Link href="/admin" className="flex items-center gap-1.5 rounded px-2 py-1 text-[12px] text-[#9da5b4] hover:bg-[#1c1f26]">
+    <main className="flex min-h-dvh flex-col bg-(--adm-bg) text-[13px] text-(--adm-fg) lg:h-dvh">
+      <header className="flex flex-wrap items-center gap-2 border-b border-(--adm-border) bg-(--adm-panel) px-4 py-2.5">
+        <Link href="/admin" className="flex items-center gap-1.5 rounded px-2 py-1 text-[12px] text-(--adm-muted) hover:bg-(--adm-hover)">
           <ArrowLeft className="size-3.5" /> Journeys
         </Link>
         <div className="min-w-0">
-          <div className="truncate font-semibold text-white">{draft.title} <span className="font-normal text-[#6e7681]">· {draft.id}</span></div>
-          <div className="text-[11px] text-[#6e7681]">{sourceLabels[source]} · {tracks[draft.track].label} · {draft.levels.length} levels</div>
+          <div className="truncate font-semibold text-(--adm-heading)">{draft.title} <span className="font-normal text-(--adm-dim)">· {draft.id}</span></div>
+          <div className="text-[11px] text-(--adm-dim)">{sourceLabels[source]} · {tracks[draft.track].label} · {draft.levels.length} levels</div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {notice && <span className={cn('text-[12px]', notice.ok ? 'text-[#4ec9b0]' : 'text-[#f48771]')}>{notice.text}</span>}
-          {dirty && <span className="text-[12px] text-[#e2c08d]">Unsaved changes</span>}
+          {notice && <span className={cn('text-[12px]', notice.ok ? 'text-(--adm-teal)' : 'text-(--adm-error)')}>{notice.text}</span>}
+          {dirty && <span className="text-[12px] text-(--adm-warning)">Unsaved changes</span>}
+<ThemeToggle className="size-7 rounded border border-(--adm-border-strong) text-(--adm-muted) hover:bg-(--adm-hover) hover:text-(--adm-heading)" iconClassName="size-3.5" />
           <Toggle label="Published" checked={published} onChange={(value) => { setPublished(value); setDirty(true) }} />
-          <button type="button" onClick={exportJson} className="flex items-center gap-1.5 rounded border border-[#343a46] px-2.5 py-1 text-[12px] hover:bg-[#1c1f26]"><Download className="size-3.5" /> Export</button>
+          <button type="button" onClick={exportJson} className="flex items-center gap-1.5 rounded border border-(--adm-border-strong) px-2.5 py-1 text-[12px] hover:bg-(--adm-hover)"><Download className="size-3.5" /> Export</button>
           {source !== 'bundled' && (
-            <button type="button" onClick={() => void revert()} className="flex items-center gap-1.5 rounded border border-[#343a46] px-2.5 py-1 text-[12px] hover:bg-[#1c1f26]">
+            <button type="button" onClick={() => void revert()} className="flex items-center gap-1.5 rounded border border-(--adm-border-strong) px-2.5 py-1 text-[12px] hover:bg-(--adm-hover)">
               {source === 'custom' ? <Trash2 className="size-3.5" /> : <Undo2 className="size-3.5" />} {source === 'custom' ? 'Delete' : 'Revert to bundled'}
             </button>
           )}
@@ -176,29 +178,29 @@ export function ProjectEditor({ initial }: { initial: CatalogEntry }) {
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
         {/* Outline */}
-        <nav aria-label="Outline" className="min-h-0 overflow-y-auto border-r border-[#292d35] bg-[#111318] p-2">
-          <button type="button" onClick={() => setSelected(null)} className={cn('flex w-full items-center gap-2 rounded px-2 py-1.5 text-left', selected === null ? 'bg-[#1f2a37] text-white' : 'hover:bg-[#1c1f26]')}>
-            <Settings2 className="size-4 text-[#9da5b4]" /> Project and worlds
+        <nav aria-label="Outline" className="min-h-0 overflow-y-auto border-r border-(--adm-border) bg-(--adm-panel) p-2">
+          <button type="button" onClick={() => setSelected(null)} className={cn('flex w-full items-center gap-2 rounded px-2 py-1.5 text-left', selected === null ? 'bg-(--adm-selected) text-(--adm-heading)' : 'hover:bg-(--adm-hover)')}>
+            <Settings2 className="size-4 text-(--adm-muted)" /> Project and worlds
           </button>
           {draft.worlds.map((world, worldNumber) => (
             <div key={world.id} className="mt-3">
-              <div className="px-2 text-[10px] font-bold tracking-wider text-[#6e7681]">WORLD {worldNumber + 1} · {world.title.toUpperCase()}</div>
+              <div className="px-2 text-[10px] font-bold tracking-wider text-(--adm-dim)">WORLD {worldNumber + 1} · {world.title.toUpperCase()}</div>
               <ul className="mt-1">
                 {draft.levels.map((item, index) => {
                   if (item.world !== world.id) return null
                   const Icon = kindIcons[item.kind]
                   const broken = errors.some((error) => error.includes(`(${item.id})`))
                   return (
-                    <li key={index} className={cn('group flex items-center rounded', selected === index ? 'bg-[#1f2a37]' : 'hover:bg-[#1c1f26]')}>
+                    <li key={index} className={cn('group flex items-center rounded', selected === index ? 'bg-(--adm-selected)' : 'hover:bg-(--adm-hover)')}>
                       <button type="button" onClick={() => setSelected(index)} className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left">
-                        <span className="w-5 shrink-0 text-right text-[11px] text-[#6e7681]">{index + 1}</span>
-                        <Icon className={cn('size-3.5 shrink-0', broken ? 'text-[#f48771]' : 'text-[#9cdcfe]')} />
-                        <span className={cn('truncate', selected === index && 'text-white')}>{item.title}</span>
-                        {item.boss && <Skull aria-label="boss" className="size-3 shrink-0 text-[#f48771]" />}
+                        <span className="w-5 shrink-0 text-right text-[11px] text-(--adm-dim)">{index + 1}</span>
+                        <Icon className={cn('size-3.5 shrink-0', broken ? 'text-(--adm-error)' : 'text-(--adm-code)')} />
+                        <span className={cn('truncate', selected === index && 'text-(--adm-heading)')}>{item.title}</span>
+                        {item.boss && <Skull aria-label="boss" className="size-3 shrink-0 text-(--adm-error)" />}
                       </button>
                       <span className="hidden shrink-0 pr-1 group-hover:flex">
-                        <button type="button" onClick={() => move(index, -1)} aria-label="Move up" className="rounded p-0.5 hover:bg-[#2b2f37]"><ArrowUp className="size-3" /></button>
-                        <button type="button" onClick={() => move(index, 1)} aria-label="Move down" className="rounded p-0.5 hover:bg-[#2b2f37]"><ArrowDown className="size-3" /></button>
+                        <button type="button" onClick={() => move(index, -1)} aria-label="Move up" className="rounded p-0.5 hover:bg-(--adm-border)"><ArrowUp className="size-3" /></button>
+                        <button type="button" onClick={() => move(index, 1)} aria-label="Move down" className="rounded p-0.5 hover:bg-(--adm-border)"><ArrowDown className="size-3" /></button>
                       </span>
                     </li>
                   )
@@ -206,13 +208,13 @@ export function ProjectEditor({ initial }: { initial: CatalogEntry }) {
               </ul>
             </div>
           ))}
-          <div className="mt-4 flex gap-1.5 border-t border-[#292d35] px-1 pt-3">
+          <div className="mt-4 flex gap-1.5 border-t border-(--adm-border) px-1 pt-3">
             <select value={newKind} onChange={(event) => setNewKind(event.target.value as LevelKind)} aria-label="Kind of level to add" className={cn(inputClass, 'w-auto flex-1')}>
               {KINDS.map((kind) => <option key={kind} value={kind}>{kindLabels[kind]}</option>)}
             </select>
             <button type="button" onClick={addLevel} className="flex items-center gap-1 rounded bg-[#007acc] px-2.5 text-[12px] text-white hover:bg-[#0062a3]"><Plus className="size-3.5" /> Level</button>
           </div>
-          <p className="px-1 pt-2 text-[11px] leading-4 text-[#6e7681]">New levels go after the selected one. Learners unlock levels top to bottom.</p>
+          <p className="px-1 pt-2 text-[11px] leading-4 text-(--adm-dim)">New levels go after the selected one. Learners unlock levels top to bottom.</p>
         </nav>
 
         {/* Editor */}
@@ -222,11 +224,11 @@ export function ProjectEditor({ initial }: { initial: CatalogEntry }) {
           ) : (
             <div className="mx-auto flex max-w-3xl flex-col gap-4">
               <div className="flex items-center gap-2">
-                <h1 className="text-[15px] font-semibold text-white">{kindLabels[level.kind]} level</h1>
+                <h1 className="text-[15px] font-semibold text-(--adm-heading)">{kindLabels[level.kind]} level</h1>
                 <span className="ml-auto flex gap-2">
-                  <button type="button" onClick={() => setRaw((value) => !value)} className={cn('flex items-center gap-1.5 rounded border px-2.5 py-1 text-[12px]', raw ? 'border-[#007acc] text-white' : 'border-[#343a46] hover:bg-[#1c1f26]')}><Braces className="size-3.5" /> JSON</button>
-                  <button type="button" onClick={() => setPreview(level.id)} disabled={!validation.ok} title={validation.ok ? 'Play this level as a learner' : 'Fix the problems to preview'} className="flex items-center gap-1.5 rounded border border-[#343a46] px-2.5 py-1 text-[12px] hover:bg-[#1c1f26] disabled:opacity-40"><Eye className="size-3.5" /> Preview</button>
-                  <button type="button" onClick={() => removeLevel(levelIndex)} className="flex items-center gap-1.5 rounded border border-[#343a46] px-2.5 py-1 text-[12px] hover:border-[#f48771] hover:text-[#f48771]"><Trash2 className="size-3.5" /> Delete</button>
+                  <button type="button" onClick={() => setRaw((value) => !value)} className={cn('flex items-center gap-1.5 rounded border px-2.5 py-1 text-[12px]', raw ? 'border-[#007acc] text-(--adm-heading)' : 'border-(--adm-border-strong) hover:bg-(--adm-hover)')}><Braces className="size-3.5" /> JSON</button>
+                  <button type="button" onClick={() => setPreview(level.id)} disabled={!validation.ok} title={validation.ok ? 'Play this level as a learner' : 'Fix the problems to preview'} className="flex items-center gap-1.5 rounded border border-(--adm-border-strong) px-2.5 py-1 text-[12px] hover:bg-(--adm-hover) disabled:opacity-40"><Eye className="size-3.5" /> Preview</button>
+                  <button type="button" onClick={() => removeLevel(levelIndex)} className="flex items-center gap-1.5 rounded border border-(--adm-border-strong) px-2.5 py-1 text-[12px] hover:border-(--adm-error) hover:text-(--adm-error)"><Trash2 className="size-3.5" /> Delete</button>
                 </span>
               </div>
               {raw ? (
@@ -239,22 +241,22 @@ export function ProjectEditor({ initial }: { initial: CatalogEntry }) {
         </section>
 
         {/* Problems and files */}
-        <aside className="min-h-0 overflow-y-auto border-l border-[#292d35] bg-[#111318]">
-          <div className="border-b border-[#292d35] p-3">
-            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold tracking-wide text-[#9da5b4]">
-              {validation.ok ? <CircleCheck className="size-3.5 text-[#4ec9b0]" /> : <CircleAlert className="size-3.5 text-[#f48771]" />}
+        <aside className="min-h-0 overflow-y-auto border-l border-(--adm-border) bg-(--adm-panel)">
+          <div className="border-b border-(--adm-border) p-3">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-bold tracking-wide text-(--adm-muted)">
+              {validation.ok ? <CircleCheck className="size-3.5 text-(--adm-teal)" /> : <CircleAlert className="size-3.5 text-(--adm-error)" />}
               {validation.ok ? 'NO PROBLEMS' : `${errors.length} PROBLEM${errors.length === 1 ? '' : 'S'}`}
             </div>
             {[...serverErrors, ...(levelErrors.length ? levelErrors : errors)].slice(0, 12).map((error) => (
-              <p key={error} className="mb-1.5 text-[12px] leading-5 text-[#f48771]">{error}</p>
+              <p key={error} className="mb-1.5 text-[12px] leading-5 text-(--adm-error)">{error}</p>
             ))}
-            {validation.ok && <p className="text-[12px] leading-5 text-[#6e7681]">Every level is solvable: solutions pass their checks, starters don&apos;t, and each terminal step accepts its own command.</p>}
+            {validation.ok && <p className="text-[12px] leading-5 text-(--adm-dim)">Every level is solvable: solutions pass their checks, starters don&apos;t, and each terminal step accepts its own command.</p>}
           </div>
           <div className="h-[28rem] lg:h-[calc(100%-8rem)]">
             {treeAfter ? (
               <FileExplorer key={selected ?? 'all'} projectName={`${draft.projectName} · after ${level ? `level ${levelIndex + 1}` : 'every level'}`} files={treeAfter} folders={draft.folders} activePath={null} onOpen={() => undefined} />
             ) : (
-              <p className="p-3 text-[12px] text-[#6e7681]">Fix the problems to see the file tree.</p>
+              <p className="p-3 text-[12px] text-(--adm-dim)">Fix the problems to see the file tree.</p>
             )}
           </div>
         </aside>
@@ -268,7 +270,7 @@ function ProjectSettings({ draft, onChange }: { draft: Project; onChange: (proje
   const setWorld = (index: number, patch: Partial<Project['worlds'][number]>) => set({ worlds: draft.worlds.map((world, at) => (at === index ? { ...world, ...patch } : world)) })
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <h1 className="text-[15px] font-semibold text-white">Project</h1>
+      <h1 className="text-[15px] font-semibold text-(--adm-heading)">Project</h1>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextInput label="Id" value={draft.id} readOnly hint="Fixed once created. It is also the GitHub repo link key." />
         <Field label="Track">
@@ -282,14 +284,14 @@ function ProjectSettings({ draft, onChange }: { draft: Project; onChange: (proje
       <TextArea label="Summary" rows={2} value={draft.summary} onChange={(event) => set({ summary: event.target.value })} />
 
       <div className="flex items-center justify-between">
-        <h2 className="text-[13px] font-semibold text-white">Worlds</h2>
-        <button type="button" onClick={() => set({ worlds: [...draft.worlds, { id: `world-${draft.worlds.length + 1}`, title: 'New world', subtitle: '', theme: THEMES[draft.worlds.length % THEMES.length] }] })} className="flex items-center gap-1 rounded px-2 py-1 text-[12px] text-[#9cdcfe] hover:bg-[#1c1f26]"><Plus className="size-3.5" /> World</button>
+        <h2 className="text-[13px] font-semibold text-(--adm-heading)">Worlds</h2>
+        <button type="button" onClick={() => set({ worlds: [...draft.worlds, { id: `world-${draft.worlds.length + 1}`, title: 'New world', subtitle: '', theme: THEMES[draft.worlds.length % THEMES.length] }] })} className="flex items-center gap-1 rounded px-2 py-1 text-[12px] text-(--adm-code) hover:bg-(--adm-hover)"><Plus className="size-3.5" /> World</button>
       </div>
       <ul className="flex flex-col gap-2">
         {draft.worlds.map((world, index) => {
           const used = draft.levels.some((level) => level.world === world.id)
           return (
-            <li key={index} className="grid gap-2 rounded border border-[#2b2f37] p-3 sm:grid-cols-[1fr_1.4fr_2fr_auto_auto]">
+            <li key={index} className="grid gap-2 rounded border border-(--adm-border) p-3 sm:grid-cols-[1fr_1.4fr_2fr_auto_auto]">
               <TextInput label="Id" value={world.id} readOnly={used} onChange={(event) => setWorld(index, { id: event.target.value })} hint={used ? 'Used by levels' : undefined} />
               <TextInput label="Title" value={world.title} onChange={(event) => setWorld(index, { title: event.target.value })} />
               <TextInput label="Subtitle" value={world.subtitle} onChange={(event) => setWorld(index, { subtitle: event.target.value })} />
@@ -298,7 +300,7 @@ function ProjectSettings({ draft, onChange }: { draft: Project; onChange: (proje
                   {THEMES.map((theme) => <option key={theme} value={theme}>{theme}</option>)}
                 </select>
               </Field>
-              <button type="button" disabled={used} onClick={() => set({ worlds: draft.worlds.filter((_, at) => at !== index) })} aria-label={`Remove ${world.title}`} title={used ? 'Move or delete its levels first' : 'Remove world'} className="self-end rounded p-1.5 text-[#9da5b4] hover:text-[#f48771] disabled:opacity-30"><Trash2 className="size-4" /></button>
+              <button type="button" disabled={used} onClick={() => set({ worlds: draft.worlds.filter((_, at) => at !== index) })} aria-label={`Remove ${world.title}`} title={used ? 'Move or delete its levels first' : 'Remove world'} className="self-end rounded p-1.5 text-(--adm-muted) hover:text-(--adm-error) disabled:opacity-30"><Trash2 className="size-4" /></button>
             </li>
           )
         })}
@@ -332,7 +334,7 @@ function LevelForm({ draft, level, onPatch, onReplace }: { draft: Project; level
       <TextInput label="Summary" value={level.summary} onChange={(event) => onPatch({ summary: event.target.value })} hint="One line on the map." />
       <TextArea label="Lesson" rows={7} value={level.lesson} onChange={(event) => onPatch({ lesson: event.target.value })} hint='Blank line = new paragraph, "- " = bullet, `backticks` = code.' />
       <Toggle label="Boss level (bonus XP, shown with a skull on the map)" checked={!!level.boss} onChange={(boss) => onPatch({ boss: boss || undefined })} />
-      <hr className="border-[#292d35]" />
+      <hr className="border-(--adm-border)" />
       {level.kind === 'explore' && <ExploreFields level={level} onPatch={onPatch} />}
       {level.kind === 'command' && <CommandFields level={level} onPatch={onPatch} />}
       {(level.kind === 'edit' || level.kind === 'bugfix') && <CodeFields level={level} onPatch={onPatch} />}
@@ -365,7 +367,7 @@ function ExploreFields({ level, onPatch }: { level: Extract<Level, { kind: 'expl
       <FileListEditor label="Files this level unlocks" files={level.adds} onChange={(adds) => onPatch({ adds })} />
       <Toggle label="Ask a question at the end" checked={!!quiz} onChange={(on) => onPatch({ quiz: on ? { question: 'Your question?', options: ['Wrong', 'Right'], answer: 1, explain: 'Why.' } : undefined })} />
       {quiz && (
-        <div className="flex flex-col gap-3 rounded border border-[#2b2f37] p-3">
+        <div className="flex flex-col gap-3 rounded border border-(--adm-border) p-3">
           <TextInput label="Question" value={quiz.question} onChange={(event) => setQuiz({ question: event.target.value })} />
           <TextArea label="Options (one per line)" rows={4} value={quiz.options.join('\n')} onChange={(event) => setQuiz({ options: event.target.value.split('\n') })} />
           <Field label="Right answer">
@@ -389,15 +391,15 @@ function CommandFields({ level, onPatch }: { level: Extract<Level, { kind: 'comm
         <TextInput label="Prompt prefix" value={level.env ?? ''} placeholder="e.g. (venv)" onChange={(event) => onPatch({ env: event.target.value || undefined })} />
       </div>
       <div className="flex items-center justify-between">
-        <h2 className="text-[13px] font-semibold text-white">Steps</h2>
-        <button type="button" onClick={() => onPatch({ steps: [...level.steps, { goal: 'What to do next', hint: 'A clue', accept: ['echo done'] }] })} className="flex items-center gap-1 rounded px-2 py-1 text-[12px] text-[#9cdcfe] hover:bg-[#1c1f26]"><Plus className="size-3.5" /> Step</button>
+        <h2 className="text-[13px] font-semibold text-(--adm-heading)">Steps</h2>
+        <button type="button" onClick={() => onPatch({ steps: [...level.steps, { goal: 'What to do next', hint: 'A clue', accept: ['echo done'] }] })} className="flex items-center gap-1 rounded px-2 py-1 text-[12px] text-(--adm-code) hover:bg-(--adm-hover)"><Plus className="size-3.5" /> Step</button>
       </div>
       <ol className="flex flex-col gap-3">
         {level.steps.map((step, index) => (
-          <li key={index} className="flex flex-col gap-3 rounded border border-[#2b2f37] p-3">
-            <div className="flex items-center gap-2 text-[12px] font-semibold text-white">
+          <li key={index} className="flex flex-col gap-3 rounded border border-(--adm-border) p-3">
+            <div className="flex items-center gap-2 text-[12px] font-semibold text-(--adm-heading)">
               Step {index + 1}
-              <button type="button" onClick={() => onPatch({ steps: level.steps.filter((_, at) => at !== index) })} disabled={level.steps.length === 1} aria-label={`Remove step ${index + 1}`} className="ml-auto rounded p-1 text-[#9da5b4] hover:text-[#f48771] disabled:opacity-30"><Trash2 className="size-3.5" /></button>
+              <button type="button" onClick={() => onPatch({ steps: level.steps.filter((_, at) => at !== index) })} disabled={level.steps.length === 1} aria-label={`Remove step ${index + 1}`} className="ml-auto rounded p-1 text-(--adm-muted) hover:text-(--adm-error) disabled:opacity-30"><Trash2 className="size-3.5" /></button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <TextInput label="Goal" value={step.goal} onChange={(event) => setStep(index, { goal: event.target.value })} hint="What to achieve, without the command." />

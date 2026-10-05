@@ -48,6 +48,8 @@ export interface Learner {
   joinedAt: string
   lastActiveAt: string
   github: string | null
+  /** Every level is open in any order (switched in the admin). */
+  allLevelsOpen: boolean
   journeys: LearnerJourney[]
 }
 
@@ -65,6 +67,7 @@ export async function learnerReport(): Promise<LearnerReport> {
   const catalog = await listCatalog({ includeDrafts: true })
   const users = await query<Omit<Learner, 'journeys'>>(
     `SELECT u.id::text AS id, u.name, u.email, u.track, u.created_at AS "joinedAt", g.github_login AS github,
+            u.all_levels_open AS "allLevelsOpen",
             GREATEST(u.created_at,
                      (SELECT max(s.created_at) FROM sessions s WHERE s.user_id = u.id),
                      (SELECT max(p.updated_at) FROM level_progress p WHERE p.user_id = u.id)) AS "lastActiveAt"

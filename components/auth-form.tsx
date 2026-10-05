@@ -3,17 +3,19 @@
 import { useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Mascot } from '@/components/home/mascot'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 function Field({ label, hint, ...input }: { label: string; hint?: string } & InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#2d2b60]">
+    <label className="flex flex-col gap-1.5 text-xs font-bold text-(--cf-text)">
       {label}
       <input
         required
         {...input}
-        className="rounded-lg border-2 border-[#2d2b60]/40 bg-white/70 px-3 py-2 text-sm font-normal text-[#2d2b60] outline-none transition focus:border-[#4e7cff]"
+        className="rounded-xl border-2 border-(--cf-border) bg-(--cf-surface-2) px-3 py-2.5 text-sm font-normal text-(--cf-text) outline-none transition focus:border-[#22c55e] focus:bg-(--cf-surface)"
       />
-      {hint && <span className="font-normal text-[#5a567e]">{hint}</span>}
+      {hint && <span className="font-normal text-(--cf-muted)">{hint}</span>}
     </label>
   )
 }
@@ -44,17 +46,30 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: str
   const switchHref = `/${isRegister ? 'login' : 'register'}${next === '/' ? '' : `?next=${encodeURIComponent(next)}`}`
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-[#f4e9e7] p-4 text-[#2d2b60]">
-      <div className="w-full max-w-sm rounded-[24px] border-2 border-[#2d2b60]/55 bg-white/30 p-6 shadow-[0_18px_40px_rgba(60,58,115,0.18)]">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-(--cf-bg) p-4 text-(--cf-text)">
+      <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 size-80 rounded-full bg-[#22c55e]/25 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-28 -right-16 size-96 rounded-full bg-[#7c3aed]/25 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute right-1/3 top-8 size-56 rounded-full bg-[#06b6d4]/20 blur-3xl" />
+      <ThemeToggle className="absolute right-4 top-4 size-9 rounded-full border border-(--cf-border) bg-(--cf-surface) text-(--cf-muted) hover:text-(--cf-text)" />
+
+      <div className="relative w-full max-w-sm rounded-3xl border border-(--cf-border) bg-(--cf-surface) p-6 shadow-(--cf-shadow)">
+        <div aria-hidden className="absolute inset-x-6 top-0 h-1 rounded-b-full" style={{ background: 'linear-gradient(90deg, #22c55e, #06b6d4, #7c3aed)' }} />
         <Link href="/" className="mb-6 inline-flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-md bg-[#4e7cff] text-xs font-bold text-white">{'<>'}</span>
-          <span className="font-['Segoe_Print','Bradley_Hand','Comic_Sans_MS',cursive] text-xl">CodeFlow</span>
+          <span className="grid size-9 place-items-center rounded-xl text-xs font-extrabold text-white" style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}>{'</>'}</span>
+          <span className="text-xl font-extrabold">CodeFlow</span>
         </Link>
 
-        <h1 className="font-['Segoe_Print','Bradley_Hand','Comic_Sans_MS',cursive] text-2xl">{isRegister ? 'Create your account' : 'Welcome back'}</h1>
-        <p className="mt-1 text-xs leading-5 text-[#5a567e]">
-          {isRegister ? 'Your drafts, best scores and attempts are saved to your account.' : 'Sign in to pick up where you left off.'}
-        </p>
+        <div className="flex items-center gap-3">
+          <span className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#dcfce7] dark:bg-[#16a34a]/20">
+            <Mascot className="size-14" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-extrabold">{isRegister ? 'Create your account' : 'Welcome back'}</h1>
+            <p className="mt-0.5 text-xs leading-5 text-(--cf-muted)">
+              {isRegister ? 'Your drafts, best scores and attempts are saved to your account.' : 'Sign in to pick up where you left off.'}
+            </p>
+          </div>
+        </div>
 
         <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
           {isRegister && <Field label="Name" name="name" autoComplete="name" maxLength={80} />}
@@ -70,19 +85,19 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: str
           />
 
           {error && (
-            <p role="alert" className="rounded-lg border border-[#f4b4a8] bg-[#fff5f3] px-3 py-2 text-xs text-[#ab3d2a]">
+            <p role="alert" className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-xs text-[#b91c1c] dark:border-[#ef4444]/40 dark:bg-[#ef4444]/10 dark:text-[#fca5a5]">
               {error}
             </p>
           )}
 
-          <button type="submit" disabled={pending} className="rounded-lg bg-[#4e7cff] py-2.5 text-sm font-semibold text-white transition hover:bg-[#3c6df0] disabled:opacity-60">
+          <button type="submit" disabled={pending} className="rounded-xl py-2.5 text-sm font-bold text-white shadow-[0_4px_12px_rgb(22_163_74/0.35)] transition hover:brightness-110 disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}>
             {pending ? 'Please wait…' : isRegister ? 'Create account' : 'Sign in'}
           </button>
         </form>
 
-        <p className="mt-5 text-center text-xs text-[#5a567e]">
+        <p className="mt-5 text-center text-xs text-(--cf-muted)">
           {isRegister ? 'Already have an account?' : 'New to CodeFlow?'}{' '}
-          <Link href={switchHref} className="font-semibold text-[#4e7cff] hover:underline">
+          <Link href={switchHref} className="font-bold text-[#16a34a] hover:underline dark:text-[#4ade80]">
             {isRegister ? 'Sign in' : 'Create an account'}
           </Link>
         </p>

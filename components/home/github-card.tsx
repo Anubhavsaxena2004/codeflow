@@ -41,7 +41,7 @@ function Button({ icon: Icon, children, onClick, disabled, busy, primary, type =
       onClick={onClick}
       disabled={disabled || busy}
       className={cn(
-        'inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3.5 text-[13px] font-bold transition disabled:pointer-events-none disabled:opacity-45',
+        'btn-shine inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3.5 text-[13px] font-bold transition disabled:pointer-events-none disabled:opacity-45',
         primary ? 'text-white shadow-[0_4px_12px_rgb(22_163_74/0.3)] hover:brightness-110' : 'border border-(--cf-border) bg-(--cf-surface) text-(--cf-text) hover:bg-(--cf-surface-2)',
       )}
       style={primary ? { background: 'linear-gradient(135deg, #22c55e, #15803d)' } : undefined}

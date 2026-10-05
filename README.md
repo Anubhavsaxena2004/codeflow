@@ -10,7 +10,11 @@ project, which the learner can push to their own GitHub repository from inside t
 - **Logic challenges**: `/challenge/signup`
 
 Built with Next.js 16 (App Router), React 19, Tailwind CSS 4 and PostgreSQL (Supabase), using `pg`
-directly with no ORM.
+directly with no ORM. The home map is a 3D world (three.js via react-three-fiber), with a 2D map for
+devices without WebGL or with reduced motion.
+
+Dependencies are locked in `pnpm-lock.yaml`, which Vercel installs from. If you add a package, update
+that file too (`npx pnpm@12.3.4 install --lockfile-only`), or the deploy fails.
 
 ---
 
@@ -216,7 +220,8 @@ app/                    pages and API routes (App Router)
   api/                  auth, progress, journeys, admin, GitHub
 components/
   journey/              the level workspace (mission panel, terminal, architecture board)
-  home/                 island map, stack picker, profile
+  home/                 3D world and 2D island map, stack picker, profile
+  effects/              level-complete confetti and banners, tilt cards
   admin/                admin dashboard and editor
   ide/                  VS Code-style pieces shared by levels and challenges
 data/

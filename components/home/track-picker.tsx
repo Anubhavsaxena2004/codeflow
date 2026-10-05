@@ -2,6 +2,7 @@
 
 import { Check } from 'lucide-react'
 import { trackIds, tracks, type Track } from '@/lib/journeys/types'
+import { Tilt } from '@/components/effects/tilt'
 import { cn } from '@/lib/utils'
 
 const trackArt: Record<Track, { initials: string; color: string }> = {
@@ -17,14 +18,14 @@ export function TrackPicker({ value, onPick, journeyCounts }: { value: Track | n
         const selected = value === track
         const count = journeyCounts[track]
         return (
+          <Tilt key={track} className="rounded-2xl">
           <button
-            key={track}
             type="button"
             role="radio"
             aria-checked={selected}
             onClick={() => onPick(track)}
             className={cn(
-              'relative flex flex-col items-start gap-3 rounded-2xl border bg-(--cf-surface) p-4 text-left shadow-(--cf-shadow) transition hover:-translate-y-0.5 hover:shadow-md',
+              'relative flex size-full flex-col items-start gap-3 rounded-2xl border bg-(--cf-surface) p-4 text-left shadow-(--cf-shadow) transition hover:-translate-y-0.5 hover:shadow-md',
               selected ? 'border-[#16a34a] ring-2 ring-[#16a34a]/30' : 'border-(--cf-border)',
             )}
           >
@@ -36,6 +37,7 @@ export function TrackPicker({ value, onPick, journeyCounts }: { value: Track | n
             <span className="text-[11px] font-medium text-(--cf-muted)">{count ? `${count} journey${count > 1 ? 's' : ''}` : 'Journey coming soon'}</span>
             {selected && <Check aria-hidden className="absolute right-3 top-3 size-4 text-[#16a34a]" />}
           </button>
+          </Tilt>
         )
       })}
     </div>

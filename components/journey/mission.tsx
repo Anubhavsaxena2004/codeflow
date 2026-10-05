@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Check, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles, Star as StarIcon } from 'lucide-react'
 import type { CheckResult } from '@/lib/journeys/checks'
 import { kindLabels, type Check as CheckDefinition, type CommandStep, type LevelKind, type Quiz } from '@/lib/journeys/types'
 import { cn } from '@/lib/utils'
@@ -58,16 +58,42 @@ export function HintNote({ text }: { text: string }) {
   )
 }
 
+/** Counts from 0 up to `target` over about a second (instantly with reduced motion). */
+function useCountUp(target: number) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return setValue(target)
+    const started = performance.now()
+    let frame = 0
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - started) / 900)
+      setValue(Math.round(target * (1 - Math.pow(1 - t, 3))))
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [target])
+  return value
+}
+
 export function CompletionCard({ stars, xp, next, mapHref, onNext }: { stars: number; xp: number; next: { title: string; href?: string } | null; mapHref: string; onNext?: () => void }) {
   const button = 'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-[12px] font-semibold'
+  const shownXp = useCountUp(xp)
   return (
-    <div className="mx-4 mb-3 rounded-md border border-(--ide-success)/40 bg-(--ide-success)/10 p-3" role="status">
+    <div className="animate-rise mx-4 mb-3 rounded-md border border-(--ide-success)/40 bg-(--ide-success)/10 p-3" role="status">
       <div className="flex items-center gap-2 text-[13px] font-semibold text-(--ide-success-soft)">
         <Sparkles aria-hidden className="size-4" />
         {next ? 'Level complete!' : 'Journey complete!'}
-        <Stars count={stars} className="ml-auto" />
+        <span className="ml-auto flex items-center gap-0.5 text-[#f5b301]" aria-label={`${stars} of 3 stars`}>
+          {[0, 1, 2].map((index) => (
+            <StarIcon key={index} aria-hidden className={cn('animate-star-pop size-5', index < stars ? 'fill-current' : 'opacity-30')} style={{ ['--delay' as string]: `${250 + index * 220}ms` }} />
+          ))}
+        </span>
       </div>
-      <p className="mt-1 text-[12px] text-(--ide-fg)">+{xp} XP{next ? ` · Next: ${next.title}` : ' · You built the whole project.'}</p>
+      <p className="mt-1 text-[12px] text-(--ide-fg)">
+        <span className="font-bold text-(--ide-success-soft)">+{shownXp} XP</span>
+        {next ? ` · Next: ${next.title}` : ' · You built the whole project.'}
+      </p>
       <div className="mt-3 flex gap-2">
         <Link href={mapHref} className={cn(button, 'border border-(--ide-border-strong) text-(--ide-fg) hover:bg-(--ide-border)')}>
           <MapIcon aria-hidden className="size-3.5" /> Map

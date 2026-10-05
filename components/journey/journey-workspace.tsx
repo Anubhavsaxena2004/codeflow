@@ -40,7 +40,9 @@ import { Sash } from '../ide/sash'
 import { Terminal, type TerminalLine } from '../ide/terminal'
 import { FlowBoard } from './flow-board'
 import { JourneyPanel, type FlowContext, type JourneyTab } from './journey-panel'
+import { Celebration } from '@/components/effects/celebration'
 import { CommandSteps, CompletionCard, HintNote, MissionHeader, MissionSection, NewFiles, QuizCard, TestList } from './mission'
+import { worldThemes } from './level-meta'
 
 type IconType = ComponentType<{ className?: string; strokeWidth?: number }>
 type Phase = 'playing' | 'saving' | 'passed'
@@ -142,7 +144,8 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
   // ---- shared level state --------------------------------------------------
   const [phase, setPhase] = useState<Phase>('playing')
-  const [reward, setReward] = useState<{ stars: number; xp: number } | null>(null)
+  /** Set when the level is passed in this visit; rankUp is the new rank if the XP crossed one. */
+  const [reward, setReward] = useState<{ stars: number; xp: number; rankUp: number | null } | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pending, setPending] = useState<Submission | null>(null)
   const [wrong, setWrong] = useState(0)
@@ -326,6 +329,9 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     }
     const stars = levelStars(wrong, hints)
     const xp = xpFor(level)
+    // XP only counts the first time a level is passed, so a replay never ranks up.
+    const rankAfter = rankFor(totalXp + (previous ? 0 : xp)).rank
+    const rankUp = rankAfter > rank.rank ? rankAfter : null
     setPending(submission)
     setSaveError(null)
     setMissionOpen(true)
@@ -344,10 +350,10 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         return true
       }
       learner.recordLevel(data.progress as LevelProgress)
-      setReward({ stars: data.progress.stars, xp })
+      setReward({ stars: data.progress.stars, xp, rankUp })
     } else {
       if (!preview) learner.recordLevel({ projectId: project.id, levelId: level.id, stars, xp, completedAt: new Date().toISOString() })
-      setReward({ stars, xp })
+      setReward({ stars, xp, rankUp })
     }
     setPhase('passed')
     return true
@@ -893,6 +899,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                 <div className={cn('flex min-h-0 flex-col', level.kind === 'build' ? 'lg:h-full' : 'overflow-y-auto lg:h-full')}>
                   <div className="flex h-9 shrink-0 items-center px-4 text-[11px] tracking-wide text-(--ide-fg-title)">MISSION</div>
                   <MissionHeader place={place} kind={level.kind} boss={level.boss} title={level.title} summary={level.summary} stars={reward?.stars ?? previous?.stars ?? null} />
+                  {passed && reward && world && <Celebration key={level.id} colors={[worldThemes[world.theme].color, worldThemes[world.theme].deep]} boss={!!level.boss} rankUp={reward.rankUp} />}
                   {passed && reward && <CompletionCard stars={reward.stars} xp={reward.xp} next={nextLink} mapHref={mapHref} onNext={next && onNavigate ? () => onNavigate(next.id) : undefined} />}
                   {!passed && previous && (
                     <p className="mx-4 mb-3 rounded border border-(--ide-border-strong) p-2 text-[12px] leading-5 text-(--ide-muted)">

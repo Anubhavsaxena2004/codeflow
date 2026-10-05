@@ -90,7 +90,7 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: str
             </p>
           )}
 
-          <button type="submit" disabled={pending} className="rounded-xl py-2.5 text-sm font-bold text-white shadow-[0_4px_12px_rgb(22_163_74/0.35)] transition hover:brightness-110 disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}>
+          <button type="submit" disabled={pending} className="btn-shine rounded-xl py-2.5 text-sm font-bold text-white shadow-[0_4px_12px_rgb(22_163_74/0.35)] transition hover:brightness-110 disabled:opacity-60" style={{ background: 'linear-gradient(135deg, #22c55e, #15803d)' }}>
             {pending ? 'Please wait…' : isRegister ? 'Create account' : 'Sign in'}
           </button>
         </form>

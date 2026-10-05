@@ -4,6 +4,7 @@ import { useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Bug, Check, Circle, Crosshair, Flame, House, LockKeyhole, LogOut, Network, PencilRuler, Shield, Skull, SquareTerminal, Star, Trophy, UserRound } from 'lucide-react'
 import { kindIcons, Stars, worldThemes } from '@/components/journey/level-meta'
+import { Tilt } from '@/components/effects/tilt'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { achievementsFor, indexProgress, rankFor, streakDays, type Achievement } from '@/lib/journeys/progress'
 import { kindLabels, tracks, trackIds, type Track } from '@/lib/journeys/types'
@@ -13,7 +14,8 @@ import { useLearner } from '@/lib/use-learner'
 import { cn } from '@/lib/utils'
 import { Mascot } from './mascot'
 import { TrackPicker } from './track-picker'
-import { WorldMap, type LevelState } from './world-map'
+import { JourneyMap } from './journey-map'
+import type { LevelState } from './world-map'
 
 type IconType = ComponentType<{ className?: string }>
 
@@ -33,7 +35,7 @@ const achievementStyles: Record<Achievement['icon'], { icon: IconType; color: st
 }
 
 const GREEN = 'linear-gradient(135deg, #22c55e, #15803d)'
-const primaryButton = 'inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-[0_4px_12px_rgb(22_163_74/0.35)] transition hover:brightness-110'
+const primaryButton = 'btn-shine inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold text-white shadow-[0_4px_12px_rgb(22_163_74/0.35)] transition hover:brightness-110'
 
 function NavLink({ href, icon: Icon, label, active }: { href: string; icon: IconType; label: string; active?: boolean }) {
   return (
@@ -97,6 +99,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
   const [picking, setPicking] = useState(false)
   const [journeyId, setJourneyId] = useState<string | null>(initialJourney)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [focus, setFocus] = useState<{ worldId: string; nonce: number } | null>(null)
 
   const trackJourneys = journeys.filter((journey) => journey.track === track)
   const journey = trackJourneys.find((item) => item.id === journeyId) ?? trackJourneys[0] ?? null
@@ -125,11 +128,12 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
     setSelectedId(null)
   }
 
-  /** Jumps to a world: its island scrolls into view and its next level is selected. */
+  /** Jumps to a world: its next level is selected, the 3D camera flies there (the 2D map scrolls to it). */
   const goToWorld = (worldId: string) => {
     if (!journey) return
     const inWorld = journey.levels.filter((level) => level.world === worldId)
     setSelectedId((inWorld.find((level) => !done[level.id]) ?? inWorld[0])?.id ?? null)
+    setFocus({ worldId, nonce: Date.now() })
     document.getElementById(`island-${worldId}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
@@ -396,7 +400,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                       })}
                     </div>
 
-                    <WorldMap journey={journey} done={done} stateOf={stateOf} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
+                    <JourneyMap journey={journey} done={done} stateOf={stateOf} selectedId={selected?.id ?? null} onSelect={setSelectedId} onSelectWorld={goToWorld} focus={focus} />
 
                     {renderDetails()}
                   </>
@@ -415,7 +419,8 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                       const { icon: Icon, color } = achievementStyles[achievement.icon]
                       const got = achievement.current >= achievement.target
                       return (
-                        <li key={achievement.id} className={cn('flex gap-3 rounded-xl border p-3', got ? 'border-[#86efac] bg-[#f0fdf4] dark:border-[#16a34a]/40 dark:bg-[#16a34a]/10' : 'border-(--cf-border) bg-(--cf-surface-2)')}>
+                        <li key={achievement.id}>
+                          <Tilt className={cn('flex h-full gap-3 rounded-xl border p-3', got ? 'border-[#86efac] bg-[#f0fdf4] dark:border-[#16a34a]/40 dark:bg-[#16a34a]/10' : 'border-(--cf-border) bg-(--cf-surface-2)')}>
                           <span className={cn('grid size-10 shrink-0 place-items-center rounded-xl text-white shadow-sm', !got && 'opacity-45 grayscale')} style={{ background: color }}>
                             <Icon className="size-5" />
                           </span>
@@ -432,6 +437,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                               </div>
                             )}
                           </div>
+                          </Tilt>
                         </li>
                       )
                     })}
@@ -461,7 +467,9 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                       return (
                         <li key={card.id}>
                           {card.active ? (
-                            <Link href={`/challenge/${card.id}?stack=${challengeStack}`} className="block h-full rounded-xl border border-(--cf-border) bg-(--cf-surface-2) p-3 transition hover:-translate-y-0.5 hover:border-[#22c55e] hover:shadow-md">{body}</Link>
+                            <Tilt className="h-full rounded-xl">
+                              <Link href={`/challenge/${card.id}?stack=${challengeStack}`} className="block h-full rounded-xl border border-(--cf-border) bg-(--cf-surface-2) p-3 transition hover:border-[#22c55e] hover:shadow-md">{body}</Link>
+                            </Tilt>
                           ) : (
                             <div className="h-full rounded-xl border border-dashed border-(--cf-border) p-3 opacity-70">{body}</div>
                           )}
@@ -475,7 +483,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
               {/* Right column */}
               <div className="flex flex-col gap-4">
                 {journey && (
-                  <Card title="Next quest" icon={<span className="grid size-7 place-items-center rounded-full bg-[#fee2e2] text-[#dc2626] dark:bg-[#dc2626]/20 dark:text-[#fca5a5]"><Crosshair className="size-4" /></span>}>
+                  <Card className="glow-border animate-rise" title="Next quest" icon={<span className="grid size-7 place-items-center rounded-full bg-[#fee2e2] text-[#dc2626] dark:bg-[#dc2626]/20 dark:text-[#fca5a5]"><Crosshair className="size-4" /></span>}>
                     {next && nextWorld ? (
                       <>
                         <p className="text-[15px] font-bold leading-snug">{next.boss ? 'Defeat' : 'Pass'} “{next.title}”</p>
@@ -485,7 +493,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                           <li className="flex items-center gap-2"><Flame className="size-5 fill-[#fb923c] text-[#f97316]" /> {streak ? `Keeps your ${streak}-day streak going` : 'Starts a streak'}</li>
                           {next.boss && <li className="flex items-center gap-2"><Skull className="size-5 text-[#dc2626]" /> Boss level: bonus XP included</li>}
                         </ul>
-                        <Link href={`/learn/${journey.id}/${next.id}`} className={cn(primaryButton, 'mt-4 w-full')} style={{ background: GREEN }}>
+                        <Link href={`/learn/${journey.id}/${next.id}`} className={cn(primaryButton, 'btn-shine-idle mt-4 w-full')} style={{ background: GREEN }}>
                           Start quest <ArrowRight className="size-4" />
                         </Link>
                       </>
@@ -502,7 +510,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                 )}
 
                 {journey && (
-                  <Card title="Your progress">
+                  <Card title="Your progress" className="animate-rise [--delay:120ms]">
                     <div className="flex items-center gap-4">
                       <ProgressRing value={percent} />
                       <div className="text-sm">
@@ -514,7 +522,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                   </Card>
                 )}
 
-                <Card title="Recent achievements">
+                <Card title="Recent achievements" className="animate-rise [--delay:240ms]">
                   {earned.length ? (
                     <ul className="flex flex-col gap-3">
                       {earned.slice(-3).reverse().map((achievement) => {

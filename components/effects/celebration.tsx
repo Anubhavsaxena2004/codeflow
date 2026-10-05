@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Crown, Skull } from 'lucide-react'
-
-// The moment a level is passed: confetti from both sides of the screen, plus a banner for a
-// defeated boss or a new rank. Purely visual; it never blocks clicks and cleans up after itself.
+import { Skull } from 'lucide-react'
+import { GameButton, RankEmblem } from '@/components/ui/game'
 
 interface Piece {
   x: number
@@ -20,13 +18,19 @@ interface Piece {
   round: boolean
 }
 
-const PALETTE = ['#22c55e', '#06b6d4', '#7c3aed', '#f97316', '#facc15', '#ec4899']
+// Confetti palette: gold, green, purple, plus the current world color
+function getConfettiPalette(worldColor?: string): string[] {
+  const base = ['#f5b301', '#22c55e', '#a855f7']
+  return worldColor ? [worldColor, ...base] : base
+}
 
 function burst(width: number, height: number, colors: string[], count: number): Piece[] {
-  const pick = [...colors, ...PALETTE]
-  return Array.from({ length: count }, (_, index) => {
+  const palette = getConfettiPalette(colors[0])
+  const maxCount = Math.min(count, 120) // Prompt rule: at most 120 particles
+
+  return Array.from({ length: maxCount }, (_, index) => {
     const left = index % 2 === 0
-    const speed = 11 + Math.random() * 9
+    const speed = 10 + Math.random() * 8
     const angle = (left ? -60 : -120) + (Math.random() - 0.5) * 40
     const radians = (angle * Math.PI) / 180
     return {
@@ -34,8 +38,8 @@ function burst(width: number, height: number, colors: string[], count: number): 
       y: height * 0.72,
       vx: Math.cos(radians) * speed,
       vy: Math.sin(radians) * speed,
-      size: 6 + Math.random() * 7,
-      color: pick[Math.floor(Math.random() * pick.length)],
+      size: 6 + Math.random() * 6,
+      color: palette[Math.floor(Math.random() * palette.length)],
       spin: (Math.random() - 0.5) * 0.3,
       angle: Math.random() * Math.PI,
       flip: Math.random() * Math.PI,
@@ -44,19 +48,66 @@ function burst(width: number, height: number, colors: string[], count: number): 
   })
 }
 
-export function Celebration({ colors, boss = false, rankUp = null }: { colors: string[]; boss?: boolean; rankUp?: number | null }) {
+export function Celebration({
+  colors,
+  boss = false,
+  rankUp = null,
+  onDismiss,
+}: {
+  colors: string[]
+  boss?: boolean
+  rankUp?: number | null
+  onDismiss?: () => void
+}) {
   const canvas = useRef<HTMLCanvasElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const [banner, setBanner] = useState(boss || !!rankUp)
   const [mounted, setMounted] = useState(false)
+  const [flash, setFlash] = useState(boss)
 
-  useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement as HTMLElement | null
+    setMounted(true)
+    return () => {
+      // Return focus to where it was before celebration overlay
+      previousFocusRef.current?.focus?.()
+    }
+  }, [])
+
+  // Single flash for boss at most 20% opacity, disappears after 300ms
+  useEffect(() => {
+    if (boss) {
+      const flashTimer = window.setTimeout(() => setFlash(false), 300)
+      return () => window.clearTimeout(flashTimer)
+    }
+  }, [boss])
+
+  // Dismiss on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setBanner(false)
+        onDismiss?.()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onDismiss])
+
+  const dismiss = () => {
+    setBanner(false)
+    onDismiss?.()
+  }
 
   useEffect(() => {
     if (!mounted) return
-    const hide = window.setTimeout(() => setBanner(false), rankUp ? 3400 : 2300)
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    // Auto-dismiss banner after 2.5s
+    const hide = window.setTimeout(() => dismiss(), rankUp ? 3200 : 2500)
     const element = canvas.current
     const context = element?.getContext('2d')
-    if (!element || !context || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => window.clearTimeout(hide)
+    if (!element || !context || prefersReduced) return () => window.clearTimeout(hide)
 
     const ratio = Math.min(window.devicePixelRatio || 1, 2)
     const width = window.innerWidth
@@ -65,15 +116,15 @@ export function Celebration({ colors, boss = false, rankUp = null }: { colors: s
     element.height = height * ratio
     context.scale(ratio, ratio)
 
-    const pieces = burst(width, height, colors, boss ? 220 : 150)
+    const pieces = burst(width, height, colors, 120)
     const started = performance.now()
-    const lifetime = 3200
+    const lifetime = 2500 // Confetti stops after 2.5s
     let frame = 0
 
     const draw = (now: number) => {
       const age = now - started
       context.clearRect(0, 0, width, height)
-      context.globalAlpha = age > lifetime - 700 ? Math.max(0, (lifetime - age) / 700) : 1
+      context.globalAlpha = age > lifetime - 600 ? Math.max(0, (lifetime - age) / 600) : 1
       for (const piece of pieces) {
         piece.vy += 0.32
         piece.vx *= 0.985
@@ -85,7 +136,6 @@ export function Celebration({ colors, boss = false, rankUp = null }: { colors: s
         context.save()
         context.translate(piece.x, piece.y)
         context.rotate(piece.angle)
-        // Scaling one axis by cos() makes each piece look like it is flipping in 3D.
         context.scale(1, Math.cos(piece.flip))
         context.fillStyle = piece.color
         if (piece.round) {
@@ -97,41 +147,106 @@ export function Celebration({ colors, boss = false, rankUp = null }: { colors: s
         }
         context.restore()
       }
-      if (age < lifetime) frame = requestAnimationFrame(draw)
-      else context.clearRect(0, 0, width, height)
+      if (age < lifetime) {
+        frame = requestAnimationFrame(draw)
+      } else {
+        context.clearRect(0, 0, width, height)
+      }
     }
     frame = requestAnimationFrame(draw)
     return () => {
       cancelAnimationFrame(frame)
       window.clearTimeout(hide)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one burst per mount
-  }, [mounted])
+  }, [mounted, colors])
 
   if (!mounted) return null
+
+  const announcement = boss
+    ? 'Boss defeated! Level complete!'
+    : rankUp
+      ? `Rank up! You reached Rank ${rankUp}!`
+      : 'Level complete!'
+
   return createPortal(
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-[70]">
-      {boss && <div className="animate-flash absolute inset-0 bg-[radial-gradient(circle,#fecaca,#dc2626)]" />}
-      <canvas ref={canvas} className="absolute inset-0 size-full" />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={announcement}
+      className="fixed inset-0 z-[70] grid place-items-center p-4 pointer-events-auto"
+    >
+      <div className="sr-only" aria-live="polite">
+        {announcement}
+      </div>
+
+      {/* Screen flash: at most 20% opacity, single time */}
+      {flash && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 bg-[#ef4444]/20 transition-opacity duration-300"
+        />
+      )}
+
+      {/* Confetti canvas */}
+      <canvas ref={canvas} className="pointer-events-none fixed inset-0 size-full" aria-hidden />
+
       {banner && (
-        <div className="absolute inset-0 grid place-items-center p-6">
-          <div className="animate-banner flex flex-col items-center gap-2 text-center">
-            {boss && (
-              <div className="flex items-center gap-3 rounded-3xl bg-gradient-to-br from-[#f87171] to-[#991b1b] px-7 py-4 text-white shadow-[0_20px_60px_rgb(220_38_38/0.45)] ring-4 ring-white/70">
-                <Skull className="size-10" />
-                <span className="text-3xl font-black tracking-wide">BOSS DEFEATED!</span>
+        <div className="relative z-10 flex flex-col items-center gap-4 text-center max-w-sm sm:max-w-md animate-banner">
+          {boss && (
+            <div className="relative flex flex-col items-center gap-2.5 rounded-2xl bg-gradient-to-r from-[#b91c1c] via-[#ea580c] to-[#d97706] p-6 text-white shadow-[0_20px_60px_rgb(185_28_28/0.45)] ring-4 ring-white/70">
+              <div className="flex items-center gap-3">
+                <Skull className="size-10 shrink-0 animate-bounce" aria-hidden />
+                <h2 className="font-display text-[26px] sm:text-[34px] font-bold tracking-tight text-white leading-none">
+                  BOSS DEFEATED!
+                </h2>
               </div>
-            )}
-            {rankUp && (
-              <div className="flex items-center gap-3 rounded-3xl bg-gradient-to-br from-[#a855f7] to-[#5b21b6] px-7 py-4 text-white shadow-[0_20px_60px_rgb(124_58_237/0.45)] ring-4 ring-white/70">
-                <Crown className="size-9 fill-[#fde047] text-[#fde047]" />
-                <span className="text-left leading-tight">
-                  <span className="block text-sm font-bold uppercase tracking-widest opacity-85">Rank up!</span>
-                  <span className="block text-3xl font-black">Rank {rankUp}</span>
+              <p className="text-sm font-medium text-white/90">
+                Incredible mastery of this world&apos;s challenges!
+              </p>
+              <div className="mt-3">
+                <GameButton variant="primary" size="md" onClick={dismiss} autoFocus>
+                  Continue
+                </GameButton>
+              </div>
+            </div>
+          )}
+
+          {rankUp && !boss && (
+            <div className="relative flex flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#4c1d95] p-6 text-white shadow-[0_20px_60px_rgb(109_40_217/0.45)] ring-4 ring-white/70">
+              {/* Rotating rays behind emblem */}
+              <div className="relative grid place-items-center">
+                <div
+                  className="pointer-events-none absolute -inset-8 opacity-30 animate-spin [animation-duration:12s]"
+                  aria-hidden
+                >
+                  <svg viewBox="0 0 100 100" className="size-full fill-white">
+                    <polygon points="50,50 45,0 55,0" />
+                    <polygon points="50,50 85,15 95,25" />
+                    <polygon points="50,50 100,45 100,55" />
+                    <polygon points="50,50 85,85 75,95" />
+                    <polygon points="50,50 45,100 55,100" />
+                    <polygon points="50,50 15,85 5,75" />
+                    <polygon points="50,50 0,45 0,55" />
+                    <polygon points="50,50 15,15 25,5" />
+                  </svg>
+                </div>
+                <RankEmblem rank={rankUp} size={64} className="shadow-lg relative z-1" />
+              </div>
+              <div className="leading-tight">
+                <span className="block text-xs font-bold uppercase tracking-widest text-[#fde047]">
+                  Rank up!
+                </span>
+                <span className="block font-display text-[28px] sm:text-[36px] font-bold text-white">
+                  Rank {rankUp}
                 </span>
               </div>
-            )}
-          </div>
+              <div className="mt-2">
+                <GameButton variant="primary" size="md" onClick={dismiss} autoFocus>
+                  Continue
+                </GameButton>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>,

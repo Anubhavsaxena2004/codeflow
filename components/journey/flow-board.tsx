@@ -1,9 +1,12 @@
 'use client'
 
+import { useEffect } from 'react'
 import { ArrowDown, Check, CircleX, Undo2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import type { ArchitectureLevel, ArchitectureNode } from '@/lib/journeys/types'
 import { cn } from '@/lib/utils'
 import { FileIcon } from '../ide/code'
+import { useShake } from './feedback'
 
 interface FlowBoardProps {
   level: ArchitectureLevel
@@ -57,6 +60,13 @@ function NodeCard({ node, onOpenFile, tone = 'idle' }: { node: ArchitectureNode;
 export function FlowBoard({ level, arrangement, checked, passed, onPlace, onRemove, onOpenFile }: FlowBoardProps) {
   const byId = (id: string | null) => level.nodes.find((node) => node.id === id)
   const pool = shuffledNodes(level.nodes).filter((node) => !arrangement.includes(node.id))
+  const { triggerShake, shakeAnimation } = useShake()
+
+  useEffect(() => {
+    if (checked && !passed) {
+      triggerShake()
+    }
+  }, [checked, passed, triggerShake])
 
   if (passed) {
     return (
@@ -79,7 +89,7 @@ export function FlowBoard({ level, arrangement, checked, passed, onPlace, onRemo
 
   return (
     <div className="grid gap-6 p-5 lg:grid-cols-2">
-      <section aria-label="Request path">
+      <motion.section aria-label="Request path" animate={shakeAnimation}>
         <div className="mb-2 text-[11px] font-bold tracking-wide text-(--ide-fg-title)">THE REQUEST, IN ORDER</div>
         <ol className="flex flex-col gap-2">
           {arrangement.map((id, position) => {
@@ -104,7 +114,7 @@ export function FlowBoard({ level, arrangement, checked, passed, onPlace, onRemo
             )
           })}
         </ol>
-      </section>
+      </motion.section>
       <section aria-label="Stops to place">
         <div className="mb-2 text-[11px] font-bold tracking-wide text-(--ide-fg-title)">STOPS</div>
         {pool.length ? (

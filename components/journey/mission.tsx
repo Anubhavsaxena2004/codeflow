@@ -1,14 +1,16 @@
 'use client'
 
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Check, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles, Star as StarIcon } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles, Star as StarIcon, Trophy } from 'lucide-react'
 import type { CheckResult } from '@/lib/journeys/checks'
 import { kindLabels, type Check as CheckDefinition, type CommandStep, type LevelKind, type Quiz } from '@/lib/journeys/types'
 import { cn } from '@/lib/utils'
 import { FileIcon } from '../ide/code'
 import { kindIcons, Stars } from './level-meta'
+import { GameButton, gameButtonClasses, Pill } from '@/components/ui/game'
+import { useShake, CheckFeedback, getRandomPraise } from './feedback'
 
 /** A collapsible block of the mission panel, so the parts that matter right now get the room. */
 export function MissionSection({ title, children, aside, defaultOpen = true }: { title: string; children: ReactNode; aside?: ReactNode; defaultOpen?: boolean }) {
@@ -89,11 +91,26 @@ export function MissionHeader({ place, kind, boss, title, summary, stars, worldC
 }
 
 export function HintNote({ text }: { text: string }) {
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const prefersReduced = useReducedMotion()
+
+  useEffect(() => {
+    headingRef.current?.focus()
+  }, [])
+
   return (
-    <div className="mx-4 mb-3 flex gap-2 rounded border border-(--ide-warning)/40 bg-(--ide-warning)/10 p-2.5 text-[12px] leading-5 text-(--ide-warning-soft)">
-      <Lightbulb aria-hidden className="mt-0.5 size-3.5 shrink-0" />
-      <span>{text}</span>
-    </div>
+    <motion.div
+      initial={prefersReduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+      animate={prefersReduced ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
+      transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+      className="mx-4 mb-3 overflow-hidden rounded-md border-2 border-dashed border-[#b45309] dark:border-[#fbbf24] bg-amber-500/10 p-3 text-[12px] leading-5 text-(--ide-fg)"
+    >
+      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#b45309] dark:text-[#fbbf24]">
+        <Lightbulb aria-hidden className="size-3.5 shrink-0" />
+        <h4 ref={headingRef} tabIndex={-1} className="outline-none">Hint</h4>
+      </div>
+      <p className="mt-1 text-(--ide-fg)">{text}</p>
+    </motion.div>
   )
 }
 
@@ -115,37 +132,110 @@ function useCountUp(target: number) {
   return value
 }
 
-export function CompletionCard({ stars, xp, next, mapHref, onNext }: { stars: number; xp: number; next: { title: string; href?: string } | null; mapHref: string; onNext?: () => void }) {
-  const button = 'flex flex-1 items-center justify-center gap-1.5 rounded-sm px-3 py-1.5 text-[12px] font-semibold'
+export function CompletionCard({
+  stars,
+  xp,
+  next,
+  mapHref,
+  onNext,
+  worldColor,
+}: {
+  stars: number
+  xp: number
+  next: { title: string; href?: string } | null
+  mapHref: string
+  onNext?: () => void
+  worldColor?: string
+}) {
+  const accent = worldColor ?? '#16a34a'
   const shownXp = useCountUp(xp)
+  const prefersReduced = useReducedMotion()
+
   return (
-    <div className="animate-rise mx-4 mb-3 rounded-md border border-(--ide-success)/40 bg-(--ide-success)/10 p-3" role="status">
-      <div className="flex items-center gap-2 text-[13px] font-semibold text-(--ide-success-soft)">
-        <Sparkles aria-hidden className="size-4" />
-        {next ? 'Level complete!' : 'Journey complete!'}
-        <span className="ml-auto flex items-center gap-0.5 text-[#f5b301]" aria-label={`${stars} of 3 stars`}>
-          {[0, 1, 2].map((index) => (
-            <StarIcon key={index} aria-hidden className={cn('animate-star-pop size-5', index < stars ? 'fill-current' : 'opacity-30')} style={{ ['--delay' as string]: `${250 + index * 220}ms` }} />
-          ))}
-        </span>
+    <div
+      className="animate-rise mx-4 mb-3 rounded-xl border border-(--ide-border-strong) bg-(--ide-bg) p-4 shadow-md"
+      role="status"
+      style={{ borderTop: `3px solid ${accent}` }}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className="grid size-7 shrink-0 place-items-center rounded-lg text-white"
+          style={{ backgroundColor: accent }}
+        >
+          <Trophy className="size-4" aria-hidden />
+        </div>
+        <div>
+          <h3 className="font-display font-bold text-[14px] text-(--ide-heading)">
+            {next ? 'Level complete!' : 'Journey complete!'}
+          </h3>
+          <p className="text-[11px] text-(--ide-muted)">
+            {next ? `Next: ${next.title}` : 'You built the whole project.'}
+          </p>
+        </div>
       </div>
-      <p className="mt-1 text-[12px] text-(--ide-fg)">
-        <span className="font-bold text-(--ide-success-soft)">+{shownXp} XP</span>
-        {next ? ` · Next: ${next.title}` : ' · You built the whole project.'}
-      </p>
-      <div className="mt-3 flex gap-2">
-        <Link href={mapHref} className={cn(button, 'border border-(--ide-border-strong) text-(--ide-fg) hover:bg-(--ide-border)')}>
-          <MapIcon aria-hidden className="size-3.5" /> Map
+
+      <div className="mt-3.5 flex items-center justify-between rounded-lg bg-(--ide-bar) p-2.5">
+        {/* Stars */}
+        <div
+          className="flex items-center gap-1.5"
+          aria-label={`${stars} of 3 stars`}
+        >
+          {[0, 1, 2].map((index) => {
+            const earned = index < stars
+            return (
+              <span key={index} className="relative inline-flex items-center justify-center">
+                <StarIcon
+                  aria-hidden
+                  className={cn(
+                    'size-6 transition-all',
+                    earned
+                      ? 'fill-[#f5b301] text-[#f5b301] animate-star-pop'
+                      : 'fill-transparent text-(--ide-border-strong) stroke-1'
+                  )}
+                  style={
+                    !prefersReduced && earned
+                      ? { ['--delay' as string]: `${index * 180}ms` }
+                      : undefined
+                  }
+                />
+              </span>
+            )
+          })}
+          <span className="sr-only">{stars} of 3 stars</span>
+        </div>
+
+        {/* XP */}
+        <Pill tone="xp" size="md">
+          <span className="num font-bold">+{shownXp} XP</span>
+        </Pill>
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <Link
+          href={mapHref}
+          className={cn(gameButtonClasses({ variant: 'secondary', size: 'md' }), 'flex-1')}
+        >
+          <MapIcon aria-hidden className="size-3.5 mr-1.5" /> Map
         </Link>
         {next &&
           (next.href ? (
-            <Link href={next.href} className={cn(button, 'bg-[#2ea043] text-white hover:bg-[#3fb950]')}>
-              Next level <ArrowRight aria-hidden className="size-3.5" />
+            <Link
+              href={next.href}
+              className={cn(gameButtonClasses({ variant: 'primary', size: 'md' }), 'flex-1')}
+              autoFocus
+            >
+              Next level <ArrowRight aria-hidden className="size-3.5 ml-1.5" />
             </Link>
           ) : (
-            <button type="button" onClick={onNext} className={cn(button, 'bg-[#2ea043] text-white hover:bg-[#3fb950]')}>
-              Next level <ArrowRight aria-hidden className="size-3.5" />
-            </button>
+            <GameButton
+              variant="primary"
+              size="md"
+              onClick={onNext}
+              className="flex-1"
+              autoFocus
+            >
+              Next level <ArrowRight aria-hidden className="size-3.5 ml-1.5" />
+            </GameButton>
           ))}
       </div>
     </div>
@@ -280,9 +370,25 @@ interface QuizCardProps {
   result: 'right' | 'wrong' | null
   onAnswer: (index: number) => void
   onCheck: () => void
+  worldColor?: string
+  onOpenHint?: () => void
 }
 
-export function QuizCard({ quiz, locked, answer, eliminated, result, onAnswer, onCheck }: QuizCardProps) {
+export function QuizCard({ quiz, locked, answer, eliminated, result, onAnswer, onCheck, worldColor, onOpenHint }: QuizCardProps) {
+  const { triggerShake, shakeAnimation } = useShake()
+  const [consecutiveWrong, setConsecutiveWrong] = useState(0)
+  const [praiseWord, setPraiseWord] = useState('Nice!')
+
+  useEffect(() => {
+    if (result === 'wrong') {
+      triggerShake()
+      setConsecutiveWrong((c) => c + 1)
+    } else if (result === 'right') {
+      setPraiseWord(getRandomPraise())
+      setConsecutiveWrong(0)
+    }
+  }, [result, triggerShake])
+
   if (locked) {
     return (
       <p className="flex items-center gap-2 text-[12px] text-(--ide-muted)">
@@ -290,33 +396,87 @@ export function QuizCard({ quiz, locked, answer, eliminated, result, onAnswer, o
       </p>
     )
   }
+
   return (
-    <fieldset>
-      <legend className="mb-2 text-[12px] leading-5 text-(--ide-heading)">{quiz.question}</legend>
+    <motion.fieldset animate={shakeAnimation} className="min-w-0">
+      <legend className="mb-2 text-[12px] font-medium leading-5 text-(--ide-heading)">{quiz.question}</legend>
       <div className="flex flex-col gap-1.5">
-        {quiz.options.map((option, index) => (
-          <label
-            key={index}
-            className={cn(
-              'flex cursor-pointer items-start gap-2 rounded border px-2 py-1.5 text-[12px] leading-5',
-              answer === index ? 'border-[#0078d4] bg-[#0078d4]/10 text-(--ide-heading)' : 'border-(--ide-border-strong) text-(--ide-fg) hover:bg-(--ide-hover)',
-              eliminated.has(index) && 'pointer-events-none line-through opacity-40',
-              result === 'right' && index === quiz.answer && 'border-(--ide-success)/60 bg-(--ide-success)/10',
-            )}
-          >
-            <input type="radio" name="quiz" checked={answer === index} disabled={eliminated.has(index) || result === 'right'} onChange={() => onAnswer(index)} className="mt-1 accent-[#0078d4]" />
-            {option}
-          </label>
-        ))}
+        {quiz.options.map((option, index) => {
+          const isSelected = answer === index
+          const isCorrect = result === 'right' && index === quiz.answer
+          const isWrong = result === 'wrong' && isSelected
+
+          return (
+            <label
+              key={index}
+              style={
+                isSelected && result === null
+                  ? { borderColor: worldColor ?? '#0078d4', boxShadow: `0 0 0 1px ${worldColor ?? '#0078d4'}` }
+                  : undefined
+              }
+              className={cn(
+                'relative flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 text-[12px] leading-5 transition-all',
+                !isSelected && 'border-(--ide-border-strong) text-(--ide-fg) hover:bg-(--ide-hover)',
+                isSelected && result === null && 'bg-(--ide-active)/20 text-(--ide-heading)',
+                eliminated.has(index) && 'pointer-events-none line-through opacity-40',
+                isCorrect && 'border-[#22c55e] bg-[#22c55e]/15 text-[#15803d] dark:text-[#4ade80]',
+                isWrong && 'border-[#ef4444] bg-[#ef4444]/15 text-[#b91c1c] dark:text-[#f87171]',
+              )}
+            >
+              <input
+                type="radio"
+                name="quiz"
+                checked={isSelected}
+                disabled={eliminated.has(index) || result === 'right'}
+                onChange={() => onAnswer(index)}
+                className="mt-1 accent-[#0078d4]"
+              />
+              <span className="flex-1">{option}</span>
+              {isCorrect && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#15803d] dark:text-[#4ade80]">
+                  <Check className="size-3.5" aria-hidden /> Correct
+                </span>
+              )}
+              {isWrong && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#b91c1c] dark:text-[#f87171]">
+                  <CircleX className="size-3.5" aria-hidden /> Incorrect
+                </span>
+              )}
+            </label>
+          )
+        })}
       </div>
-      {result === 'wrong' && <p className="mt-2 text-[12px] text-(--ide-error-soft)">Not quite. Re-read the files and try again.</p>}
-      {result === 'right' ? (
-        <p className="mt-2 text-[12px] leading-5 text-(--ide-success-soft)">{quiz.explain}</p>
-      ) : (
-        <button type="button" onClick={onCheck} disabled={answer === null} className="mt-3 w-full rounded-sm bg-[#0078d4] py-1.5 text-[12px] font-semibold text-white hover:bg-[#026ec1] disabled:opacity-40">
-          Check answer
-        </button>
-      )}
-    </fieldset>
+
+      <div className="mt-3">
+        {result === 'wrong' && (
+          <CheckFeedback
+            status="error"
+            message="Not quite. Re-read the files and try again."
+            consecutiveErrors={consecutiveWrong}
+            onOpenHint={onOpenHint}
+          />
+        )}
+        {result === 'right' && (
+          <CheckFeedback
+            status="success"
+            praise={praiseWord}
+            message={quiz.explain}
+          />
+        )}
+        {result !== 'right' && (
+          <div className="mt-2">
+            <GameButton
+              variant="primary"
+              size="md"
+              fullWidth
+              onClick={onCheck}
+              disabled={answer === null}
+            >
+              Check answer
+            </GameButton>
+          </div>
+        )}
+      </div>
+    </motion.fieldset>
   )
 }

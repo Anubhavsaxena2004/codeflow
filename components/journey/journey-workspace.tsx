@@ -17,7 +17,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, Files, FlaskConical, GitBranch, Lightbulb, Lock, LogOut, Map as MapIcon, Network, PanelBottom, PanelRight, Play, RotateCcw, Skull, SquareTerminal, Star, Target, UserRound, X } from 'lucide-react'
-import { GameTooltip } from '@/components/ui/game'
+import { GameButton, GameTooltip } from '@/components/ui/game'
 import { LessonText } from '@/components/lesson-text'
 import { runChecks, type CheckResult } from '@/lib/journeys/checks'
 import { termsFor } from '@/lib/journeys/glossary'
@@ -1020,7 +1020,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                   <div className="flex h-9 shrink-0 items-center px-4 text-[11px] tracking-wide text-(--ide-fg-title)">MISSION</div>
                   <MissionHeader place={place} kind={level.kind} boss={level.boss} title={level.title} summary={level.summary} stars={reward?.stars ?? previous?.stars ?? null} worldColor={palette.color} />
                   {passed && reward && world && <Celebration key={level.id} colors={[worldThemes[world.theme].color, worldThemes[world.theme].deep]} boss={!!level.boss} rankUp={reward.rankUp} />}
-                  {passed && reward && <CompletionCard stars={reward.stars} xp={reward.xp} next={nextLink} mapHref={mapHref} onNext={next && onNavigate ? () => onNavigate(next.id) : undefined} />}
+                  {passed && reward && <CompletionCard stars={reward.stars} xp={reward.xp} next={nextLink} mapHref={mapHref} onNext={next && onNavigate ? () => onNavigate(next.id) : undefined} worldColor={palette.color} />}
                   {!passed && previous && (
                     <p className="mx-4 mb-3 rounded border border-(--ide-border-strong) p-2 text-[12px] leading-5 text-(--ide-muted)">
                       You passed this level before. Replay it, or{' '}
@@ -1042,7 +1042,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                       </MissionSection>
                       <MissionSection title="QUESTION">
                         {level.quiz ? (
-                          <QuizCard quiz={level.quiz} locked={!allOpened} answer={answer} eliminated={eliminated} result={passed || previous ? 'right' : quizResult} onAnswer={(option) => { setAnswer(option); setQuizResult(null) }} onCheck={() => void checkQuiz()} />
+                          <QuizCard quiz={level.quiz} locked={!allOpened} answer={answer} eliminated={eliminated} result={passed || previous ? 'right' : quizResult} onAnswer={(option) => { setAnswer(option); setQuizResult(null) }} onCheck={() => void checkQuiz()} worldColor={palette.color} onOpenHint={giveHint} />
                         ) : (
                           <button type="button" disabled={!allOpened || passed} onClick={() => void submit({})} className="w-full rounded-sm bg-[#0078d4] py-1.5 text-[12px] font-semibold text-white hover:bg-[#026ec1] disabled:opacity-40">
                             {allOpened ? 'Complete level' : 'Open every new file first'}
@@ -1077,9 +1077,16 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                       <LessonText text={level.lesson} className="text-[12px] leading-5 text-(--ide-fg)" />
                       <p className="mt-2 text-[12px] text-(--ide-muted)">Click a stop to place it next; click a placed stop to take it back.</p>
                       {!passed && (
-                        <button type="button" onClick={() => void checkFlow()} disabled={arrangement.includes(null)} className="mt-3 w-full rounded-sm bg-[#0078d4] py-1.5 text-[12px] font-semibold text-white hover:bg-[#026ec1] disabled:opacity-40">
+                        <GameButton
+                          variant="primary"
+                          size="md"
+                          fullWidth
+                          onClick={() => void checkFlow()}
+                          disabled={arrangement.includes(null)}
+                          className="mt-3"
+                        >
                           Check order
-                        </button>
+                        </GameButton>
                       )}
                     </MissionSection>
                   )}

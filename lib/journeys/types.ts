@@ -2,7 +2,7 @@
 // changes files, so the explorer grows the way a real project does. Definitions are plain
 // JSON: bundled ones live in data/journeys, admin-edited ones in the journey_projects table.
 
-import type { Block, ProjectFile, ScaffoldLine, Stack, StepGuide } from '@/data/challenges'
+import type { Block, GlossaryTerm, ProjectFile, ScaffoldLine, Stack, StepGuide } from '@/data/challenges'
 
 export type Track = 'mern' | 'django' | 'spring'
 
@@ -144,6 +144,11 @@ export interface ArchitectureLevel extends LevelBase {
 export type Level = ExploreLevel | CommandLevel | CodeLevel | BuildLevel | ArchitectureLevel
 export type LevelKind = Level['kind']
 
+/** A glossary entry. A level shows it when any of `match` (default: the term itself) appears in its code. */
+export interface JourneyTerm extends GlossaryTerm {
+  match?: string[]
+}
+
 export interface Project {
   /** Slug, also the GitHub journeyId the learner's repo is linked to. */
   id: string
@@ -156,6 +161,8 @@ export interface Project {
   folders: Record<string, string>
   worlds: World[]
   levels: Level[]
+  /** Terms explained in the workspace's Glossary tab, filtered to the ones each level uses. */
+  glossary?: JourneyTerm[]
 }
 
 export const kindLabels: Record<LevelKind, string> = {

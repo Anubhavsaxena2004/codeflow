@@ -48,6 +48,14 @@ export function validateProject(value: unknown): { ok: true; project: Project } 
   if (!isObject(value.folders) || Object.entries(value.folders).some(([path, about]) => !isProjectPath(path) || typeof about !== 'string')) {
     add('folders', 'must map folder paths to explanations')
   }
+  if (value.glossary !== undefined) {
+    if (!Array.isArray(value.glossary)) add('glossary', 'must be a list of { term, definition, match? }')
+    else
+      value.glossary.forEach((entry, index) => {
+        if (!isObject(entry) || !isText(entry.term) || !isText(entry.definition)) return add(`glossary[${index}]`, 'needs a term and a definition')
+        if (entry.match !== undefined && (!Array.isArray(entry.match) || !entry.match.every((key) => isText(key)))) add(`glossary[${index}] (${entry.term})`, 'match must be a list of words to look for')
+      })
+  }
 
   const worldIds = new Set<string>()
   if (!Array.isArray(value.worlds) || value.worlds.length === 0) add('worlds', 'add at least one world')

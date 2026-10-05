@@ -16,6 +16,7 @@ import { Mascot } from './mascot'
 import { TrackPicker } from './track-picker'
 import { JourneyMap } from './journey-map'
 import type { LevelState } from './world-map'
+import { GamePanel, gameButtonClasses } from '@/components/ui/game'
 
 type IconType = ComponentType<{ className?: string }>
 
@@ -483,17 +484,17 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
               {/* Right column */}
               <div className="flex flex-col gap-4">
                 {journey && (
-                  <Card className="glow-border animate-rise" title="Next quest" icon={<span className="grid size-7 place-items-center rounded-full bg-[#fee2e2] text-[#dc2626] dark:bg-[#dc2626]/20 dark:text-[#fca5a5]"><Crosshair className="size-4" /></span>}>
+                  <GamePanel as="section" tone="accent" accentColor="#22c55e" className="glow-border animate-rise" title="Next quest" icon={<span className="grid size-7 place-items-center rounded-full bg-[#fee2e2] text-[#dc2626] dark:bg-[#dc2626]/20 dark:text-[#fca5a5]"><Crosshair className="size-4" /></span>}>
                     {next && nextWorld ? (
                       <>
                         <p className="text-[15px] font-bold leading-snug">{next.boss ? 'Defeat' : 'Pass'} “{next.title}”</p>
                         <p className="mt-0.5 text-xs text-(--cf-muted)">World {journey.worlds.indexOf(nextWorld) + 1} · {nextWorld.title} · {kindLabels[next.kind]}</p>
                         <ul className="mt-3 flex flex-col gap-1.5 text-[13px] font-semibold">
-                          <li className="flex items-center gap-2"><span className="grid size-5 place-items-center rounded-md text-[9px] font-extrabold text-white" style={{ background: 'linear-gradient(135deg, #a855f7, #6d28d9)' }}>XP</span> +{next.xp} XP</li>
+                          <li className="flex items-center gap-2"><span className="grid size-5 place-items-center rounded-md text-[9px] font-extrabold text-white" style={{ background: 'linear-gradient(135deg, #a855f7, #6d28d9)' }}>XP</span> +<span className="num">{next.xp}</span> XP</li>
                           <li className="flex items-center gap-2"><Flame className="size-5 fill-[#fb923c] text-[#f97316]" /> {streak ? `Keeps your ${streak}-day streak going` : 'Starts a streak'}</li>
                           {next.boss && <li className="flex items-center gap-2"><Skull className="size-5 text-[#dc2626]" /> Boss level: bonus XP included</li>}
                         </ul>
-                        <Link href={`/learn/${journey.id}/${next.id}`} className={cn(primaryButton, 'btn-shine-idle mt-4 w-full')} style={{ background: GREEN }}>
+                        <Link href={`/learn/${journey.id}/${next.id}`} className={cn(gameButtonClasses({ variant: 'primary', size: 'md', fullWidth: true }), 'btn-shine-idle mt-4')}>
                           Start quest <ArrowRight className="size-4" />
                         </Link>
                       </>
@@ -501,25 +502,31 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                       <>
                         <p className="text-[15px] font-bold">Journey complete!</p>
                         <p className="mt-1 text-xs text-(--cf-muted)">Every level is passed. Replay any level to earn more stars.</p>
-                        <Link href={`/learn/${journey.id}`} className={cn(primaryButton, 'mt-4 w-full')} style={{ background: GREEN }}>
+                        <Link href={`/learn/${journey.id}`} className={cn(gameButtonClasses({ variant: 'primary', size: 'md', fullWidth: true }), 'mt-4')}>
                           Review the journey <ArrowRight className="size-4" />
                         </Link>
                       </>
                     )}
-                  </Card>
+                  </GamePanel>
                 )}
 
                 {journey && (
-                  <Card title="Your progress" className="animate-rise [--delay:120ms]">
+                  <GamePanel as="section" tone="default" title="Your progress" className="animate-rise [--delay:120ms]">
                     <div className="flex items-center gap-4">
                       <ProgressRing value={percent} />
                       <div className="text-sm">
-                        <div className="text-base font-extrabold">{passedCount} / {journey.levels.length} levels</div>
-                        <div className="text-xs text-(--cf-muted)">{journey.worlds.filter((world) => journey.levels.filter((level) => level.world === world.id).every((level) => done[level.id])).length} of {journey.worlds.length} worlds cleared</div>
-                        <div className="mt-1 text-xs font-semibold text-[#7c3aed] dark:text-[#c4b5fd]">{totalXp} XP earned</div>
+                        <div className="text-base font-extrabold font-display">
+                          <span className="num">{passedCount}</span> / <span className="num">{journey.levels.length}</span> levels
+                        </div>
+                        <div className="text-xs text-(--cf-muted)">
+                          <span className="num">{journey.worlds.filter((world) => journey.levels.filter((level) => level.world === world.id).every((level) => done[level.id])).length}</span> of <span className="num">{journey.worlds.length}</span> worlds cleared
+                        </div>
+                        <div className="mt-1 text-xs font-semibold text-[#7c3aed] dark:text-[#c4b5fd]">
+                          <span className="num">{totalXp}</span> XP earned
+                        </div>
                       </div>
                     </div>
-                  </Card>
+                  </GamePanel>
                 )}
 
                 <Card title="Recent achievements" className="animate-rise [--delay:240ms]">

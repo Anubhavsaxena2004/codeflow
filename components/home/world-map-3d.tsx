@@ -471,49 +471,142 @@ function Mascot({ position, motion }: { position: Vec3; motion: boolean }) {
     const t = clock.elapsedTime
     if (!motion) {
       body.current.position.set(position[0], position[1], position[2])
-      body.current.scale.set(1, 1, 1)
+      body.current.scale.set(1.2, 1.2, 1.2)
       return
     }
     const cycle = t % 3.0
     let hopY = 0
-    let scaleY = 1
-    let scaleXZ = 1
+    let scaleY = 1.2
+    let scaleXZ = 1.2
     if (cycle < 0.6) {
       if (cycle < 0.42) {
         const p = cycle / 0.42
-        hopY = Math.sin(p * Math.PI) * 0.25
-        scaleY = 1 + Math.sin(p * Math.PI) * 0.12
-        scaleXZ = 1 - Math.sin(p * Math.PI) * 0.06
+        hopY = Math.sin(p * Math.PI) * 0.3
+        scaleY = 1.2 * (1 + Math.sin(p * Math.PI) * 0.12)
+        scaleXZ = 1.2 * (1 - Math.sin(p * Math.PI) * 0.06)
       } else {
         const p = (cycle - 0.42) / 0.18
-        scaleY = 1 - Math.sin(p * Math.PI) * 0.18
-        scaleXZ = 1 + Math.sin(p * Math.PI) * 0.12
+        scaleY = 1.2 * (1 - Math.sin(p * Math.PI) * 0.18)
+        scaleXZ = 1.2 * (1 + Math.sin(p * Math.PI) * 0.12)
       }
     }
     body.current.position.set(position[0], position[1] + hopY, position[2])
     body.current.scale.set(scaleXZ, scaleY, scaleXZ)
-    body.current.rotation.y = Math.sin(t * 0.8) * 0.35
+    body.current.rotation.y = Math.sin(t * 0.8) * 0.3
   })
+
   return (
     <group ref={body} position={position}>
-      <mesh position={[0, 0.28, 0]} castShadow>
-        <capsuleGeometry args={[0.17, 0.22, 4, 10]} />
-        <meshStandardMaterial color="#16a34a" roughness={0.7} />
+      {/* Ground contact shadow */}
+      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.28, 16]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.25} depthWrite={false} />
       </mesh>
-      <mesh position={[0, 0.66, 0]} castShadow>
-        <sphereGeometry args={[0.2, 16, 12]} />
-        <meshStandardMaterial color="#fcd2b0" roughness={0.8} />
+
+      {/* Torso / Hoodie */}
+      <mesh position={[0, 0.32, 0]} castShadow>
+        <capsuleGeometry args={[0.2, 0.24, 4, 12]} />
+        <meshStandardMaterial color="#16a34a" roughness={0.65} />
       </mesh>
-      <mesh position={[0, 0.72, -0.02]} rotation={[-0.25, 0, 0]}>
-        <sphereGeometry args={[0.215, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2.1]} />
-        <meshStandardMaterial color="#3b2a20" roughness={0.9} />
+
+      {/* White Hoodie cowl / collar */}
+      <mesh position={[0, 0.52, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.16, 0.035, 8, 16]} />
+        <meshStandardMaterial color="#ffffff" roughness={0.5} />
       </mesh>
-      {[-0.07, 0.07].map((x) => (
-        <mesh key={x} position={[x, 0.66, 0.18]}>
-          <sphereGeometry args={[0.025, 6, 6]} />
-          <meshBasicMaterial color="#111827" />
+
+      {/* Hoodie sleeves / arms */}
+      <mesh position={[-0.24, 0.32, 0.02]} rotation={[0, 0, 0.25]} castShadow>
+        <capsuleGeometry args={[0.065, 0.18, 4, 8]} />
+        <meshStandardMaterial color="#15803d" roughness={0.65} />
+      </mesh>
+      <mesh position={[0.24, 0.32, 0.02]} rotation={[0, 0, -0.25]} castShadow>
+        <capsuleGeometry args={[0.065, 0.18, 4, 8]} />
+        <meshStandardMaterial color="#15803d" roughness={0.65} />
+      </mesh>
+
+      {/* Cute Head */}
+      <mesh position={[0, 0.74, 0]} castShadow>
+        <sphereGeometry args={[0.23, 20, 16]} />
+        <meshStandardMaterial color="#ffeedd" roughness={0.7} />
+      </mesh>
+
+      {/* Rosy blush cheeks */}
+      <mesh position={[-0.12, 0.7, 0.18]}>
+        <sphereGeometry args={[0.035, 8, 8]} />
+        <meshStandardMaterial color="#fb7185" roughness={0.8} />
+      </mesh>
+      <mesh position={[0.12, 0.7, 0.18]}>
+        <sphereGeometry args={[0.035, 8, 8]} />
+        <meshStandardMaterial color="#fb7185" roughness={0.8} />
+      </mesh>
+
+      {/* Hair back & crown */}
+      <mesh position={[0, 0.81, -0.02]} rotation={[-0.2, 0, 0]}>
+        <sphereGeometry args={[0.25, 16, 14, 0, Math.PI * 2, 0, Math.PI / 1.95]} />
+        <meshStandardMaterial color="#3b2314" roughness={0.85} />
+      </mesh>
+
+      {/* Front bangs */}
+      <mesh position={[0, 0.86, 0.14]} rotation={[0.4, 0, 0]}>
+        <coneGeometry args={[0.12, 0.15, 6]} />
+        <meshStandardMaterial color="#3b2314" roughness={0.85} />
+      </mesh>
+
+      {/* Headphone headband */}
+      <mesh position={[0, 0.82, 0]}>
+        <torusGeometry args={[0.26, 0.035, 8, 24, Math.PI]} />
+        <meshStandardMaterial color="#1e293b" metalness={0.4} roughness={0.5} />
+      </mesh>
+
+      {/* Left earcup with green LED ring */}
+      <group position={[-0.26, 0.74, 0]}>
+        <mesh rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.09, 0.09, 0.08, 14]} />
+          <meshStandardMaterial color="#0f172a" metalness={0.5} roughness={0.4} />
         </mesh>
-      ))}
+        <mesh position={[-0.045, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <ringGeometry args={[0.04, 0.075, 12]} />
+          <meshBasicMaterial color="#22c55e" side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+
+      {/* Right earcup with green LED ring */}
+      <group position={[0.26, 0.74, 0]}>
+        <mesh rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.09, 0.09, 0.08, 14]} />
+          <meshStandardMaterial color="#0f172a" metalness={0.5} roughness={0.4} />
+        </mesh>
+        <mesh position={[0.045, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <ringGeometry args={[0.04, 0.075, 12]} />
+          <meshBasicMaterial color="#22c55e" side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+
+      {/* Expressive eyes with catchlight shine */}
+      <mesh position={[-0.08, 0.74, 0.2]}>
+        <sphereGeometry args={[0.032, 10, 10]} />
+        <meshBasicMaterial color="#0f172a" />
+      </mesh>
+      <mesh position={[-0.07, 0.755, 0.22]}>
+        <sphereGeometry args={[0.012, 6, 6]} />
+        <meshBasicMaterial color="#ffffff" />
+      </mesh>
+
+      <mesh position={[0.08, 0.74, 0.2]}>
+        <sphereGeometry args={[0.032, 10, 10]} />
+        <meshBasicMaterial color="#0f172a" />
+      </mesh>
+      <mesh position={[0.09, 0.755, 0.22]}>
+        <sphereGeometry args={[0.012, 6, 6]} />
+        <meshBasicMaterial color="#ffffff" />
+      </mesh>
+
+      {/* Warm smile */}
+      <mesh position={[0, 0.67, 0.21]}>
+        <torusGeometry args={[0.035, 0.009, 6, 12, Math.PI]} />
+        <meshBasicMaterial color="#9a3412" />
+      </mesh>
     </group>
   )
 }
@@ -709,23 +802,6 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
 
         <Decorations theme={theme} palette={palette} radius={radius} motion={motion} night={night} />
 
-        {!reached && (
-          <group position={[0, TOP + 1.2, 0]} scale={radius * 0.45}>
-            <mesh position={[-0.4, 0, 0]}>
-              <sphereGeometry args={[0.7, 8, 8]} />
-              <meshStandardMaterial color="#cbd5e1" transparent opacity={0.7} flatShading roughness={1} />
-            </mesh>
-            <mesh position={[0.4, 0.1, 0]}>
-              <sphereGeometry args={[0.8, 8, 8]} />
-              <meshStandardMaterial color="#cbd5e1" transparent opacity={0.75} flatShading roughness={1} />
-            </mesh>
-            <mesh position={[0, 0.3, 0.2]}>
-              <sphereGeometry args={[0.6, 8, 8]} />
-              <meshStandardMaterial color="#94a3b8" transparent opacity={0.7} flatShading roughness={1} />
-            </mesh>
-          </group>
-        )}
-
         {/* The path between levels: dotted ahead, gold where it has been walked */}
         {points.slice(1).map((point, step) => {
           const from = points[step]
@@ -770,17 +846,20 @@ function Island({ id, index, position, theme, palette, levels, done, stateOf, se
           </mesh>
         )}
 
-        {currentIndex >= 0 && (
-          <>
-            <mesh ref={pulse} position={[points[currentIndex][0], TOP + 0.03, points[currentIndex][2]]} rotation={[-Math.PI / 2, 0, 0]}>
-              <ringGeometry args={[0.45, 0.52, 32]} />
-              <meshBasicMaterial color={palette.color} transparent opacity={0.6} side={THREE.DoubleSide} />
-            </mesh>
-            <LightBeam position={points[currentIndex]} color={palette.color} />
-            <Mascot position={[points[currentIndex][0] + 0.15, TOP, points[currentIndex][2] - 0.75]} motion={motion} />
-            <group ref={anchor('here')} position={[points[currentIndex][0] + 0.15, TOP + 1.55, points[currentIndex][2] - 0.75]} />
-          </>
-        )}
+        {currentIndex >= 0 && (() => {
+          const mascotPos: Vec3 = [points[currentIndex][0] - 0.65, TOP, points[currentIndex][2] + 0.4]
+          return (
+            <>
+              <mesh ref={pulse} position={[points[currentIndex][0], TOP + 0.03, points[currentIndex][2]]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.45, 0.52, 32]} />
+                <meshBasicMaterial color={palette.color} transparent opacity={0.6} side={THREE.DoubleSide} />
+              </mesh>
+              <LightBeam position={points[currentIndex]} color={palette.color} />
+              <Mascot position={mascotPos} motion={motion} />
+              <group ref={anchor('here')} position={[mascotPos[0], TOP + 1.7, mascotPos[2]]} />
+            </>
+          )
+        })()}
 
         <group ref={anchor(`banner-${id}`)} position={[0, TOP + 2.3, -radius * 1.02]} />
       </group>

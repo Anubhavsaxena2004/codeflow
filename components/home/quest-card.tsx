@@ -78,8 +78,8 @@ export function QuestCard({
                 className="relative overflow-hidden p-5 text-white sm:p-6"
                 style={{
                   background: isBoss
-                    ? 'linear-gradient(135deg, #b91c1c, #ef4444 80%, rgba(239, 68, 68, 0.3))'
-                    : `linear-gradient(135deg, ${palette.deep}, ${palette.color} 75%, transparent 100%)`,
+                    ? 'linear-gradient(135deg, #991b1b, #b91c1c 65%, #dc2626)'
+                    : `linear-gradient(135deg, ${palette.deep}, ${palette.color})`,
                 }}
               >
                 {/* Diagonal warning-stripe header band for Boss */}
@@ -93,9 +93,6 @@ export function QuestCard({
                     }}
                   />
                 )}
-
-                <div aria-hidden className="pointer-events-none absolute -right-6 -top-10 size-44 rounded-full bg-white/10 blur-xl" />
-                <div aria-hidden className="pointer-events-none absolute -bottom-16 right-20 size-36 rounded-full bg-white/10 blur-lg" />
 
                 <div className="relative flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-3.5">

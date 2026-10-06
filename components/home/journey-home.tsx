@@ -528,8 +528,8 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                 title={`${session.user.name} · ${session.user.email}`}
                 className="group relative inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#a855f7] to-[#6d28d9] p-[2px] shadow-xs transition-transform hover:scale-105"
               >
-                <span className="grid size-full place-items-center overflow-hidden rounded-full bg-[#dcfce7] ring-2 ring-(--cf-surface)">
-                  <Mascot className="size-full" />
+                <span className="grid size-full place-items-center overflow-hidden rounded-full bg-[#dcfce7] dark:bg-[#15803d]/30 ring-2 ring-(--cf-surface)">
+                  <Mascot className="size-full translate-y-0.5 scale-110" />
                   <span className="sr-only">{initials}</span>
                 </span>
               </Link>
@@ -869,8 +869,8 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                       </span>
                     }
                   >
-                    {/* Mascot peeking from top-right corner */}
-                    <div className="pointer-events-none absolute -right-1 -top-1 size-9 overflow-hidden sm:size-10">
+                    {/* Mascot celebration badge in top-right */}
+                    <div className="pointer-events-none absolute right-3 top-3 size-11 sm:size-12 drop-shadow-sm">
                       <Mascot expression="cheer" className="size-full" />
                     </div>
 

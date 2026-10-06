@@ -95,9 +95,9 @@ export function BottomPanel({ tab: requestedTab, onTab, onClose, steps, onStepCl
                       className={cn(
                         'mt-0.5 grid size-5 place-items-center rounded-full text-[11px] font-bold transition-all',
                         step.status === 'correct'
-                          ? 'bg-[#22c55e] text-white animate-pop'
+                          ? 'bg-[#15803d] text-white animate-pop'
                           : step.status === 'wrong'
-                          ? 'bg-[#ef4444] text-white'
+                          ? 'bg-[#b91c1c] text-white'
                           : 'border border-(--ide-border-strong) bg-(--ide-bg) text-(--ide-muted)',
                       )}
                     >

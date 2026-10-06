@@ -1213,7 +1213,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                   <span
                     className={cn(
                       'inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors duration-600',
-                      objectiveFlashed && 'bg-[#22c55e] text-white shadow-sm'
+                      objectiveFlashed && 'bg-[#15803d] text-white shadow-sm'
                     )}
                   >
                     <Target className="size-3.5" aria-hidden />

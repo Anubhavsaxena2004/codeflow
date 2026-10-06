@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Fredoka } from 'next/font/google'
 import { MotionProvider } from '@/components/ui/motion-provider'
+import { SoundProvider } from '@/components/ui/sound'
 import { themeScript } from '@/lib/theme'
 import './globals.css'
 
@@ -56,7 +57,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <MotionProvider>
-          {children}
+          <SoundProvider>
+            {children}
+          </SoundProvider>
         </MotionProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

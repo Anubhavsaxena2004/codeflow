@@ -69,7 +69,7 @@ export function TextInput({
         aria-describedby={describedBy}
         aria-invalid={error ? 'true' : undefined}
         {...input}
-        className={cn(inputClass, error && 'border-(--adm-error) focus:border-(--adm-error)', input.className)}
+        className={cn(inputClass, error && 'border-(--adm-error) focus:border-(--adm-error)')}
       />
     </Field>
   )
@@ -106,7 +106,6 @@ export function TextArea({
           'h-auto min-h-20 resize-y py-2.5 leading-5',
           code && 'ide-mono whitespace-pre text-(--adm-code)',
           error && 'border-(--adm-error) focus:border-(--adm-error)',
-          area.className,
         )}
       />
     </Field>

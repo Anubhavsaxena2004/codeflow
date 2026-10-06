@@ -31,6 +31,7 @@ import { useLearner } from '@/lib/use-learner'
 import { loginHref } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { SoundToggle } from '@/components/ui/sound'
 import { BlockCard, BlockPalette } from '../ide/block-palette'
 import type { Problem, SlotGuideRow } from '../ide/bottom-panel'
 import { ChallengeEditor, FileView, type SlotStatus } from '../ide/code-editor'
@@ -958,6 +959,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                 />
               )}
               <div className="ml-1 flex items-center gap-1 border-l border-(--ide-border) pl-2">
+                <SoundToggle variant="ide" className="size-7 rounded" />
                 <ThemeToggle className="size-7 rounded text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)" iconClassName="size-3.5" />
                 {session.status === 'signed-in' ? (
                   <>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Skull } from 'lucide-react'
 import { GameButton, RankEmblem } from '@/components/ui/game'
+import { useSound } from '@/components/ui/sound'
 
 interface Piece {
   x: number
@@ -64,15 +65,17 @@ export function Celebration({
   const [banner, setBanner] = useState(boss || !!rankUp)
   const [mounted, setMounted] = useState(false)
   const [flash, setFlash] = useState(boss)
+  const { play } = useSound()
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null
     setMounted(true)
+    play('levelUp')
     return () => {
       // Return focus to where it was before celebration overlay
       previousFocusRef.current?.focus?.()
     }
-  }, [])
+  }, [play])
 
   // Single flash for boss at most 20% opacity, disappears after 300ms
   useEffect(() => {

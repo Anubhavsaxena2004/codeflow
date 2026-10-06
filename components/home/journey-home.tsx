@@ -7,6 +7,7 @@ import { ArrowRight, Bug, Check, ChevronDown, Circle, Crosshair, Flame, House, L
 import { kindIcons, Stars, worldThemes } from '@/components/journey/level-meta'
 import { Tilt } from '@/components/effects/tilt'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { SoundToggle } from '@/components/ui/sound'
 import { achievementsFor, indexProgress, rankFor, streakDays, type Achievement } from '@/lib/journeys/progress'
 import { kindLabels, tracks, trackIds, type Track } from '@/lib/journeys/types'
 import type { ProjectSummary } from '@/lib/server/journeys'
@@ -515,7 +516,8 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
             </div>
           )}
 
-          {/* Theme toggle */}
+          {/* Sound toggle & Theme toggle */}
+          <SoundToggle />
           <ThemeToggle />
 
           {/* Avatar / Auth */}

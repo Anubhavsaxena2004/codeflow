@@ -248,9 +248,9 @@ export function ErrorState({
           variant="secondary"
           size="sm"
           onClick={handleRetry}
-          icon={<RefreshCw className="size-3.5" />}
           className="font-display font-bold text-xs"
         >
+          <RefreshCw className="size-3.5 mr-1.5" />
           {retryText}
         </GameButton>
       </div>

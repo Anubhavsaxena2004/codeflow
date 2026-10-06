@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useSound } from './sound'
 
 export { GameTooltip, type GameTooltipProps } from './game-tooltip'
 export { ModalShell, type ModalShellProps } from './game-modal'
@@ -146,6 +147,7 @@ export interface GameButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
   rightIcon?: ReactNode
   loading?: boolean
   fullWidth?: boolean
+  sound?: boolean
 }
 
 export const GameButton = forwardRef<HTMLButtonElement, GameButtonProps>(function GameButton(
@@ -156,14 +158,22 @@ export const GameButton = forwardRef<HTMLButtonElement, GameButtonProps>(functio
     rightIcon,
     loading = false,
     fullWidth = false,
+    sound = false,
     className,
     children,
     disabled,
+    onClick,
     ...props
   },
   ref,
 ) {
   const iconSize = size === 'sm' ? 'size-3.5' : size === 'lg' ? 'size-5' : 'size-4'
+  const { play } = useSound()
+
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (sound) play('click')
+    onClick?.(event)
+  }
 
   return (
     <button
@@ -171,6 +181,7 @@ export const GameButton = forwardRef<HTMLButtonElement, GameButtonProps>(functio
       disabled={disabled || loading}
       aria-busy={loading ? 'true' : undefined}
       className={gameButtonClasses({ variant, size, fullWidth, className })}
+      onClick={handleClick}
       {...props}
     >
       {loading ? (

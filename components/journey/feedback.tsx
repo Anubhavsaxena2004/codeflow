@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { CheckCircle2, Loader2, Sparkles, XCircle } from 'lucide-react'
 import { useReducedMotion } from 'framer-motion'
+import { useSound } from '@/components/ui/sound'
 import { cn } from '@/lib/utils'
 
 export type CheckStatus = 'idle' | 'checking' | 'success' | 'error'
@@ -51,6 +52,19 @@ export function CheckFeedback({
 }: CheckFeedbackProps) {
   const chosenPraise = praise || 'Nailed it!'
   const showHintNudge = consecutiveErrors >= 2 && onOpenHint
+  const { play } = useSound()
+  const prevStatusRef = useRef(status)
+
+  useEffect(() => {
+    if (status !== prevStatusRef.current) {
+      if (status === 'success') {
+        play('success')
+      } else if (status === 'error') {
+        play('error')
+      }
+      prevStatusRef.current = status
+    }
+  }, [status, play])
 
   return (
     <div

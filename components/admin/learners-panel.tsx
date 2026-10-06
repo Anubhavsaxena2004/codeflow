@@ -261,7 +261,7 @@ export function LearnersPanel() {
                   const open = expanded === learner.id
                   const level = main && main.current >= 0 ? main.journey.levels[main.current] : null
                   const world = main && level ? main.journey.worlds.find((w) => w.id === level.world) : null
-                  const worldColor = world ? (worldThemes[world.theme]?.color ?? '#16a34a') : '#16a34a'
+                  const worldColor = (world && 'theme' in world && typeof (world as Record<string, unknown>).theme === 'string' && worldThemes[(world as { theme: string }).theme as keyof typeof worldThemes]?.color) || '#16a34a'
                   const worldNum = main && level ? worldNumber(main.journey, level.world) : 0
                   const pct = main ? Math.round((main.done / Math.max(1, main.journey.levels.length)) * 100) : 0
                   const repo = standings.find((standing) => standing.entry.repo)?.entry.repo

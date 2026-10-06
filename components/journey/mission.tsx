@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { FileIcon } from '../ide/code'
 import { kindIcons, Stars } from './level-meta'
 import { GameButton, gameButtonClasses, Pill } from '@/components/ui/game'
+import { useSound } from '@/components/ui/sound'
 import { useShake, CheckFeedback, getRandomPraise } from './feedback'
 
 /** A collapsible block of the mission panel, so the parts that matter right now get the room. */
@@ -150,6 +151,11 @@ export function CompletionCard({
   const accent = worldColor ?? '#16a34a'
   const shownXp = useCountUp(xp)
   const prefersReduced = useReducedMotion()
+  const { play } = useSound()
+
+  useEffect(() => {
+    play('levelUp')
+  }, [play])
 
   return (
     <div
@@ -230,6 +236,7 @@ export function CompletionCard({
             <GameButton
               variant="primary"
               size="md"
+              sound
               onClick={onNext}
               className="flex-1"
               autoFocus

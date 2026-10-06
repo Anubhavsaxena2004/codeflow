@@ -43,14 +43,20 @@ export function TrackPicker({
   value,
   onPick,
   journeyCounts,
+  layout = 'grid',
 }: {
   value: Track | null
   onPick: (track: Track) => void
   journeyCounts: Record<Track, number>
+  layout?: 'grid' | 'list'
 }) {
   return (
     <div
-      className="grid grid-cols-1 gap-4 lg:grid-cols-3"
+      className={cn(
+        layout === 'list'
+          ? 'flex flex-col gap-3'
+          : 'grid grid-cols-1 gap-4 lg:grid-cols-3',
+      )}
       role="radiogroup"
       aria-label="Tech stack"
     >
@@ -59,6 +65,68 @@ export function TrackPicker({
         const count = journeyCounts[track]
         const art = trackArt[track]
         const techList = tracks[track].tagline.split(' · ')
+
+        if (layout === 'list') {
+          return (
+            <button
+              key={track}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onPick(track)}
+              className={cn(
+                'group relative flex w-full flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 rounded-2xl border p-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e]',
+                selected
+                  ? 'border-[#22c55e] ring-2 ring-[#22c55e] bg-gradient-to-r from-(--cf-surface) to-(--cf-surface-2) shadow-(--elev-2)'
+                  : 'border-(--cf-border) bg-(--cf-surface) shadow-xs hover:-translate-y-0.5 hover:border-(--cf-border-strong,var(--cf-border)) hover:bg-(--cf-surface-2)',
+              )}
+            >
+              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                <span
+                  className="grid size-12 shrink-0 place-items-center rounded-xl font-display text-base font-black text-white shadow-sm transition-transform group-hover:scale-105"
+                  style={{ background: art.colorGradient }}
+                  aria-hidden="true"
+                >
+                  {art.initials}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-display text-base font-black text-(--cf-text)">
+                      {tracks[track].label}
+                    </span>
+                    <span className="text-[11px] font-semibold text-(--cf-muted)">
+                      · {count ? `${count} journey${count > 1 ? 's' : ''}` : 'Coming soon'}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {techList.map((tech) => (
+                      <Pill
+                        key={tech}
+                        tone={selected ? 'world' : 'neutral'}
+                        size="sm"
+                        className="text-[10px] font-semibold py-0.5"
+                      >
+                        {tech}
+                      </Pill>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="shrink-0 self-end sm:self-center">
+                {selected ? (
+                  <Pill tone="success" size="sm" className="font-bold gap-1">
+                    <Check className="size-3.5 stroke-[3]" /> Active class
+                  </Pill>
+                ) : (
+                  <span className="rounded-lg border border-(--cf-border) bg-(--cf-surface-2) px-3 py-1 text-xs font-semibold text-(--cf-muted) group-hover:bg-(--cf-surface) group-hover:text-(--cf-text) transition-colors">
+                    Select
+                  </span>
+                )}
+              </div>
+            </button>
+          )
+        }
 
         return (
           <Tilt key={track} max={6} className="h-full rounded-2xl">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, CircleCheck, CircleX, Info, Lightbulb, TriangleAlert, X } from 'lucide-react'
+import { Check, CircleCheck, CircleX, Info, Lightbulb, TriangleAlert, Trophy, X } from 'lucide-react'
 import type { Challenge } from '@/data/challenges'
 import { cn } from '@/lib/utils'
 import type { SlotStatus } from './code-editor'
@@ -80,15 +80,29 @@ export function BottomPanel({ tab: requestedTab, onTab, onClose, steps, onStepCl
         {tab === 'steps' && (
           <div className="py-1">
             <p className="mb-2 text-[12px] text-(--ide-muted)">What kind of code belongs in each slot of {fileName}. Click a step to jump to it.</p>
-            <ol className="flex flex-col">
+            <ol className="flex flex-col gap-1">
               {steps.map((step, index) => (
                 <li key={index}>
                   <button
                     type="button"
                     onClick={() => onStepClick(index)}
-                    className="grid w-full grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 rounded px-1 py-1 text-left text-[12px] leading-5 hover:bg-(--ide-hover) md:grid-cols-[1.25rem_9rem_minmax(0,1fr)_minmax(0,14rem)]"
+                    className={cn(
+                      'relative grid w-full grid-cols-[1.5rem_minmax(0,1fr)] items-start gap-x-3 rounded-lg px-2 py-1.5 text-left text-[12px] leading-5 transition-colors hover:bg-(--ide-hover) md:grid-cols-[1.5rem_9rem_minmax(0,1fr)_minmax(0,14rem)]',
+                      step.status === 'empty' && 'before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r before:bg-[#a855f7]',
+                    )}
                   >
-                    <span className="mt-0.5 grid size-5 place-items-center rounded-full bg-(--ide-border) text-[11px] text-(--ide-fg)">{index + 1}</span>
+                    <span
+                      className={cn(
+                        'mt-0.5 grid size-5 place-items-center rounded-full text-[11px] font-bold transition-all',
+                        step.status === 'correct'
+                          ? 'bg-[#22c55e] text-white animate-pop'
+                          : step.status === 'wrong'
+                          ? 'bg-[#ef4444] text-white'
+                          : 'border border-(--ide-border-strong) bg-(--ide-bg) text-(--ide-muted)',
+                      )}
+                    >
+                      {step.status === 'correct' ? <Check className="size-3" strokeWidth={3} /> : index + 1}
+                    </span>
                     <span className="ide-mono text-(--ide-code)">{step.kind}</span>
                     <span className="col-start-2 text-(--ide-muted) md:col-start-auto">{step.goal}</span>
                     <span className="col-start-2 flex min-w-0 items-center gap-1.5 md:col-start-auto">
@@ -108,17 +122,49 @@ export function BottomPanel({ tab: requestedTab, onTab, onClose, steps, onStepCl
           problems.length === 0 ? (
             <p className="py-1 text-[12px] text-(--ide-muted)">No problems have been detected yet. Press Check to verify the order.</p>
           ) : (
-            <ul className="flex flex-col">
-              {problems.map((problem, index) => (
-                <li key={index} className="flex items-start gap-2 rounded px-1 py-0.5 text-[12px] leading-5 hover:bg-(--ide-hover)">
-                  <span className="mt-[3px] shrink-0">{problemIcons[problem.severity]}</span>
-                  <span className="min-w-0">
-                    <span className={problem.severity === 'success' ? 'text-(--ide-success)' : undefined}>{problem.message}</span>
-                    {problem.detail && <span className="ml-2 text-(--ide-muted)">{problem.detail}</span>}
-                    {problem.line && <span className="ml-2 text-(--ide-dim)">{fileName} [Ln {problem.line}]</span>}
-                  </span>
-                </li>
-              ))}
+            <ul className="flex flex-col gap-1.5">
+              {problems.map((problem, index) => {
+                if (problem.severity === 'hint') {
+                  return (
+                    <li
+                      key={index}
+                      className="flex flex-col gap-1 rounded-xl border border-dashed border-[#b45309] bg-[#fef3c7]/20 p-3 text-[12px] leading-5 dark:border-[#fbbf24] dark:bg-[#78350f]/20"
+                    >
+                      <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-[#b45309] dark:text-[#fbbf24]">
+                        <Lightbulb className="size-3.5" />
+                        <span>Hint</span>
+                      </div>
+                      <div className="text-(--ide-fg)">{problem.message}</div>
+                    </li>
+                  )
+                }
+
+                if (problem.severity === 'success') {
+                  return (
+                    <li
+                      key={index}
+                      className="flex flex-col gap-2 rounded-xl border border-[#22c55e]/40 bg-[#22c55e]/10 p-4 text-[12px] leading-5 dark:border-[#22c55e]/30 dark:bg-[#22c55e]/10"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Trophy className="size-5 text-[#f59e0b]" />
+                        <span className="font-display font-extrabold text-sm text-(--ide-success)">Challenge Complete!</span>
+                      </div>
+                      <p className="text-(--ide-fg)">{problem.message}</p>
+                    </li>
+                  )
+                }
+
+                return (
+                  <li key={index} className="flex items-start gap-2 rounded px-1 py-0.5 text-[12px] leading-5 hover:bg-(--ide-hover)">
+                    <span className="mt-[3px] shrink-0">{problemIcons[problem.severity]}</span>
+                    <span className="min-w-0">
+                      <span>{problem.message}</span>
+                      {problem.detail && <span className="ml-2 text-(--ide-muted)">{problem.detail}</span>}
+                      {problem.line && <span className="ml-2 text-(--ide-dim)">{fileName} [Ln {problem.line}]</span>}
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
           )
         )}

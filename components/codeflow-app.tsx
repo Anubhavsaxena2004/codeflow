@@ -16,10 +16,11 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Blocks,
   Check,
+  ChevronLeft,
   ChevronRight,
   CircleX,
   Clock3,
@@ -33,9 +34,11 @@ import {
   Network,
   PanelBottom,
   Play,
+  Puzzle,
   RotateCcw,
   Star,
   TriangleAlert,
+  Trophy,
   UserRound,
   X,
 } from 'lucide-react'
@@ -43,6 +46,8 @@ import { availableStacks, signupChallenge, solutionOrder, stackLabels, workspace
 import { computeScore, starsFor } from '@/lib/scoring'
 import { loginHref, useSession } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
+import { CheckFeedback, getRandomPraise, useShake, type CheckStatus } from '@/components/journey/feedback'
+import { Celebration } from '@/components/effects/celebration'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { BlockCard, BlockPalette } from './ide/block-palette'
 import { BottomPanel, type PanelTab, type Problem, type SlotGuideRow } from './ide/bottom-panel'
@@ -78,19 +83,38 @@ const collisionDetection: CollisionDetection = (args) => {
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 const indentCode = (code: string, spaces: number) => code.split('\n').map((line) => ' '.repeat(spaces) + line).join('\n')
 
-function ToolButton({ icon: Icon, label, onClick, disabled, variant = 'ghost' }: { icon: IconType; label: string; onClick: () => void; disabled?: boolean; variant?: 'ghost' | 'primary' | 'run' }) {
+function ToolButton({
+  icon: Icon,
+  label,
+  onClick,
+  disabled,
+  busy,
+  variant = 'ghost',
+}: {
+  icon: IconType
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  busy?: boolean
+  variant?: 'ghost' | 'primary' | 'run'
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
+      disabled={disabled || busy}
+      aria-busy={busy ? 'true' : undefined}
       aria-label={label}
       className={cn(
-        'flex h-7 shrink-0 items-center gap-1.5 rounded px-2 text-[12px] transition-colors disabled:pointer-events-none disabled:opacity-40',
-        variant === 'primary' ? 'bg-[#0078d4] text-white hover:bg-[#026ec1]' : variant === 'run' ? 'bg-[#2ea043] text-white hover:bg-[#3fb950]' : 'text-(--ide-fg) hover:bg-(--ide-border)',
+        'flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-all disabled:pointer-events-none disabled:opacity-40 select-none',
+        variant === 'primary'
+          ? 'bg-[#0078d4] text-white hover:bg-[#026ec1] shadow-xs active:translate-y-0.5'
+          : variant === 'run'
+          ? 'bg-[#2ea043] text-white hover:bg-[#3fb950] shadow-xs active:translate-y-0.5'
+          : 'text-(--ide-fg) hover:bg-(--ide-border)',
       )}
     >
-      <Icon className="size-3.5" />
+      {busy ? <LoaderCircle className="size-3.5 animate-spin" /> : <Icon className="size-3.5" />}
       <span className="hidden sm:inline">{label}</span>
     </button>
   )
@@ -128,6 +152,11 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
   const [slots, setSlots] = useState<Slots>(() => Array(order.length).fill(null))
   const [checked, setChecked] = useState(false)
   const [wrongChecks, setWrongChecks] = useState(0)
+  const { triggerShake, shakeAnimation } = useShake()
+  const [checking, setChecking] = useState(false)
+  const [checkStatus, setCheckStatus] = useState<CheckStatus>('idle')
+  const [praise, setPraise] = useState('Nice!')
+  const [showCelebration, setShowCelebration] = useState(false)
   const [hints, setHints] = useState(0)
   const [hintLevels, setHintLevels] = useState<Record<number, number>>({})
   const [hintNotes, setHintNotes] = useState<Problem[]>([])
@@ -377,11 +406,24 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
   }
 
   const check = () => {
+    setChecking(true)
+    setCheckStatus('checking')
     const correct = slots.every((id, index) => id === order[index])
     const nextWrongChecks = correct ? wrongChecks : wrongChecks + 1
     setChecked(true)
     setWrongChecks(nextWrongChecks)
     showPanel('problems')
+
+    if (correct) {
+      setCheckStatus('success')
+      setPraise(getRandomPraise())
+      setShowCelebration(true)
+    } else {
+      setCheckStatus('error')
+      triggerShake()
+    }
+    setChecking(false)
+
     if (!canSync) return
 
     fetch(`/api/challenges/${challenge.id}/attempts`, {
@@ -426,6 +468,8 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
   const reset = () => {
     setSlots(Array(order.length).fill(null))
     setChecked(false)
+    setCheckStatus('idle')
+    setShowCelebration(false)
     setWrongChecks(0)
     setHints(0)
     setHintLevels({})
@@ -573,22 +617,43 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
           className="flex min-h-dvh flex-col bg-(--ide-bg) font-sans text-[13px] text-(--ide-fg) lg:h-dvh lg:min-h-0"
           style={{ '--explorer-w': `${layout.explorer}px`, '--palette-w': `${layout.palette}px`, '--panel-h': `${layout.panel}px` } as CSSProperties}
         >
-          {/* Title bar */}
-          <header className="flex h-10 shrink-0 items-center gap-2 border-b border-(--ide-border) bg-(--ide-bar) px-2">
-            <Link href="/" className="flex shrink-0 items-center gap-2 rounded px-1.5 py-1 hover:bg-(--ide-border)">
-              <span className="grid size-5 place-items-center rounded-sm bg-[#0078d4] text-[9px] font-bold text-white">{'<>'}</span>
-              <span className="hidden text-[13px] text-(--ide-fg) sm:inline">CodeFlow</span>
+          {/* Title bar - 48px height */}
+          <header className="relative flex h-12 shrink-0 items-center gap-2.5 border-b border-(--ide-border) bg-(--ide-bar) px-3">
+            <Link
+              href="/"
+              aria-label="Back to map"
+              className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-(--ide-fg) transition-colors hover:bg-(--ide-border)"
+            >
+              <ChevronLeft className="size-4" />
+              <span className="hidden sm:inline">Map</span>
             </Link>
-            <div className="mx-auto hidden h-6 min-w-0 max-w-md flex-1 items-center justify-center truncate rounded-md border border-(--ide-border-strong) bg-(--ide-bg) px-3 text-[12px] text-(--ide-muted) md:flex">
-              {workspace.projectName} — {challenge.title}
+
+            {/* 4px vertical stripe in purple */}
+            <span className="h-5 w-1 shrink-0 rounded-full bg-[#a855f7]" aria-hidden="true" />
+
+            {/* Kind pill: Logic challenge with Puzzle icon */}
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#a855f7]/15 px-2.5 py-1 text-xs font-bold text-[#6d28d9] dark:text-[#d8b4fe]">
+              <Puzzle className="size-3.5" />
+              <span className="hidden sm:inline">Logic challenge</span>
+            </span>
+
+            {/* Title and subtitle */}
+            <div className="flex min-w-0 items-baseline gap-2 truncate">
+              <h1 className="truncate font-display text-sm font-extrabold text-(--ide-heading) sm:text-base">
+                {challenge.title}
+              </h1>
+              <span className="hidden truncate text-xs text-(--ide-muted) xl:inline">
+                {workspace.projectName} · Arrange validation, hashing, persistence and a safe response
+              </span>
             </div>
-            <div className="ml-auto flex items-center gap-1">
+
+            <div className="ml-auto flex items-center gap-1.5">
               {stacks.length > 1 && (
                 <select
                   value={stack}
                   onChange={(event) => changeStack(event.target.value as Stack)}
                   aria-label="Language and framework"
-                  className="h-7 rounded border border-(--ide-border-strong) bg-(--ide-input) px-1.5 text-[12px] text-(--ide-fg) outline-none focus:border-[#0078d4]"
+                  className="h-8 rounded-lg border border-(--ide-border-strong) bg-(--ide-input) px-2 text-[12px] font-semibold text-(--ide-fg) outline-none focus:border-[#0078d4]"
                 >
                   {stacks.map((item) => (
                     <option key={item} value={item}>{stackLabels[item]}</option>
@@ -597,10 +662,19 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
               )}
               <ToolButton icon={RotateCcw} label="Reset" onClick={reset} />
               <ToolButton icon={Lightbulb} label="Hint" onClick={hint} disabled={completed} />
-              <ToolButton icon={Check} label="Check" onClick={check} disabled={completed} variant="primary" />
+              <motion.div animate={shakeAnimation}>
+                <ToolButton
+                  icon={Check}
+                  label="Check"
+                  onClick={check}
+                  disabled={completed || checking}
+                  busy={checking}
+                  variant="primary"
+                />
+              </motion.div>
               <ToolButton icon={Play} label="Run it" onClick={() => setRunOpen(true)} disabled={!completed} variant="run" />
               <div className="ml-1 flex items-center gap-1 border-l border-(--ide-border) pl-2">
-                <ThemeToggle className="size-7 rounded text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)" iconClassName="size-3.5" />
+                <ThemeToggle className="size-8 rounded-lg text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)" iconClassName="size-4" />
                 {session.status === 'signed-in' ? (
                   <>
                     <span title={`${session.user.name} · ${session.user.email}`} className="grid size-6 place-items-center rounded-full bg-[#0078d4] text-[10px] font-semibold text-white">{initials}</span>
@@ -614,6 +688,23 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
               </div>
             </div>
           </header>
+
+          {/* Persistent Check Feedback Region */}
+          {checkStatus !== 'idle' && (
+            <div className="border-b border-(--ide-border) bg-(--ide-bar) px-4 py-1.5">
+              <CheckFeedback
+                status={checkStatus}
+                praise={praise}
+                message={
+                  checkStatus === 'success'
+                    ? `All ${order.length} steps are in the right order.`
+                    : `Check detected issues. Review the Slot Guide or Problems panel.`
+                }
+                consecutiveErrors={wrongChecks}
+                onOpenHint={hint}
+              />
+            </div>
+          )}
 
           <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row">
             {/* Activity bar */}
@@ -855,6 +946,29 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
               )}
             </div>
           </footer>
+
+          {/* Mobile bottom action bar for reachable controls at 390px */}
+          <div className="sticky bottom-0 z-20 flex h-12 shrink-0 items-center justify-between border-t border-(--ide-border) bg-(--ide-bar) px-3 sm:hidden">
+            <div className="flex items-center gap-1.5">
+              <ToolButton icon={RotateCcw} label="Reset" onClick={reset} />
+              <ToolButton icon={Lightbulb} label="Hint" onClick={hint} disabled={completed} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <motion.div animate={shakeAnimation}>
+                <ToolButton
+                  icon={Check}
+                  label="Check"
+                  onClick={check}
+                  disabled={completed || checking}
+                  busy={checking}
+                  variant="primary"
+                />
+              </motion.div>
+              {completed && (
+                <ToolButton icon={Play} label="Run it" onClick={() => setRunOpen(true)} variant="run" />
+              )}
+            </div>
+          </div>
         </div>
 
         <DragOverlay dropAnimation={null}>
@@ -879,6 +993,13 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
           />
         )}
       </AnimatePresence>
+
+      {showCelebration && (
+        <Celebration
+          colors={['#a855f7', '#22c55e', '#f5b301']}
+          onDismiss={() => setShowCelebration(false)}
+        />
+      )}
     </>
   )
 }

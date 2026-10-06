@@ -238,6 +238,8 @@
   --adm-bg: #f4f6fa;
   --adm-panel: #ffffff;
   --adm-panel-deep: #f7f9fc;
+  --adm-surface: #ffffff;
+  --adm-surface-hover: #f2f5fa;
   --adm-row-hover: #f2f5fa;
   --adm-hover: #eaeef5;
   --adm-selected: #dbe8ff;
@@ -381,6 +383,8 @@
   --adm-bg: #0d0f12;
   --adm-panel: #111318;
   --adm-panel-deep: #0f1116;
+  --adm-surface: #111318;
+  --adm-surface-hover: #151820;
   --adm-row-hover: #151820;
   --adm-hover: #1c1f26;
   --adm-selected: #1f2a37;

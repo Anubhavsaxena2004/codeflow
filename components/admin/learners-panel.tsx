@@ -6,6 +6,7 @@ import { kindIcons } from '@/components/journey/level-meta'
 import { trackIds, tracks, type Track } from '@/lib/journeys/types'
 import type { Learner, LearnerJourney, LearnerReport, PassedLevel, ReportJourney } from '@/lib/server/learners'
 import { cn } from '@/lib/utils'
+import { EmptyState, ErrorState, Skeleton } from '@/components/ui/states'
 import { inputClass } from './fields'
 
 const REFRESH_MS = 60_000
@@ -153,8 +154,22 @@ export function LearnersPanel() {
           <span>The admin is open: every signed-in account can see this page and edit journeys. To lock it, set <code>ADMIN_EMAILS</code> to the admins&apos; emails (comma-separated) and redeploy.</span>
         </p>
       )}
-      {error && <p className="mt-3 text-(--adm-error)">{error}</p>}
-      {!report && !error && <p className="mt-3 text-(--adm-dim)">Loading…</p>}
+      {error && (
+        <div className="mt-3 max-w-xl">
+          <ErrorState
+            title="Could not load learners"
+            message={error}
+            onRetry={load}
+            retryText="Retry"
+          />
+        </div>
+      )}
+      {!report && !error && (
+        <div className="mt-4 flex items-center gap-2 text-[12px] text-(--adm-dim)">
+          <div className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span>Loading learners…</span>
+        </div>
+      )}
 
       {report && (
         <>
@@ -193,11 +208,31 @@ export function LearnersPanel() {
                 </tr>
               </thead>
               <tbody>
-                {shown.length === 0 && (
+                {loading && !report ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i} className="border-t border-(--adm-border)">
+                      <td className="px-2 py-3"><Skeleton scope="adm" shape="circle" className="size-3.5 mx-auto" /></td>
+                      <td className="px-3 py-3"><Skeleton scope="adm" shape="line" className="h-3.5 w-32" /></td>
+                      <td className="px-3 py-3"><Skeleton scope="adm" shape="line" className="h-3.5 w-16" /></td>
+                      <td className="px-3 py-3"><Skeleton scope="adm" shape="line" className="h-3.5 w-24" /></td>
+                      <td className="px-3 py-3"><Skeleton scope="adm" shape="line" className="h-3.5 w-28" /></td>
+                      <td className="px-3 py-3"><Skeleton scope="adm" shape="line" className="h-3.5 w-12" /></td>
+                      <td className="px-3 py-3"><Skeleton scope="adm" shape="line" className="h-3.5 w-20" /></td>
+                      <td className="px-3 py-3"><Skeleton scope="adm" shape="line" className="h-3.5 w-16" /></td>
+                    </tr>
+                  ))
+                ) : shown.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-3 py-4 text-(--adm-dim)">{rows.length ? 'No learner matches the filter.' : 'Nobody has signed up yet. Share the site link and learners show up here.'}</td>
+                    <td colSpan={8} className="px-3 py-8 text-center">
+                      <EmptyState
+                        mascot={false}
+                        title={rows.length ? 'No learner matches the filter' : 'No learners yet'}
+                        description={rows.length ? 'Try clearing or changing your search terms.' : 'Nobody has signed up yet. Share the site link and learners show up here.'}
+                        className="py-4"
+                      />
+                    </td>
                   </tr>
-                )}
+                ) : null}
                 {shown.map(({ learner, standings }) => {
                   const main = standings[0]
                   const xp = learner.journeys.reduce((sum, entry) => sum + entry.passed.reduce((total, row) => total + row.xp, 0), 0)

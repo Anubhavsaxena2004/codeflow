@@ -19,6 +19,7 @@ import type { ProjectSummary } from '@/lib/server/journeys'
 import { useLearner } from '@/lib/use-learner'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { GamePanel, RankEmblem, SegmentedProgress, StatTile, gameButtonClasses } from '@/components/ui/game'
+import { LoadingState, Skeleton } from '@/components/ui/states'
 import { cn } from '@/lib/utils'
 import { AchievementMedal } from './achievement-medal'
 import { GithubCard } from './github-card'
@@ -69,6 +70,76 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
   const streak = streakDays(levels)
   const totalStars = levels.reduce((sum, row) => sum + (row.stars ?? 0), 0)
   const levelsCompleted = levels.length
+
+  if (!ready) {
+    return (
+      <main className="min-h-dvh bg-(--cf-bg) px-4 py-6 text-(--cf-text) md:px-8">
+        <div className="mx-auto flex max-w-5xl flex-col gap-6">
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/"
+              className="flex w-fit items-center gap-1.5 text-sm font-semibold text-(--cf-muted) hover:text-(--cf-text)"
+            >
+              <ArrowLeft className="size-4" /> Back to the map
+            </Link>
+            <ThemeToggle className="size-8 rounded-full border border-(--cf-border) bg-(--cf-surface) text-(--cf-muted) hover:bg-(--cf-surface-2) hover:text-(--cf-text)" />
+          </div>
+
+          <LoadingState label="Loading player profile…">
+            <div className="flex flex-col gap-6">
+              {/* Skeleton Hero */}
+              <div className="relative overflow-hidden rounded-3xl border border-(--cf-border) bg-(--cf-surface) shadow-(--elev-2)">
+                <div className="h-24 sm:h-28 w-full bg-(--cf-surface-2)" />
+                <div className="px-5 pb-6 pt-0 sm:px-6">
+                  <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-10 sm:-mt-12 mb-4">
+                    <Skeleton shape="circle" className="size-[72px] sm:size-[96px] ring-4 ring-(--cf-surface)" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton shape="line" className="h-7 w-48" />
+                      <Skeleton shape="line" className="h-4 w-64" />
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 max-w-md">
+                    <Skeleton shape="line" className="h-3 w-32" />
+                    <Skeleton shape="line" className="h-2.5 w-full" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Skeleton Stats */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-4 space-y-2">
+                    <Skeleton shape="line" className="h-3 w-16" />
+                    <Skeleton shape="line" className="h-6 w-20" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Skeleton Grid */}
+              <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+                <div className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-5 space-y-4">
+                  <Skeleton shape="line" className="h-5 w-36" />
+                  <div className="space-y-3">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <Skeleton key={i} shape="block" className="h-24 w-full rounded-xl" />
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-5 space-y-4">
+                  <Skeleton shape="line" className="h-5 w-32" />
+                  <div className="grid grid-cols-3 gap-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <Skeleton key={i} shape="circle" className="size-16 mx-auto" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </LoadingState>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-dvh bg-(--cf-bg) px-4 py-6 text-(--cf-text) md:px-8">

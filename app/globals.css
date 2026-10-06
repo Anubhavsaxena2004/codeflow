@@ -525,6 +525,47 @@ input:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s;
 }
 
+/* Skeleton shimmer sweep: 1.4s linear infinite using surface tokens */
+@keyframes skeleton-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--skel-bg, var(--cf-surface-2));
+}
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--skel-shine, rgba(255, 255, 255, 0.12)) 50%,
+    transparent 100%
+  );
+  animation: skeleton-sweep 1.4s linear infinite;
+  pointer-events: none;
+}
+.skeleton-cf {
+  --skel-bg: var(--cf-surface-2);
+  --skel-shine: rgba(255, 255, 255, 0.14);
+}
+.dark .skeleton-cf {
+  --skel-bg: rgba(255, 255, 255, 0.05);
+  --skel-shine: rgba(255, 255, 255, 0.08);
+}
+.skeleton-ide {
+  --skel-bg: var(--ide-surface-2, rgba(255, 255, 255, 0.06));
+  --skel-shine: rgba(255, 255, 255, 0.09);
+}
+.skeleton-adm {
+  --skel-bg: var(--adm-surface-2, rgba(255, 255, 255, 0.06));
+  --skel-shine: rgba(255, 255, 255, 0.09);
+}
+
 /* Medal shine sweep on hover, focus, and on first view */
 @keyframes medal-sweep {
   0% { transform: translateX(-140%) rotate(25deg); }
@@ -685,7 +726,8 @@ body.is-resizing-y * {
   }
   .btn-shine::after,
   .btn-shine-idle::after,
-  .medal-shine::after {
+  .medal-shine::after,
+  .skeleton-shimmer::after {
     animation: none !important;
     transform: none !important;
     transition: none !important;

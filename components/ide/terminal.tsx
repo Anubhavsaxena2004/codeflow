@@ -25,10 +25,11 @@ interface TerminalProps {
   placeholder?: string
   /** Focus the input when the terminal first appears. */
   autoFocus?: boolean
+  connecting?: boolean
 }
 
 /** A bash-like prompt. The parent decides what each command does and appends the output. */
-export function Terminal({ lines, prompt, onCommand, placeholder, autoFocus }: TerminalProps) {
+export function Terminal({ lines, prompt, onCommand, placeholder, autoFocus, connecting }: TerminalProps) {
   const [value, setValue] = useState('')
   const [history, setHistory] = useState<string[]>([])
   const [cursor, setCursor] = useState<number | null>(null)
@@ -68,6 +69,12 @@ export function Terminal({ lines, prompt, onCommand, placeholder, autoFocus }: T
 
   return (
     <div className="ide-mono h-full min-h-0 cursor-text overflow-y-auto px-4 py-2 text-[12.5px] leading-5" onClick={() => input.current?.focus({ preventScroll: true })}>
+      {connecting && (
+        <div className="flex items-center gap-2 text-(--ide-muted) pb-1 select-none">
+          <span className="size-1.5 rounded-full bg-[#eab308] animate-pulse" />
+          <span>Connecting…</span>
+        </div>
+      )}
       {lines.map((line, index) => (
         <div key={index} className={cn('whitespace-pre-wrap [overflow-wrap:anywhere]', lineColors[line.kind])}>
           {line.kind === 'input' && <span className="text-(--ide-success)">{line.prompt} </span>}

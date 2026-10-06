@@ -13,6 +13,8 @@ import { WorldMap, type LevelState } from './world-map'
 // Picks between the 3D world (three.js, loaded only when it is shown) and the 2D island map. The
 // 2D map is the fallback without WebGL, with reduced motion, while 3D loads, and if 3D crashes.
 
+import { InlineSpinner } from '@/components/ui/states'
+
 function MapSkeleton() {
   return (
     <div
@@ -29,7 +31,7 @@ function MapSkeleton() {
       {/* Shimmer sweep */}
       <div className="pointer-events-none absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent motion-reduce:hidden" />
       <div className="relative z-10 flex flex-col items-center gap-2.5 rounded-2xl bg-black/45 px-6 py-3.5 text-white shadow-xl backdrop-blur-md">
-        <div className="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none" />
+        <InlineSpinner className="size-5 text-white" />
         <span className="font-display text-sm font-bold tracking-wide">Loading world…</span>
       </div>
     </div>

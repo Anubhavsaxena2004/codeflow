@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/core'
 import { ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, Files, FlaskConical, GitBranch, Lightbulb, Lock, LogOut, Map as MapIcon, Network, PanelBottom, PanelRight, Play, RotateCcw, Skull, SquareTerminal, Star, Target, UserRound, X } from 'lucide-react'
 import { GameButton, GameTooltip } from '@/components/ui/game'
+import { LoadingState, Skeleton, SkeletonText } from '@/components/ui/states'
 import { LessonText } from '@/components/lesson-text'
 import { runChecks, type CheckResult } from '@/lib/journeys/checks'
 import { termsFor } from '@/lib/journeys/glossary'
@@ -694,7 +695,83 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const nextLink = next ? { title: next.title, href: preview ? undefined : levelHref(next.id) } : null
 
   if (!preview && !learner.ready) {
-    return <div className="grid min-h-dvh place-items-center bg-(--ide-bg) text-[13px] text-(--ide-muted)">Loading your progress…</div>
+    return (
+      <LoadingState label="Loading level…" className="min-h-dvh bg-(--ide-bg)">
+        <div className="flex h-dvh flex-col overflow-hidden bg-(--ide-bg) text-(--ide-fg)">
+          {/* Header bar skeleton */}
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-(--ide-border) bg-(--ide-title-bg) px-4">
+            <div className="flex items-center gap-3">
+              <Skeleton scope="ide" shape="line" className="h-4 w-16" />
+              <div className="h-4 w-px bg-(--ide-border)" />
+              <Skeleton scope="ide" shape="line" className="h-4 w-40" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton scope="ide" shape="line" className="h-4 w-20" />
+            </div>
+          </div>
+
+          {/* Main workspace layout */}
+          <div className="flex min-h-0 flex-1">
+            {/* Activity bar skeleton */}
+            <div className="flex w-12 shrink-0 flex-col items-center gap-4 border-r border-(--ide-border) bg-(--ide-activity-bg) py-3">
+              <Skeleton scope="ide" shape="circle" className="size-6" />
+              <Skeleton scope="ide" shape="circle" className="size-6" />
+            </div>
+
+            {/* Explorer pane skeleton */}
+            <div className="hidden w-60 shrink-0 flex-col border-r border-(--ide-border) bg-(--ide-side-bg) p-3 sm:flex">
+              <Skeleton scope="ide" shape="line" className="mb-4 h-3 w-20" />
+              <div className="space-y-2.5">
+                <Skeleton scope="ide" shape="line" className="h-3 w-32" />
+                <Skeleton scope="ide" shape="line" className="h-3 w-40" />
+                <Skeleton scope="ide" shape="line" className="h-3 w-28" />
+                <Skeleton scope="ide" shape="line" className="h-3 w-36" />
+              </div>
+            </div>
+
+            {/* Center: Editor tabs and content */}
+            <div className="flex min-w-0 flex-1 flex-col bg-(--ide-editor-bg)">
+              {/* Tabs */}
+              <div className="flex h-9 border-b border-(--ide-border) bg-(--ide-tab-bg) px-2">
+                <div className="flex items-center gap-2 border-r border-(--ide-border) px-3">
+                  <Skeleton scope="ide" shape="line" className="h-3 w-24" />
+                </div>
+              </div>
+              {/* Editor lines */}
+              <div className="flex-1 p-6">
+                <SkeletonText scope="ide" lines={8} lineClassName="h-3.5" />
+              </div>
+            </div>
+
+            {/* Right: Mission panel skeleton */}
+            <div className="hidden w-80 shrink-0 flex-col border-l border-(--ide-border) bg-(--ide-side-bg) p-5 lg:flex">
+              <div className="space-y-3">
+                <Skeleton scope="ide" shape="line" className="h-3 w-16" />
+                <Skeleton scope="ide" shape="line" className="h-5 w-48" />
+                <Skeleton scope="ide" shape="line" className="h-3.5 w-full" />
+              </div>
+              <div className="mt-8 space-y-4">
+                <Skeleton scope="ide" shape="line" className="h-3 w-24" />
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <Skeleton scope="ide" shape="circle" className="size-4" />
+                      <Skeleton scope="ide" shape="line" className="h-3 flex-1" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status bar skeleton */}
+          <div className="flex h-6 shrink-0 items-center justify-between border-t border-(--ide-border) bg-(--ide-status-bg) px-3">
+            <Skeleton scope="ide" shape="line" className="h-2.5 w-32" />
+            <Skeleton scope="ide" shape="line" className="h-2.5 w-24" />
+          </div>
+        </div>
+      </LoadingState>
+    )
   }
 
   if (!unlocked) {

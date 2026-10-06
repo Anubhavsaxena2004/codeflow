@@ -21,6 +21,7 @@ import {
 import { NEW_TOKEN_URL } from '@/lib/github/token'
 import { cn } from '@/lib/utils'
 import { GamePanel, Pill, gameButtonClasses } from '@/components/ui/game'
+import { EmptyState } from '@/components/ui/states'
 
 // The profile's GitHub section: connect an account (OAuth or a personal access token) and push
 // each project from one place. It uses the same endpoints as the GitHub view inside a level.
@@ -327,7 +328,12 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
 
           <h3 className="mt-5 text-[11px] font-bold uppercase tracking-wider text-(--cf-faint)">Your projects</h3>
           {projects.length === 0 ? (
-            <p className="mt-2 text-sm text-(--cf-muted)">Pick a stack and start a journey: its project shows up here, ready to push.</p>
+            <EmptyState
+              mascot
+              title="No projects pushed yet"
+              description="Pick a stack and start a journey: its project shows up here, ready to push."
+              className="py-6"
+            />
           ) : (
             <ul className="mt-2 flex flex-col divide-y divide-(--cf-border)">
               {projects.map((project) => {

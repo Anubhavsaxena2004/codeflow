@@ -20,6 +20,7 @@ import { QuestCard } from './quest-card'
 import { AchievementMedal } from './achievement-medal'
 import type { LevelState } from './world-map'
 import { GamePanel, GameButton, gameButtonClasses, Pill, SegmentedProgress, RankEmblem, StatTile, GameTooltip } from '@/components/ui/game'
+import { LoadingState, Skeleton, SkeletonText } from '@/components/ui/states'
 
 type IconType = ComponentType<{ className?: string }>
 
@@ -436,69 +437,83 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
           <div className="flex-1 min-w-2" />
 
           {/* Streak */}
-          <GameTooltip
-            content={streak > 0 ? 'Keep your streak alive — finish a level today' : 'Start a streak: finish any level'}
-            side="bottom"
-          >
-            <span
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold select-none transition-colors',
-                streak > 0
-                  ? 'border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#f97316]/30 dark:bg-[#f97316]/15 dark:text-[#fdba74]'
-                  : 'border-(--cf-border) bg-(--cf-surface) text-(--cf-muted)',
-              )}
+          {!ready ? (
+            <Skeleton shape="block" className="h-8 w-24 rounded-full" />
+          ) : (
+            <GameTooltip
+              content={streak > 0 ? 'Keep your streak alive — finish a level today' : 'Start a streak: finish any level'}
+              side="bottom"
             >
-              <Flame
-                aria-hidden="true"
+              <span
                 className={cn(
-                  'size-4 shrink-0 transition-transform',
+                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold select-none transition-colors',
                   streak > 0
-                    ? 'fill-[#f97316] text-[#f97316] animate-flame'
-                    : 'fill-none text-slate-400 dark:text-zinc-500',
+                    ? 'border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#f97316]/30 dark:bg-[#f97316]/15 dark:text-[#fdba74]'
+                    : 'border-(--cf-border) bg-(--cf-surface) text-(--cf-muted)',
                 )}
-              />
-              <span className="sr-only">{streak}-day streak</span>
-              <span aria-hidden="true">
-                <span className="num font-bold text-(--cf-text)">{streak}</span>{' '}
-                <span className="hidden sm:inline">day streak</span>
-                <span className="sm:hidden">d</span>
+              >
+                <Flame
+                  aria-hidden="true"
+                  className={cn(
+                    'size-4 shrink-0 transition-transform',
+                    streak > 0
+                      ? 'fill-[#f97316] text-[#f97316] animate-flame'
+                      : 'fill-none text-slate-400 dark:text-zinc-500',
+                  )}
+                />
+                <span className="sr-only">{streak}-day streak</span>
+                <span aria-hidden="true">
+                  <span className="num font-bold text-(--cf-text)">{streak}</span>{' '}
+                  <span className="hidden sm:inline">day streak</span>
+                  <span className="sm:hidden">d</span>
+                </span>
               </span>
-            </span>
-          </GameTooltip>
+            </GameTooltip>
+          )}
 
           {/* Rank and XP */}
-          <div className="relative flex items-center gap-2">
-            <RankEmblem rank={rank.rank} size={40} className="hidden sm:inline-flex" />
-            <RankEmblem rank={rank.rank} size={32} className="sm:hidden" />
-            <div className="hidden sm:flex flex-col gap-0.5">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-(--cf-muted)">
-                <span className="font-display font-bold text-(--cf-text)">Rank <span className="num">{rank.rank}</span></span>
-                <span className="num">{rank.into} / {rank.size} XP</span>
+          {!ready ? (
+            <div className="flex items-center gap-2">
+              <Skeleton shape="circle" className="size-8 sm:size-10" />
+              <div className="hidden sm:flex flex-col gap-1.5">
+                <Skeleton shape="line" className="h-3 w-28" />
+                <Skeleton shape="line" className="h-2 w-36" />
               </div>
-              <SegmentedProgress
-                value={rank.into}
-                max={rank.size}
-                segments={5}
-                tone="xp"
-                label={`Rank ${rank.rank} progress`}
-                className="w-36 lg:w-[180px]"
-              />
             </div>
-            {/* Floating +n XP badge on XP increase */}
-            <AnimatePresence>
-              {xpDelta !== null && (
-                <motion.span
-                  initial={{ opacity: 0, y: 0 }}
-                  animate={{ opacity: 1, y: -16 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-                  className="pointer-events-none absolute -top-3 right-0 rounded-full bg-[#a855f7] px-2 py-0.5 text-[11px] font-extrabold text-white shadow-md"
-                >
-                  +{xpDelta} XP
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </div>
+          ) : (
+            <div className="relative flex items-center gap-2">
+              <RankEmblem rank={rank.rank} size={40} className="hidden sm:inline-flex" />
+              <RankEmblem rank={rank.rank} size={32} className="sm:hidden" />
+              <div className="hidden sm:flex flex-col gap-0.5">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-(--cf-muted)">
+                  <span className="font-display font-bold text-(--cf-text)">Rank <span className="num">{rank.rank}</span></span>
+                  <span className="num">{rank.into} / {rank.size} XP</span>
+                </div>
+                <SegmentedProgress
+                  value={rank.into}
+                  max={rank.size}
+                  segments={5}
+                  tone="xp"
+                  label={`Rank ${rank.rank} progress`}
+                  className="w-36 lg:w-[180px]"
+                />
+              </div>
+              {/* Floating +n XP badge on XP increase */}
+              <AnimatePresence>
+                {xpDelta !== null && (
+                  <motion.span
+                    initial={{ opacity: 0, y: 0 }}
+                    animate={{ opacity: 1, y: -16 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                    className="pointer-events-none absolute -top-3 right-0 rounded-full bg-[#a855f7] px-2 py-0.5 text-[11px] font-extrabold text-white shadow-md"
+                  >
+                    +{xpDelta} XP
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
 
           {/* Theme toggle */}
           <ThemeToggle />
@@ -554,7 +569,54 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
           )}
 
           {!ready ? (
-            <div className="grid h-64 place-items-center text-sm text-(--cf-muted)">Loading your journey…</div>
+            <LoadingState label="Loading your journey…">
+              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="flex min-w-0 flex-col gap-5">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div className="space-y-2">
+                      <Skeleton shape="line" className="h-6 w-48" />
+                      <Skeleton shape="line" className="h-4 w-72" />
+                    </div>
+                    <Skeleton shape="block" className="h-10 w-32 rounded-xl" />
+                  </div>
+                  <div className="flex gap-2 overflow-hidden py-1">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} shape="block" className="h-12 w-36 shrink-0 rounded-2xl" />
+                    ))}
+                  </div>
+                  <div className="relative aspect-[16/10] w-full min-h-[380px] rounded-3xl border border-(--cf-border) bg-(--cf-surface) overflow-hidden flex flex-col items-center justify-center p-8">
+                    <div className="relative size-40 sm:size-48 rounded-full bg-(--cf-surface-2) border border-(--cf-border) flex items-center justify-center shadow-inner">
+                      <Skeleton shape="circle" className="size-24 bg-(--cf-surface)" />
+                    </div>
+                    <div className="mt-4 flex flex-col items-center gap-2">
+                      <Skeleton shape="line" className="h-4 w-32" />
+                      <Skeleton shape="line" className="h-3 w-48" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-5 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Skeleton shape="circle" className="size-12" />
+                      <div className="space-y-1.5 flex-1">
+                        <Skeleton shape="line" className="h-4 w-3/4" />
+                        <Skeleton shape="line" className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                    <SkeletonText lines={3} />
+                    <Skeleton shape="block" className="h-10 w-full rounded-xl" />
+                  </div>
+                  <div className="rounded-2xl border border-(--cf-border) bg-(--cf-surface) p-5 space-y-3">
+                    <Skeleton shape="line" className="h-4 w-28" />
+                    <div className="grid grid-cols-6 gap-2">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <Skeleton key={i} shape="circle" className="size-9" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </LoadingState>
           ) : !track || picking ? (
             <Card className="mx-auto max-w-3xl p-6">
               <h2 className="text-lg font-extrabold">{track ? 'Change your tech stack' : 'Pick your tech stack'}</h2>

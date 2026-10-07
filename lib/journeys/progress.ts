@@ -3,7 +3,7 @@ import type { Level, LevelKind, LevelProgress } from './types'
 
 export const XP_BY_KIND: Record<LevelKind, number> = { explore: 50, command: 75, edit: 100, build: 100, bugfix: 150, architecture: 150 }
 export const BOSS_BONUS = 100
-export const XP_PER_RANK = 500
+export const XP_PER_LEVEL = 500
 
 export function xpFor(level: Level) {
   return level.xp ?? XP_BY_KIND[level.kind] + (level.boss ? BOSS_BONUS : 0)
@@ -14,8 +14,39 @@ export function levelStars(wrongAttempts: number, hints: number) {
   return starsFor(computeScore({ wrongChecks: wrongAttempts, hints }))
 }
 
-export function rankFor(xp: number) {
-  return { rank: Math.floor(xp / XP_PER_RANK) + 1, into: xp % XP_PER_RANK, size: XP_PER_RANK }
+/** The player level: every XP_PER_LEVEL XP raises it by one. */
+export function playerLevelFor(xp: number) {
+  return { level: Math.floor(xp / XP_PER_LEVEL) + 1, into: xp % XP_PER_LEVEL, size: XP_PER_LEVEL }
+}
+
+/**
+ * The career post, from total XP. The steps are deliberately far apart: the whole MERN Todo
+ * journey is about 2,300 XP, so one or two small projects make a Trainee, not a Developer.
+ */
+export const POSTS = [
+  { title: 'Intern', xp: 0 },
+  { title: 'Trainee', xp: 1_500 },
+  { title: 'Junior Developer', xp: 5_000 },
+  { title: 'Developer', xp: 12_000 },
+  { title: 'Senior Developer', xp: 25_000 },
+  { title: 'Tech Lead', xp: 45_000 },
+  { title: 'Software Architect', xp: 75_000 },
+  { title: 'Principal Engineer', xp: 120_000 },
+] as const
+
+export function postFor(xp: number) {
+  let index = 0
+  while (index + 1 < POSTS.length && xp >= POSTS[index + 1].xp) index++
+  const next = POSTS[index + 1] ?? null
+  return {
+    index,
+    title: POSTS[index].title,
+    next,
+    /** XP still needed for the next post; 0 at the top. */
+    toNext: next ? next.xp - xp : 0,
+    /** 0–1 progress from this post to the next one. */
+    progress: next ? (xp - POSTS[index].xp) / (next.xp - POSTS[index].xp) : 1,
+  }
 }
 
 export type ProgressIndex = Record<string, Record<string, LevelProgress>>
@@ -40,19 +71,49 @@ export function isUnlocked(project: { levels: { id: string }[] }, levelIndex: nu
   return allOpen || levelIndex < unlockedCount(project, done) || !!done?.[project.levels[levelIndex]?.id]
 }
 
-const dayOf = (iso: string) => new Date(iso).toISOString().slice(0, 10)
+/** The learner's own calendar day (local time), as YYYY-MM-DD. */
+export function dayKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+/** How many levels were passed on each day. */
+export function activityByDay(rows: { completedAt: string }[]) {
+  const counts = new Map<string, number>()
+  for (const row of rows) {
+    const key = dayKey(new Date(row.completedAt))
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  return counts
+}
 
 /** Consecutive days, ending today or yesterday, with at least one passed level. */
-export function streakDays(rows: LevelProgress[], now = new Date()) {
-  const days = new Set(rows.map((row) => dayOf(row.completedAt)))
+export function streakDays(rows: { completedAt: string }[], now = new Date()) {
+  const days = activityByDay(rows)
   const cursor = new Date(now)
-  if (!days.has(dayOf(cursor.toISOString()))) cursor.setUTCDate(cursor.getUTCDate() - 1)
+  if (!days.has(dayKey(cursor))) cursor.setDate(cursor.getDate() - 1)
   let streak = 0
-  while (days.has(dayOf(cursor.toISOString()))) {
+  while (days.has(dayKey(cursor))) {
     streak++
-    cursor.setUTCDate(cursor.getUTCDate() - 1)
+    cursor.setDate(cursor.getDate() - 1)
   }
   return streak
+}
+
+/** The longest run of consecutive active days ever. */
+export function longestStreak(rows: { completedAt: string }[]) {
+  const days = [...activityByDay(rows).keys()].sort()
+  let best = 0
+  let run = 0
+  let previous: Date | null = null
+  for (const key of days) {
+    const [year, month, day] = key.split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    const expected = previous && new Date(previous.getFullYear(), previous.getMonth(), previous.getDate() + 1)
+    run = expected && expected.getTime() === date.getTime() ? run + 1 : 1
+    best = Math.max(best, run)
+    previous = date
+  }
+  return best
 }
 
 export interface Achievement {

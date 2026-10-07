@@ -324,27 +324,27 @@ export function SegmentedProgress({
 }
 
 /* -------------------------------------------------------------------------------------------------
- * RankEmblem
+ * LevelEmblem: the player level (from XP) on a hexagon shield
  * -----------------------------------------------------------------------------------------------*/
-export interface RankEmblemProps {
-  rank: number
+export interface LevelEmblemProps {
+  level: number
   size?: number
   glow?: boolean
   className?: string
 }
 
-export function RankEmblem({
-  rank,
+export function LevelEmblem({
+  level,
   size = 40,
   glow = false,
   className,
-}: RankEmblemProps) {
+}: LevelEmblemProps) {
   const fontSize = size <= 28 ? 12 : size <= 32 ? 14 : size <= 40 ? 17 : size <= 64 ? 26 : 38
 
   return (
     <div
       role="img"
-      aria-label={`Rank ${rank}`}
+      aria-label={`Level ${level}`}
       style={{ width: `${size}px`, height: `${size}px` }}
       className={cn('relative inline-flex shrink-0 items-center justify-center select-none', className)}
     >
@@ -361,12 +361,12 @@ export function RankEmblem({
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id={`rank-grad-${rank}-${size}`} x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={`level-grad-${level}-${size}`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#c084fc" />
             <stop offset="35%" stopColor="#a855f7" />
             <stop offset="100%" stopColor="#6d28d9" />
           </linearGradient>
-          <linearGradient id={`rank-bevel-${rank}-${size}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`level-bevel-${level}-${size}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="white" stopOpacity="0.45" />
             <stop offset="100%" stopColor="black" stopOpacity="0.25" />
           </linearGradient>
@@ -374,13 +374,13 @@ export function RankEmblem({
         {/* Hexagon Shield */}
         <polygon
           points="50,4 92,26 92,74 50,96 8,74 8,26"
-          fill={`url(#rank-grad-${rank}-${size})`}
+          fill={`url(#level-grad-${level}-${size})`}
         />
         {/* Inner Bevel Rim */}
         <polygon
           points="50,9 86,28 86,72 50,91 14,72 14,28"
           fill="none"
-          stroke={`url(#rank-bevel-${rank}-${size})`}
+          stroke={`url(#level-bevel-${level}-${size})`}
           strokeWidth="3.5"
         />
         {/* Core Shield */}
@@ -389,7 +389,7 @@ export function RankEmblem({
           fill="#581c87"
           opacity="0.25"
         />
-        {/* Rank Number */}
+        {/* Level number */}
         <text
           x="50"
           y="54"
@@ -400,7 +400,7 @@ export function RankEmblem({
           fontSize={fontSize * 2.1}
           fontFamily="var(--font-display, sans-serif)"
         >
-          {rank}
+          {level}
         </text>
       </svg>
     </div>

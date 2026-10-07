@@ -5,10 +5,12 @@ import Link from 'next/link'
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
+  BriefcaseBusiness,
+  CalendarDays,
   CheckCircle2,
   Compass,
   Flame,
+  LockKeyhole,
   Mail,
   Shield,
   Sparkles,
@@ -16,18 +18,19 @@ import {
   Trophy,
 } from 'lucide-react'
 import { useReducedMotion } from 'framer-motion'
-import { achievementsFor, indexProgress, rankFor, streakDays } from '@/lib/journeys/progress'
+import { achievementsFor, indexProgress, playerLevelFor, POSTS, postFor, streakDays, XP_PER_LEVEL } from '@/lib/journeys/progress'
 import { tracks, trackIds, type Track } from '@/lib/journeys/types'
 import type { ProjectSummary } from '@/lib/server/journeys'
 import { useLearner } from '@/lib/use-learner'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SoundToggle } from '@/components/ui/sound'
-import { GamePanel, Pill, RankEmblem, SegmentedProgress, StatTile, gameButtonClasses } from '@/components/ui/game'
+import { GamePanel, LevelEmblem, Pill, SegmentedProgress, StatTile, gameButtonClasses } from '@/components/ui/game'
 import { LoadingState, Skeleton } from '@/components/ui/states'
 import { cn } from '@/lib/utils'
 import { AchievementMedal } from './achievement-medal'
 import { GithubCard } from './github-card'
 import { Mascot } from './mascot'
+import { StreakHeatmap } from './streak-heatmap'
 import { TrackPicker } from './track-picker'
 
 function CountUpNumber({ value }: { value: number }) {
@@ -59,11 +62,13 @@ function CountUpNumber({ value }: { value: number }) {
 }
 
 export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
-  const { session, track, setTrack, levels, ready } = useLearner()
+  const { session, track, setTrack, trackLocked, levels, ready } = useLearner()
   const signedIn = session.status === 'signed-in'
+  const [trackError, setTrackError] = useState<string | null>(null)
 
   const totalXp = levels.reduce((sum, row) => sum + row.xp, 0)
-  const rank = rankFor(totalXp)
+  const playerLevel = playerLevelFor(totalXp)
+  const post = postFor(totalXp)
   const byProject = indexProgress(levels)
   const allAchievements = achievementsFor(journeys, levels)
   const earned = allAchievements.filter((item) => item.current >= item.target)
@@ -191,8 +196,8 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
             {/* Top Banner Chips */}
             <div className="relative flex items-center justify-between p-4 sm:p-5">
               <Pill tone="xp" size="sm" className="font-extrabold shadow-sm bg-black/40 text-white border-white/20">
-                <Sparkles className="size-3 text-[#fde047]" />
-                Rank {rank.rank} Developer
+                <BriefcaseBusiness className="size-3 text-[#fde047]" />
+                {post.title} · Level {playerLevel.level}
               </Pill>
 
               {track && (
@@ -204,9 +209,10 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
           </div>
 
           <div className="relative px-5 pb-6 pt-0 sm:px-6">
-            <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-12 sm:-mt-16 mb-5">
-              {/* Avatar Frame with Glowing Ring & 44px Rank Emblem */}
-              <div className="relative shrink-0 w-fit">
+            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end">
+              {/* Avatar frame with glowing ring and level emblem. Only the avatar overlaps the banner;
+                  the name below it always sits on the card, so it stays readable. */}
+              <div className="relative -mt-12 shrink-0 w-fit sm:-mt-16">
                 <div
                   className="size-20 sm:size-24 rounded-full p-[3px] shadow-(--elev-3)"
                   style={{
@@ -219,16 +225,16 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
                 </div>
 
                 <div className="absolute -bottom-1 -right-1 sm:bottom-0 sm:right-0 drop-shadow-md">
-                  <RankEmblem rank={rank.rank} size={42} />
+                  <LevelEmblem level={playerLevel.level} size={42} />
                 </div>
               </div>
 
               {/* Player Identity */}
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 sm:pt-3">
                 {signedIn ? (
                   <>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="font-display text-2xl sm:text-3xl font-black text-(--cf-text) tracking-tight">
+                      <h1 className="min-w-0 break-words font-display text-2xl sm:text-3xl font-black text-(--cf-text) tracking-tight">
                         {session.user.name}
                       </h1>
                       {session.user.isAdmin ? (
@@ -276,35 +282,70 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
               </div>
             </div>
 
-            {/* Integrated Progression Bar */}
-            <div className="rounded-2xl border border-(--cf-border) bg-(--cf-surface-2)/80 p-4 shadow-xs">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-display font-extrabold text-(--cf-text)">
-                    Rank <span className="num">{rank.rank}</span> Progression
-                  </span>
-                  <span className="text-[11px] text-(--cf-muted)">
-                    ({rank.size - rank.into} XP to Rank {rank.rank + 1})
-                  </span>
+            {/* Integrated progression: the XP level, then the career post */}
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="rounded-2xl border border-(--cf-border) bg-(--cf-surface-2)/80 p-4 shadow-xs">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-extrabold text-(--cf-text)">
+                      Level <span className="num">{playerLevel.level}</span>
+                    </span>
+                    <span className="text-[11px] text-(--cf-muted)">
+                      ({playerLevel.size - playerLevel.into} XP to level {playerLevel.level + 1})
+                    </span>
+                  </div>
+                  <div className="font-display text-sm font-black text-[#7c3aed] dark:text-[#c4b5fd]">
+                    <span className="num">{playerLevel.into}</span> / <span className="num">{playerLevel.size}</span> XP
+                  </div>
                 </div>
-                <div className="font-display font-black text-sm text-[#7c3aed] dark:text-[#c4b5fd]">
-                  <span className="num">{rank.into}</span> / <span className="num">{rank.size}</span> XP
+                <SegmentedProgress label="Level progress" value={playerLevel.into} max={playerLevel.size} segments={5} className="h-3" />
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-(--cf-muted)">
+                  <span>Every {XP_PER_LEVEL} XP raises your level</span>
+                  <span className="font-semibold text-(--cf-text)">
+                    <span className="num font-bold">{levelsCompleted}</span> levels passed · <span className="num font-bold">{totalStars}</span> ★ earned
+                  </span>
                 </div>
               </div>
 
-              <SegmentedProgress
-                label="Rank progress"
-                value={rank.into}
-                max={rank.size}
-                segments={5}
-                className="h-3"
-              />
-
-              <div className="mt-2.5 flex flex-wrap items-center justify-between text-[11px] text-(--cf-muted)">
-                <span>500 XP required per rank up</span>
-                <span className="font-semibold text-(--cf-text)">
-                  <span className="num font-bold">{levelsCompleted}</span> levels passed · <span className="num font-bold">{totalStars}</span> ★ earned
-                </span>
+              <div className="rounded-2xl border border-(--cf-border) bg-(--cf-surface-2)/80 p-4 shadow-xs">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
+                  <span className="flex items-center gap-1.5 font-display font-extrabold text-(--cf-text)">
+                    <BriefcaseBusiness className="size-3.5 text-[#15803d] dark:text-[#86efac]" /> Post: {post.title}
+                  </span>
+                  <span className="text-[11px] text-(--cf-muted)">
+                    {post.next ? (
+                      <>
+                        <span className="num font-bold text-(--cf-text)">{post.toNext.toLocaleString()}</span> XP to {post.next.title}
+                      </>
+                    ) : (
+                      'Top post reached'
+                    )}
+                  </span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-(--cf-track)">
+                  <div
+                    className="h-full rounded-full bg-linear-to-r from-[#22c55e] to-[#15803d] transition-[width] duration-500"
+                    style={{ width: `${Math.round(post.progress * 100)}%` }}
+                  />
+                </div>
+                <ol className="mt-2.5 flex flex-wrap gap-1" aria-label="Career posts">
+                  {POSTS.map((item, index) => (
+                    <li
+                      key={item.title}
+                      title={`${item.title}: ${item.xp.toLocaleString()} XP`}
+                      className={cn(
+                        'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                        index === post.index
+                          ? 'bg-[#15803d] text-white'
+                          : index < post.index
+                            ? 'bg-[#22c55e]/15 text-[#15803d] dark:text-[#86efac]'
+                            : 'bg-(--cf-surface) text-(--cf-muted)',
+                      )}
+                    >
+                      {item.title}
+                    </li>
+                  ))}
+                </ol>
               </div>
             </div>
           </div>
@@ -321,10 +362,10 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
             className="hover:-translate-y-1 hover:shadow-md transition-all shadow-xs"
           />
           <StatTile
-            icon={<Trophy className="size-5" />}
-            label="Current rank"
-            value={<CountUpNumber value={rank.rank} />}
-            sublabel={`Rank ${rank.rank} of 6`}
+            icon={<BriefcaseBusiness className="size-5" />}
+            label="Current post"
+            value={post.title}
+            sublabel={`Level ${playerLevel.level} · post ${post.index + 1} of ${POSTS.length}`}
             tone="default"
             className="hover:-translate-y-1 hover:shadow-md transition-all shadow-xs"
           />
@@ -354,6 +395,20 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
           />
         </div>
 
+        {/* Streak heatmap, GitHub / LeetCode style */}
+        <GamePanel
+          tone="default"
+          title="Activity"
+          icon={<CalendarDays className="size-5 text-[#16a34a] dark:text-[#4ade80]" />}
+          action={
+            <span className="flex items-center gap-1 text-xs font-semibold text-(--cf-muted)">
+              <Flame className="size-3.5 fill-[#f97316] text-[#f97316]" /> <span className="num font-bold text-(--cf-text)">{streak}</span> day streak
+            </span>
+          }
+        >
+          <StreakHeatmap rows={levels} />
+        </GamePanel>
+
         {/* Two-column layout: Left (Class & Journeys), Right (Trophy Case & GitHub) */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-start">
           {/* Left Column: Tech Stack & Journeys */}
@@ -372,18 +427,33 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
               }
             >
               <p className="mb-4 text-xs leading-relaxed text-(--cf-muted)">
-                Pick your primary stack. The island world map and logic challenges adapt to its framework and language.
+                {trackLocked ? (
+                  <span className="flex items-start gap-1.5">
+                    <LockKeyhole className="mt-0.5 size-3.5 shrink-0" />
+                    Your stack is chosen for good. The island world map and logic challenges follow it. Only an admin can move you to another stack.
+                  </span>
+                ) : track ? (
+                  'As an admin you can switch stacks any time; progress in each stack is kept.'
+                ) : (
+                  'Pick your primary stack. You choose it once, so pick carefully: only an admin can change it later.'
+                )}
               </p>
               {ready ? (
                 <TrackPicker
                   value={track}
-                  onPick={(next) => void setTrack(next)}
+                  onPick={(next) => {
+                    if (!track && !window.confirm(`Start with ${tracks[next].label}? You can only choose your stack once; after that only an admin can change it.`)) return
+                    setTrackError(null)
+                    void setTrack(next).then(setTrackError)
+                  }}
                   journeyCounts={journeyCounts}
                   layout="list"
+                  locked={trackLocked}
                 />
               ) : (
                 <p className="text-sm text-(--cf-muted)">Loading tech stacks…</p>
               )}
+              {trackError && <p role="alert" className="mt-3 text-xs font-semibold text-[#b91c1c] dark:text-[#f87171]">{trackError}</p>}
             </GamePanel>
 
             {/* Journeys Explorer */}

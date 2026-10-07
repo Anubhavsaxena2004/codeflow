@@ -15,6 +15,7 @@ import { starsFor } from '@/lib/scoring'
 import { useLearner } from '@/lib/use-learner'
 import { cn } from '@/lib/utils'
 import { Mascot } from './mascot'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { TrackPicker } from './track-picker'
 import { JourneyMap } from './journey-map'
 import { QuestCard } from './quest-card'
@@ -552,7 +553,7 @@ export function JourneyHome({ journeys, initialJourney, initialLevel = null }: {
                 className="group relative inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#a855f7] to-[#6d28d9] p-[2px] shadow-xs transition-transform hover:scale-105"
               >
                 <span className="grid size-full place-items-center overflow-hidden rounded-full bg-[#dcfce7] dark:bg-[#15803d]/30 ring-2 ring-(--cf-surface)">
-                  <Mascot className="size-full translate-y-0.5 scale-110" />
+                  <UserAvatar avatar={session.user.avatar} className="size-full translate-y-0.5 scale-110" />
                   <span className="sr-only">{initials}</span>
                 </span>
               </Link>

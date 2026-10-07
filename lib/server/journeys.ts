@@ -77,7 +77,7 @@ function tasksOf(level: Level): string[] {
     case 'build':
       return (level.steps ?? []).map((step) => `${step.kind}: ${step.goal}`)
     case 'explore':
-      return [`Open ${level.adds.filter((file) => !file.path.endsWith('/') && !file.generated).length} new file(s)`, ...(level.quiz ? ['Answer the question'] : [])]
+      return [`Open ${level.adds.filter((file) => !file.path.endsWith('/') && !file.generated && !file.unused).length} new file(s)`, ...(level.quiz ? ['Answer the question'] : [])]
     case 'architecture':
       return [`Put ${level.nodes.length} stops in order`]
   }

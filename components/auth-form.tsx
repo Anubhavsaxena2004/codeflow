@@ -3,13 +3,14 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, Eye, EyeOff, Lock, Mail, User } from 'lucide-react'
+import { AlertCircle, Check, Eye, EyeOff, Lock, Mail, Sparkles, User } from 'lucide-react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Mascot } from '@/components/home/mascot'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { GameButton, GamePanel } from '@/components/ui/game'
 import { useShake } from '@/components/journey/feedback'
 import { TitleBackdrop } from '@/components/auth/title-backdrop'
+import { AvatarPicker, getAvatarDefinition, UserAvatar } from '@/components/ui/user-avatar'
 import { cn } from '@/lib/utils'
 
 interface InputFieldProps {
@@ -106,8 +107,11 @@ function InputField({
 
 export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: string }) {
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [registeredUser, setRegisteredUser] = useState<{ id: string; name: string } | null>(null)
+  const [selectedAvatar, setSelectedAvatar] = useState('mascot-green')
+  const [savingAvatar, setSavingAvatar] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const { triggerShake, shakeAnimation } = useShake()
   const shouldReduceMotion = useReducedMotion()
@@ -127,6 +131,12 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: str
     }).catch(() => null)
 
     if (response?.ok) {
+      if (isRegister) {
+        const data = await response.json().catch(() => null)
+        setRegisteredUser(data?.user ?? { id: '', name: 'Developer' })
+        setPending(false)
+        return
+      }
       router.replace(next)
       router.refresh()
       return
@@ -141,6 +151,22 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: str
     setError(errorMsg)
     setPending(false)
     triggerShake()
+  }
+
+  const confirmAvatar = async () => {
+    setSavingAvatar(true)
+    await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avatar: selectedAvatar }),
+    }).catch(() => null)
+    router.replace(next)
+    router.refresh()
+  }
+
+  const skipAvatar = () => {
+    router.replace(next)
+    router.refresh()
   }
 
   const switchHref = `/${isRegister ? 'login' : 'register'}${
@@ -196,7 +222,7 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: str
         </div>
 
         {/* Right Column: Form Card with shake animation */}
-        <motion.div animate={shakeAnimation} className="w-full max-w-[420px]">
+        <motion.div animate={shakeAnimation} className={cn('w-full transition-all duration-300', registeredUser ? 'max-w-[580px]' : 'max-w-[420px]')}>
           <GamePanel
             tone="raised"
             padding="lg"
@@ -209,143 +235,214 @@ export function AuthForm({ mode, next }: { mode: 'login' | 'register'; next: str
               style={{ background: 'linear-gradient(90deg, #22c55e, #06b6d4, #7c3aed)' }}
             />
 
-            {/* Mobile Mascot & Header */}
-            <div className="flex items-center gap-3 lg:hidden mb-4">
-              <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#dcfce7] dark:bg-[#16a34a]/20">
-                <Mascot expression="wave" className="size-12" />
-              </span>
-              <div>
-                <h1 className="text-xl font-display font-extrabold text-(--cf-text)">
-                  {isRegister ? 'Create your account' : 'Welcome back'}
+            {registeredUser ? (
+              <div className="flex flex-col items-center text-center pt-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#22c55e]/15 px-3 py-1 text-xs font-extrabold text-[#15803d] dark:text-[#4ade80] mb-3">
+                  <Sparkles className="size-3.5" /> Account created successfully!
+                </span>
+
+                <h1 className="font-display text-2xl sm:text-3xl font-black text-(--cf-text) tracking-tight">
+                  Choose your developer avatar
                 </h1>
-                <p className="text-xs text-(--cf-muted)">
-                  {isRegister
-                    ? 'Your drafts, best scores and attempts are saved.'
-                    : 'Sign in to pick up where you left off.'}
+                <p className="mt-1 text-xs sm:text-sm text-(--cf-muted) max-w-sm">
+                  Welcome aboard, <b className="text-(--cf-text)">{registeredUser.name}</b>! This avatar will represent you across the level map, terminal, and your profile throughout CodeFlow.
                 </p>
+
+                {/* Live Preview Card */}
+                <div className="mt-4 mb-4 flex items-center gap-3.5 rounded-2xl border border-(--cf-border) bg-(--cf-surface-2) p-3 w-full max-w-md text-left shadow-xs">
+                  <div
+                    className={cn(
+                      'size-14 rounded-full p-[2px] shrink-0',
+                      `bg-gradient-to-br ${getAvatarDefinition(selectedAvatar).borderGradient}`,
+                    )}
+                  >
+                    <div className="size-full overflow-hidden rounded-full bg-(--cf-surface) grid place-items-center">
+                      <UserAvatar avatar={selectedAvatar} expression="wave" className="size-full scale-110" />
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-display font-extrabold text-sm text-(--cf-text) truncate">
+                        {registeredUser.name}
+                      </span>
+                      <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider', getAvatarDefinition(selectedAvatar).bgTone)}>
+                        {getAvatarDefinition(selectedAvatar).title}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-(--cf-muted) truncate mt-0.5">
+                      {getAvatarDefinition(selectedAvatar).tagline}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Avatar Picker Grid */}
+                <div className="w-full mb-5">
+                  <AvatarPicker selected={selectedAvatar} onSelect={setSelectedAvatar} />
+                </div>
+
+                {/* CTA Buttons */}
+                <div className="w-full flex flex-col gap-2.5">
+                  <GameButton
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    onClick={confirmAvatar}
+                    disabled={savingAvatar}
+                    className="font-display font-extrabold text-base tracking-wide"
+                  >
+                    {savingAvatar ? 'Saving avatar…' : 'Save Avatar & Continue →'}
+                  </GameButton>
+                  <button
+                    type="button"
+                    onClick={skipAvatar}
+                    disabled={savingAvatar}
+                    className="text-xs font-semibold text-(--cf-muted) hover:text-(--cf-text) transition-colors py-1 cursor-pointer"
+                  >
+                    Skip for now (use default)
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Mobile Mascot & Header */}
+                <div className="flex items-center gap-3 lg:hidden mb-4">
+                  <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#dcfce7] dark:bg-[#16a34a]/20">
+                    <Mascot expression="wave" className="size-12" />
+                  </span>
+                  <div>
+                    <h1 className="text-xl font-display font-extrabold text-(--cf-text)">
+                      {isRegister ? 'Create your account' : 'Welcome back'}
+                    </h1>
+                    <p className="text-xs text-(--cf-muted)">
+                      {isRegister
+                        ? 'Your drafts, best scores and attempts are saved.'
+                        : 'Sign in to pick up where you left off.'}
+                    </p>
+                  </div>
+                </div>
 
-            {/* Desktop Card Title */}
-            <div className="hidden lg:block mb-4">
-              <h1 className="text-2xl font-display font-extrabold text-(--cf-text)">
-                {isRegister ? 'Create your account' : 'Welcome back'}
-              </h1>
-              <p className="mt-1 text-xs text-(--cf-muted)">
-                {isRegister
-                  ? 'Your drafts, best scores and attempts are saved to your account.'
-                  : 'Sign in to pick up where you left off.'}
-              </p>
-            </div>
+                {/* Desktop Card Title */}
+                <div className="hidden lg:block mb-4">
+                  <h1 className="text-2xl font-display font-extrabold text-(--cf-text)">
+                    {isRegister ? 'Create your account' : 'Welcome back'}
+                  </h1>
+                  <p className="mt-1 text-xs text-(--cf-muted)">
+                    {isRegister
+                      ? 'Your drafts, best scores and attempts are saved to your account.'
+                      : 'Sign in to pick up where you left off.'}
+                  </p>
+                </div>
 
-            {/* Mode Switch: Segmented Header */}
-            <div
-              className="flex rounded-xl border border-(--cf-border) bg-(--cf-surface-2) p-1 mb-5"
-              role="tablist"
-              aria-label="Authentication mode"
-            >
-              <Link
-                href={`/login${next === '/' ? '' : `?next=${encodeURIComponent(next)}`}`}
-                role="tab"
-                aria-selected={!isRegister}
-                className={cn(
-                  'flex-1 text-center py-2 text-xs font-display font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e]',
-                  !isRegister
-                    ? 'bg-(--cf-surface) text-(--cf-text) shadow-xs'
-                    : 'text-(--cf-muted) hover:text-(--cf-text)',
-                )}
-              >
-                Sign in
-              </Link>
-              <Link
-                href={`/register${next === '/' ? '' : `?next=${encodeURIComponent(next)}`}`}
-                role="tab"
-                aria-selected={isRegister}
-                className={cn(
-                  'flex-1 text-center py-2 text-xs font-display font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e]',
-                  isRegister
-                    ? 'bg-(--cf-surface) text-(--cf-text) shadow-xs'
-                    : 'text-(--cf-muted) hover:text-(--cf-text)',
-                )}
-              >
-                Create an account
-              </Link>
-            </div>
-
-            {/* Form-level error alert */}
-            {error && (
-              <div
-                role="alert"
-                className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#fecaca] bg-[#fef2f2] p-3 text-xs text-[#b91c1c] dark:border-[#ef4444]/40 dark:bg-[#ef4444]/10 dark:text-[#fca5a5]"
-              >
-                <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Auth Form */}
-            <form onSubmit={submit} className="flex flex-col gap-4">
-              {isRegister && (
-                <InputField
-                  id="auth-name"
-                  label="Name"
-                  name="name"
-                  icon={<User className="size-4" />}
-                  autoComplete="name"
-                  maxLength={80}
-                />
-              )}
-
-              <InputField
-                id="auth-email"
-                label="Email"
-                name="email"
-                type="email"
-                icon={<Mail className="size-4" />}
-                autoComplete="email"
-                maxLength={254}
-              />
-
-              <InputField
-                id="auth-password"
-                label="Password"
-                name="password"
-                type="password"
-                icon={<Lock className="size-4" />}
-                autoComplete={isRegister ? 'new-password' : 'current-password'}
-                minLength={isRegister ? 8 : undefined}
-                maxLength={128}
-                hint={isRegister ? 'At least 8 characters.' : undefined}
-                showTogglePassword={true}
-                showPassword={showPassword}
-                onTogglePassword={() => setShowPassword((p) => !p)}
-              />
-
-              <div className="mt-2">
-                <GameButton
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  disabled={pending}
-                  aria-busy={pending}
-                  className="btn-shine-idle font-display font-extrabold text-base tracking-wide"
+                {/* Mode Switch: Segmented Header */}
+                <div
+                  className="flex rounded-xl border border-(--cf-border) bg-(--cf-surface-2) p-1 mb-5"
+                  role="tablist"
+                  aria-label="Authentication mode"
                 >
-                  {pending ? 'Please wait…' : isRegister ? 'Create account' : 'Sign in'}
-                </GameButton>
-              </div>
-            </form>
+                  <Link
+                    href={`/login${next === '/' ? '' : `?next=${encodeURIComponent(next)}`}`}
+                    role="tab"
+                    aria-selected={!isRegister}
+                    className={cn(
+                      'flex-1 text-center py-2 text-xs font-display font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e]',
+                      !isRegister
+                        ? 'bg-(--cf-surface) text-(--cf-text) shadow-xs'
+                        : 'text-(--cf-muted) hover:text-(--cf-text)',
+                    )}
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    href={`/register${next === '/' ? '' : `?next=${encodeURIComponent(next)}`}`}
+                    role="tab"
+                    aria-selected={isRegister}
+                    className={cn(
+                      'flex-1 text-center py-2 text-xs font-display font-bold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e]',
+                      isRegister
+                        ? 'bg-(--cf-surface) text-(--cf-text) shadow-xs'
+                        : 'text-(--cf-muted) hover:text-(--cf-text)',
+                    )}
+                  >
+                    Create an account
+                  </Link>
+                </div>
 
-            {/* Secondary Link */}
-            <p className="mt-5 text-center text-xs text-(--cf-muted)">
-              {isRegister ? 'Already have an account?' : 'New to CodeFlow?'}{' '}
-              <Link
-                href={switchHref}
-                className="font-bold text-[#16a34a] hover:underline dark:text-[#4ade80]"
-              >
-                {isRegister ? 'Sign in' : 'Create an account'}
-              </Link>
-            </p>
+                {/* Form-level error alert */}
+                {error && (
+                  <div
+                    role="alert"
+                    className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#fecaca] bg-[#fef2f2] p-3 text-xs text-[#b91c1c] dark:border-[#ef4444]/40 dark:bg-[#ef4444]/10 dark:text-[#fca5a5]"
+                  >
+                    <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {/* Auth Form */}
+                <form onSubmit={submit} className="flex flex-col gap-4">
+                  {isRegister && (
+                    <InputField
+                      id="auth-name"
+                      label="Name"
+                      name="name"
+                      icon={<User className="size-4" />}
+                      autoComplete="name"
+                      maxLength={80}
+                    />
+                  )}
+
+                  <InputField
+                    id="auth-email"
+                    label="Email"
+                    name="email"
+                    type="email"
+                    icon={<Mail className="size-4" />}
+                    autoComplete="email"
+                    maxLength={254}
+                  />
+
+                  <InputField
+                    id="auth-password"
+                    label="Password"
+                    name="password"
+                    type="password"
+                    icon={<Lock className="size-4" />}
+                    autoComplete={isRegister ? 'new-password' : 'current-password'}
+                    minLength={isRegister ? 8 : undefined}
+                    maxLength={128}
+                    hint={isRegister ? 'At least 8 characters.' : undefined}
+                    showTogglePassword={true}
+                    showPassword={showPassword}
+                    onTogglePassword={() => setShowPassword((p) => !p)}
+                  />
+
+                  <div className="mt-2">
+                    <GameButton
+                      type="submit"
+                      variant="primary"
+                      size="lg"
+                      fullWidth
+                      disabled={pending}
+                      aria-busy={pending}
+                      className="btn-shine-idle font-display font-extrabold text-base tracking-wide"
+                    >
+                      {pending ? 'Please wait…' : isRegister ? 'Create account' : 'Sign in'}
+                    </GameButton>
+                  </div>
+                </form>
+
+                {/* Secondary Link */}
+                <p className="mt-5 text-center text-xs text-(--cf-muted)">
+                  {isRegister ? 'Already have an account?' : 'New to CodeFlow?'}{' '}
+                  <Link
+                    href={switchHref}
+                    className="font-bold text-[#16a34a] hover:underline dark:text-[#4ade80]"
+                  >
+                    {isRegister ? 'Sign in' : 'Create an account'}
+                  </Link>
+                </p>
+              </>
+            )}
           </GamePanel>
         </motion.div>
       </div>

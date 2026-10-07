@@ -235,7 +235,7 @@ components/
   admin/                admin dashboard and editor
   ide/                  VS Code-style pieces shared by levels and challenges
 data/
-  journeys/             journeys that ship with the app (MERN Todo, Django Todo)
+  journeys/             journeys that ship with the app (MERN, Django and Spring Boot Todo)
   challenges/           the block challenges (Signup Flow)
 lib/
   journeys/             journey engine: validation, checks, commands, file snapshots, XP

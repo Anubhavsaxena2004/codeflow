@@ -8,6 +8,7 @@ export interface SessionUser {
   name: string
   email: string
   track: Track | null
+  avatar?: string
   isAdmin: boolean
   /** Every level is open in any order (set by an admin). */
   allLevelsOpen?: boolean

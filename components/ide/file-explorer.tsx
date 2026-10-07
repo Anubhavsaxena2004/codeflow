@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronsDownUp, FilePlus2, Folder, FolderPlus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsDownUp, FilePlus2, Folder, FolderPlus, Lock, Trash2 } from 'lucide-react'
 import type { ProjectFile } from '@/data/challenges'
 import type { FileChange } from '@/lib/journeys/snapshot'
 import { cn } from '@/lib/utils'
@@ -10,10 +10,11 @@ import { FileIcon } from './code'
 /**
  * A path ending in "/" is an empty folder (e.g. right after `mkdir`). `change` adds a git-style
  * marker. `owned` marks files and folders the learner created with New File / New Folder.
+ * `unused` files (made by a command, not used by the project) are shown locked and never open.
  */
 export type ExplorerFile = ProjectFile & { change?: FileChange; owned?: boolean }
 
-type FolderNode = { kind: 'folder'; name: string; path: string; chain: string[]; children: TreeNode[]; about?: string; generated?: boolean; changed: boolean; owned: boolean }
+type FolderNode = { kind: 'folder'; name: string; path: string; chain: string[]; children: TreeNode[]; about?: string; generated?: boolean; changed: boolean; owned: boolean; unused: boolean }
 type TreeNode = FolderNode | { kind: 'file'; name: string; path: string; file: ExplorerFile }
 
 const changeMarks: Record<FileChange, { letter: string; className: string; label: string }> = {
@@ -21,8 +22,10 @@ const changeMarks: Record<FileChange, { letter: string; className: string; label
   modified: { letter: 'M', className: 'text-(--ide-warning-soft)', label: 'changed in this level' },
 }
 
+const LOCKED = 'Locked: made by a setup command, but not used in this project.'
+
 function buildTree(files: ExplorerFile[]): TreeNode[] {
-  const root: FolderNode = { kind: 'folder', name: '', path: '', chain: [], children: [], changed: false, owned: false }
+  const root: FolderNode = { kind: 'folder', name: '', path: '', chain: [], children: [], changed: false, owned: false, unused: false }
   const ownedMarkers = new Set<string>()
 
   for (const file of files) {
@@ -33,7 +36,7 @@ function buildTree(files: ExplorerFile[]): TreeNode[] {
       const path = parts.slice(0, index + 1).join('/')
       let next = folder.children.find((child): child is FolderNode => child.kind === 'folder' && child.path === path)
       if (!next) {
-        next = { kind: 'folder', name: part, path, chain: [path], children: [], changed: false, owned: false }
+        next = { kind: 'folder', name: part, path, chain: [path], children: [], changed: false, owned: false, unused: false }
         folder.children.push(next)
       }
       if (file.change) next.changed = true
@@ -56,6 +59,15 @@ function buildTree(files: ExplorerFile[]): TreeNode[] {
     return node.owned
   }
   root.children.forEach(markOwned)
+
+  // A folder is locked when everything inside it is (Vite's src/assets holds only the demo logo).
+  const markUnused = (node: TreeNode): boolean => {
+    if (node.kind === 'file') return !!node.file.unused
+    const childrenUnused = node.children.map(markUnused)
+    node.unused = childrenUnused.length > 0 && childrenUnused.every(Boolean)
+    return node.unused
+  }
+  root.children.forEach(markUnused)
 
   // Folders first, then alphabetical; single-child folder chains collapse into one row (`src/main`), like VS Code.
   const tidy = (nodes: TreeNode[]): TreeNode[] =>
@@ -240,18 +252,24 @@ export function FileExplorer({ projectName, files, folders, activePath, challeng
                   toggle(node)
                   setSelected(node.path)
                 }}
-                title={node.owned ? 'Your folder' : folderAbout(node)}
+                title={node.owned ? 'Your folder' : node.unused ? `${LOCKED} ${folderAbout(node) ?? ''}`.trim() : folderAbout(node)}
                 aria-expanded={open}
                 className={cn(
                   'group flex h-[22px] w-full items-center gap-0.5 pr-2 text-left hover:bg-(--ide-hover)',
                   selected === node.path && 'bg-(--ide-active) hover:bg-(--ide-active)',
-                  node.generated ? 'text-(--ide-icon)' : node.changed && 'text-(--ide-added)',
+                  node.generated ? 'text-(--ide-icon)' : node.unused ? 'text-(--ide-dim)' : node.changed && 'text-(--ide-added)',
                 )}
                 style={{ paddingLeft: pad }}
               >
                 {open ? <ChevronDown className="size-4 shrink-0 text-(--ide-fg-soft)" /> : <ChevronRight className="size-4 shrink-0 text-(--ide-fg-soft)" />}
                 <span className="truncate">{node.name}</span>
-                {node.owned ? deleteButton(`${node.path}/`, `the folder ${node.name} and everything in it`) : node.changed && !node.generated && <span aria-hidden className="ml-auto size-1.5 shrink-0 rounded-full bg-(--ide-added)/80" />}
+                {node.owned ? (
+                  deleteButton(`${node.path}/`, `the folder ${node.name} and everything in it`)
+                ) : node.unused ? (
+                  <Lock aria-label="locked: not used in this project" className="ml-auto size-3 shrink-0" />
+                ) : (
+                  node.changed && !node.generated && <span aria-hidden className="ml-auto size-1.5 shrink-0 rounded-full bg-(--ide-added)/80" />
+                )}
               </button>
               {open && (node.children.length > 0 || creating?.dir === node.path) && (
                 <ul className="relative">
@@ -264,28 +282,35 @@ export function FileExplorer({ projectName, files, folders, activePath, challeng
         }
 
         const isChallenge = node.file.challenge
+        const locked = !!node.file.unused
         const mark = node.file.change ? changeMarks[node.file.change] : null
         return (
           <li key={node.path} className={cn(node.file.change === 'added' && 'animate-file-in')}>
             <button
               type="button"
               onClick={() => {
+                // A locked file is only selected, so ABOUT can say why it stays shut.
+                if (locked) return setSelected(node.path)
                 setFolderSelection(null)
                 onOpen(node.path)
               }}
-              title={node.file.owned ? 'Your file' : mark ? `${node.file.about} (${mark.label})` : node.file.about}
+              title={node.file.owned ? 'Your file' : locked ? `${LOCKED} ${node.file.about}` : mark ? `${node.file.about} (${mark.label})` : node.file.about}
+              aria-label={locked ? `${node.name} (locked: not used in this project)` : undefined}
               className={cn(
                 'group flex h-[22px] w-full items-center gap-1.5 pr-2 text-left hover:bg-(--ide-hover)',
                 activePath === node.path && 'text-(--ide-heading)',
                 selected === node.path && 'bg-(--ide-active) hover:bg-(--ide-active)',
                 node.file.generated && 'text-(--ide-icon)',
+                locked && 'text-(--ide-dim)',
               )}
               style={{ paddingLeft: pad + 18 }}
             >
-              <FileIcon path={node.path} />
-              <span className={cn('truncate', isChallenge ? 'text-(--ide-warning-soft)' : mark?.className)}>{node.name}</span>
+              <FileIcon path={node.path} className={cn(locked && 'opacity-50')} />
+              <span className={cn('truncate', isChallenge ? 'text-(--ide-warning-soft)' : !locked && mark?.className)}>{node.name}</span>
               {node.file.owned ? (
                 deleteButton(node.path, node.name)
+              ) : locked ? (
+                <Lock aria-hidden className="ml-auto size-3 shrink-0" />
               ) : isChallenge && challengeBadge ? (
                 <span className="ml-auto shrink-0 pl-2 text-[11px] text-(--ide-warning-soft)">{challengeBadge}</span>
               ) : (
@@ -309,7 +334,9 @@ export function FileExplorer({ projectName, files, folders, activePath, challeng
         : folderAbout(selectedNode)
       : selectedNode.file.owned
         ? 'A file you created. It is saved with your progress; it is not part of the level and is not pushed to GitHub.'
-        : selectedNode.file.about
+        : selectedNode.file.unused
+          ? `${selectedNode.file.about} ${LOCKED}`
+          : selectedNode.file.about
     : undefined
 
   const actions = [
@@ -344,7 +371,12 @@ export function FileExplorer({ projectName, files, folders, activePath, challeng
           <ChevronDown className="size-4" /> ABOUT
         </div>
         <div className="px-5 pb-3 pt-1 text-[12px] leading-5 text-(--ide-muted)">
-          {selectedNode && <div className="mb-1 font-mono text-[11px] text-(--ide-fg)">{selectedNode.kind === 'folder' ? `${selectedNode.chain[selectedNode.chain.length - 1]}/` : selectedNode.path}</div>}
+          {selectedNode && (
+            <div className="mb-1 flex items-center gap-1.5 font-mono text-[11px] text-(--ide-fg)">
+              {selectedNode.kind === 'folder' ? `${selectedNode.chain[selectedNode.chain.length - 1]}/` : selectedNode.path}
+              {(selectedNode.kind === 'folder' ? selectedNode.unused : selectedNode.file.unused) && <Lock aria-label="locked" className="size-3 shrink-0 text-(--ide-dim)" />}
+            </div>
+          )}
           {about ?? 'Select a file or folder to see what it is for.'}
         </div>
       </section>

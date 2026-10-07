@@ -10,6 +10,8 @@ export async function POST(request: Request) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
   const password = typeof body?.password === 'string' ? body.password : ''
 
+  const avatar = typeof body?.avatar === 'string' && body.avatar ? body.avatar.slice(0, 40) : 'mascot-green'
+
   if (!name || name.length > 80) return jsonError(400, 'Enter a name (up to 80 characters).')
   if (email.length > 254 || !EMAIL.test(email)) return jsonError(400, 'Enter a valid email address.')
   if (password.length < 8 || password.length > 128) return jsonError(400, 'Password must be 8–128 characters.')
@@ -25,12 +27,12 @@ export async function POST(request: Request) {
     const passwordHash = await hashPassword(password)
     // ON CONFLICT covers two signups for the same email racing past the check above.
     const [user] = await query<{ id: string }>(
-      'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING RETURNING id::text AS id',
-      [name, email, passwordHash],
+      'INSERT INTO users (name, email, password_hash, avatar) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING RETURNING id::text AS id',
+      [name, email, passwordHash, avatar],
     )
     if (!user) return jsonError(409, 'An account with this email already exists. Sign in instead.')
 
     await startSession(user.id)
-    return Response.json({ user: { id: user.id, name, email } }, { status: 201 })
+    return Response.json({ user: { id: user.id, name, email, avatar } }, { status: 201 })
   })
 }

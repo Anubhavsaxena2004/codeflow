@@ -49,6 +49,11 @@ export interface ProjectFile {
   challenge?: boolean
   /** Created by a tool (node_modules, venv, lock files): dimmed in the explorer and never pushed. */
   generated?: boolean
+  /**
+   * Made by a setup command but not used by this project (Vite's demo CSS, Django's asgi.py):
+   * shown locked in the explorer and never opened. Still pushed, since the real command makes it.
+   */
+  unused?: boolean
 }
 
 export interface StackVariant {

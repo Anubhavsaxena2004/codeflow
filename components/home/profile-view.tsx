@@ -16,6 +16,7 @@ import {
   Sparkles,
   Star,
   Trophy,
+  Palette,
 } from 'lucide-react'
 import { useReducedMotion } from 'framer-motion'
 import { achievementsFor, indexProgress, playerLevelFor, POSTS, postFor, streakDays, XP_PER_LEVEL } from '@/lib/journeys/progress'
@@ -24,7 +25,9 @@ import type { ProjectSummary } from '@/lib/server/journeys'
 import { useLearner } from '@/lib/use-learner'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SoundToggle } from '@/components/ui/sound'
-import { GamePanel, LevelEmblem, Pill, SegmentedProgress, StatTile, gameButtonClasses } from '@/components/ui/game'
+import { GameButton, GamePanel, LevelEmblem, Pill, SegmentedProgress, StatTile, gameButtonClasses } from '@/components/ui/game'
+import { ModalShell } from '@/components/ui/game-modal'
+import { UserAvatar, AvatarPicker } from '@/components/ui/user-avatar'
 import { LoadingState, Skeleton } from '@/components/ui/states'
 import { cn } from '@/lib/utils'
 import { AchievementMedal } from './achievement-medal'
@@ -65,6 +68,24 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
   const { session, track, setTrack, trackLocked, levels, ready } = useLearner()
   const signedIn = session.status === 'signed-in'
   const [trackError, setTrackError] = useState<string | null>(null)
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false)
+  const [avatarDraft, setAvatarDraft] = useState(session.user?.avatar ?? 'mascot-green')
+  const [savingAvatar, setSavingAvatar] = useState(false)
+
+  const handleSaveAvatar = async () => {
+    setSavingAvatar(true)
+    const response = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ avatar: avatarDraft }),
+    }).catch(() => null)
+    const data = await response?.json().catch(() => null)
+    if (response?.ok && data?.user) {
+      session.updateUser(data.user)
+    }
+    setSavingAvatar(false)
+    setAvatarModalOpen(false)
+  }
 
   const totalXp = levels.reduce((sum, row) => sum + row.xp, 0)
   const playerLevel = playerLevelFor(totalXp)
@@ -212,19 +233,30 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
             <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end">
               {/* Avatar frame with glowing ring and level emblem. Only the avatar overlaps the banner;
                   the name below it always sits on the card, so it stays readable. */}
-              <div className="relative -mt-12 shrink-0 w-fit sm:-mt-16">
-                <div
-                  className="size-20 sm:size-24 rounded-full p-[3px] shadow-(--elev-3)"
+              <div className="relative -mt-12 shrink-0 w-fit sm:-mt-16 group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatarDraft(session.user?.avatar ?? 'mascot-green')
+                    setAvatarModalOpen(true)
+                  }}
+                  aria-label="Change avatar"
+                  title="Click to choose a new avatar"
+                  className="size-20 sm:size-24 rounded-full p-[3px] shadow-(--elev-3) cursor-pointer relative block transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e]"
                   style={{
                     background: 'linear-gradient(135deg, #c084fc, #7c3aed 50%, #22c55e 100%)',
                   }}
                 >
                   <div className="size-full overflow-hidden rounded-full bg-(--cf-surface-2) grid place-items-center ring-2 ring-(--cf-surface)">
-                    <Mascot className="size-full scale-105" />
+                    <UserAvatar avatar={session.user?.avatar} className="size-full scale-105" />
                   </div>
-                </div>
+                  {/* Subtle hover overlay badge */}
+                  <span className="absolute inset-0 rounded-full bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold">
+                    Change
+                  </span>
+                </button>
 
-                <div className="absolute -bottom-1 -right-1 sm:bottom-0 sm:right-0 drop-shadow-md">
+                <div className="absolute -bottom-1 -right-1 sm:bottom-0 sm:right-0 drop-shadow-md pointer-events-none">
                   <LevelEmblem level={playerLevel.level} size={42} />
                 </div>
               </div>
@@ -246,6 +278,16 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
                           Learner
                         </Pill>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAvatarDraft(session.user?.avatar ?? 'mascot-green')
+                          setAvatarModalOpen(true)
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-(--cf-border) bg-(--cf-surface-2) px-2.5 py-1 text-xs font-semibold text-(--cf-muted) hover:text-(--cf-text) hover:border-(--cf-border-strong,var(--cf-border)) transition-colors cursor-pointer"
+                      >
+                        <Palette className="size-3 text-[#22c55e]" /> Change Avatar
+                      </button>
                     </div>
                     <p className="mt-0.5 flex items-center gap-1.5 text-xs text-(--cf-muted)">
                       <Mail className="size-3.5 text-(--cf-faint)" />
@@ -647,6 +689,27 @@ export function ProfileView({ journeys }: { journeys: ProjectSummary[] }) {
           </div>
         </div>
       </div>
+
+      <ModalShell
+        open={avatarModalOpen}
+        onClose={() => setAvatarModalOpen(false)}
+        title="Customize Your Avatar"
+        description="Select a developer avatar that represents you across journeys, level pins, and your profile."
+        footer={
+          <div className="flex w-full items-center justify-end gap-2.5">
+            <GameButton variant="secondary" size="sm" onClick={() => setAvatarModalOpen(false)}>
+              Cancel
+            </GameButton>
+            <GameButton variant="primary" size="sm" onClick={handleSaveAvatar} disabled={savingAvatar}>
+              {savingAvatar ? 'Saving…' : 'Save Avatar'}
+            </GameButton>
+          </div>
+        }
+      >
+        <div className="py-2">
+          <AvatarPicker selected={avatarDraft} onSelect={setAvatarDraft} />
+        </div>
+      </ModalShell>
     </main>
   )
 }

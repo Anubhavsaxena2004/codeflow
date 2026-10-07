@@ -23,8 +23,8 @@ type Controls = ComponentRef<typeof OrbitControls>
 /** Registers a point in the scene that an overlay label follows. */
 type Anchor = (key: string) => (node: THREE.Object3D | null) => void
 
-const SPACING_X = 9.8
-const SPACING_Z = 9.2
+const SPACING_X = 10.8
+const SPACING_Z = 10.0
 const TOP = 0.25
 const FOV = 40
 const ELEVATION = 0.92
@@ -79,7 +79,7 @@ function paint(geometry: THREE.BufferGeometry, top: string, bottom: string) {
 const muted = (hex: string, reached: boolean) => (reached ? hex : `#${new THREE.Color(hex).lerp(new THREE.Color('#8a94a6'), 0.55).getHexString()}`)
 
 function islandRadius(levels: number) {
-  return 3.2 + Math.max(0, levels - 5) * 0.28
+  return 4.2 + Math.max(0, levels - 5) * 0.35
 }
 
 /** Island centres: rows that snake back and forth, row 0 at the back like the 2D map. */
@@ -103,9 +103,9 @@ function viewFrom(target: THREE.Vector3, distance: number) {
 function overviewDistance(columns: number, rows: number, aspect: number) {
   const vertical = THREE.MathUtils.degToRad(FOV) / 2
   const horizontal = Math.atan(Math.tan(vertical) * aspect)
-  const halfWidth = ((columns - 1) * SPACING_X) / 2 + 4.6
-  const halfDepth = ((rows - 1) * SPACING_Z) / 2 + 4.6
-  return Math.max(halfWidth / Math.tan(horizontal) + halfDepth * 0.25, (halfDepth * Math.sin(ELEVATION) + 2.4) / Math.tan(vertical)) * 1.04
+  const halfWidth = ((columns - 1) * SPACING_X) / 2 + 5.5
+  const halfDepth = ((rows - 1) * SPACING_Z) / 2 + 5.5
+  return Math.max(halfWidth / Math.tan(horizontal) + halfDepth * 0.25, (halfDepth * Math.sin(ELEVATION) + 2.4) / Math.tan(vertical)) * 1.15
 }
 
 // A shared texture of lit and dark windows for the city towers.
@@ -963,7 +963,7 @@ function Projector({ anchors, marks }: { anchors: React.RefObject<Map<string, TH
         continue
       }
       element.style.visibility = 'visible'
-      element.style.opacity = point.z > 0.88 ? '0.35' : '1'
+      element.style.opacity = '1'
       element.style.transform = `translate3d(${((point.x + 1) / 2) * size.width}px, ${((1 - point.y) / 2) * size.height}px, 0) translate(-50%, -50%)`
       element.style.zIndex = String(Math.round((1 - point.z) * 5000))
     }
@@ -977,7 +977,7 @@ function PinScale({ host, controls }: { host: React.RefObject<HTMLDivElement | n
   useFrame(({ camera }) => {
     const target = controls.current?.target
     if (!host.current || !target) return
-    const scale = THREE.MathUtils.clamp(30 / camera.position.distanceTo(target), 0.62, 1.15)
+    const scale = THREE.MathUtils.clamp(30 / camera.position.distanceTo(target), 0.78, 1.2)
     if (Math.abs(scale - last.current) < 0.01) return
     last.current = scale
     host.current.style.setProperty('--pin-scale', scale.toFixed(3))
@@ -1051,7 +1051,7 @@ function Atmosphere({ night, motion, islandBounds }: { night: boolean; motion: b
   const nightFog = useMemo(() => new THREE.Color('#101833'), [])
 
   useEffect(() => {
-    scene.fog = new THREE.Fog(night ? '#101833' : '#eaf7ff', islandBounds * 2.2, islandBounds * 5)
+    scene.fog = new THREE.Fog(night ? '#101833' : '#eaf7ff', islandBounds * 3.5, islandBounds * 7.5)
     return () => {
       scene.fog = null
     }
@@ -1186,8 +1186,8 @@ export default function WorldMap3D({ journey, done, stateOf, selectedId, onSelec
 
   const currentWorld = Math.max(0, worlds.findIndex(({ levels }) => levels.some(({ index }) => stateOf(index) === 'current')))
   const overview = useMemo(() => {
-    const target = new THREE.Vector3(0, 0, 0.5)
-    return { target, position: viewFrom(target, overviewDistance(columns, rows, aspect) * 0.98) }
+    const target = new THREE.Vector3(0, 0, 0.4)
+    return { target, position: viewFrom(target, overviewDistance(columns, rows, aspect) * 1.06) }
   }, [columns, rows, aspect])
   const closeUp = (worldIndex: number) => {
     const [x, , z] = positions[worldIndex] ?? [0, 0, 0]

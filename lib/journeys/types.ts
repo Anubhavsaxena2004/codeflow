@@ -112,6 +112,52 @@ export interface CodeLevel extends LevelBase {
   /** Reference answer. Validation makes sure it passes every check and the starter doesn't. */
   solution: string
   checks: Check[]
+  /** edit only: one per TODO, each offered as three choices. Learners can still type their own code. */
+  gaps?: Gap[]
+}
+
+/**
+ * Where a name used in a gap comes from. import: a package, imported at the top of this file.
+ * here: defined in this file. file: another file of the project. param: handed in by the framework
+ * (req, request, model). command: made by a command run in an earlier level (a database, an
+ * environment variable). builtin: part of the language, runtime or tool.
+ */
+export type GapSourceKind = 'import' | 'here' | 'file' | 'param' | 'command' | 'builtin'
+
+export interface GapSource {
+  name: string
+  from: GapSourceKind
+  /** One sentence: what it is and where it comes from. */
+  note: string
+  /** The file it lives in; this level's file when left out. */
+  path?: string
+  /** Text on the defining line, so the workspace can show that line and jump to it. */
+  find?: string
+}
+
+export interface GapOption {
+  code: string
+  /** For the right option, what it does; for a wrong one, why it fails. */
+  why: string
+}
+
+/** A TODO of an edit level, offered as three choices: one right, two wrong. */
+export interface Gap {
+  /** Text on the TODO line, e.g. "TODO 1:". Picking an option replaces that line, plus `span - 1` more. */
+  marker: string
+  span?: number
+  /** What the code has to do, in plain words. */
+  goal: string
+  /** Exactly three. */
+  options: GapOption[]
+  /** Index of the right option. */
+  answer: number
+  /** Ids of the checks this gap makes pass. */
+  checks: string[]
+  /** The names the right code uses, and where each one comes from. */
+  sources: GapSource[]
+  /** What the code hands back or sets up, and who uses it. */
+  result?: string
 }
 
 /** Arrange code blocks into the slots of a file, like the standalone challenges. */

@@ -1,5 +1,6 @@
 import { runChecks } from './checks'
 import { matchesStep } from './commands'
+import { gapProblems } from './gaps'
 import { buildOrder } from './snapshot'
 import { isTrack, type Level, type Project } from './types'
 
@@ -177,6 +178,7 @@ function validateLevel(level: Json, report: (message: string) => void) {
       const checks = level.checks as never
       for (const result of runChecks(level.solution as string, path, checks)) if (!result.passed) report(`the solution fails check "${result.id}"`)
       if (runChecks(level.starter as string, path, checks).every((result) => result.passed)) report('the starter already passes every check, so there is nothing to do')
+      for (const problem of gapProblems(level as never)) report(problem)
       return
     }
 

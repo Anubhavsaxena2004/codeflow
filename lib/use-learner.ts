@@ -72,15 +72,29 @@ export function useLearner() {
     }
   }, [session.status, userTrack])
 
+  /** Learners choose their stack once; after that only an admin can change it. */
+  const trackLocked = !!track && !session.user?.isAdmin
+
+  /** Saves the stack. Resolves to an error message when it could not be changed. */
   const setTrack = useCallback(
-    async (next: Track) => {
+    async (next: Track): Promise<string | null> => {
+      if (!signedIn) {
+        setTrackState(next)
+        writeLocal(GUEST_TRACK_KEY, next)
+        return null
+      }
+      const previous = track
       setTrackState(next)
-      if (!signedIn) return writeLocal(GUEST_TRACK_KEY, next)
       const response = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ track: next }) }).catch(() => null)
       const data = await response?.json().catch(() => null)
-      if (data?.user) updateUser(data.user)
+      if (response?.ok && data?.user) {
+        updateUser(data.user)
+        return null
+      }
+      setTrackState(previous)
+      return data?.error ?? 'Could not save your stack. Check your connection and try again.'
     },
-    [signedIn, updateUser],
+    [signedIn, track, updateUser],
   )
 
   /** Adds or improves a passed level in local state (and in localStorage for guests). */
@@ -97,5 +111,5 @@ export function useLearner() {
     [signedIn],
   )
 
-  return { session, track, setTrack, levels, challenges, recordLevel, ready }
+  return { session, track, setTrack, trackLocked, levels, challenges, recordLevel, ready }
 }

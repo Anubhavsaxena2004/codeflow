@@ -1,4 +1,4 @@
-import { hashPassword, startSession } from '@/lib/server/auth'
+import { hashPassword, isAdminEmail, startSession } from '@/lib/server/auth'
 import { jsonError, readBody, withDatabase } from '@/lib/server/api'
 import { query } from '@/lib/server/db'
 
@@ -13,6 +13,9 @@ export async function POST(request: Request) {
   if (!name || name.length > 80) return jsonError(400, 'Enter a name (up to 80 characters).')
   if (email.length > 254 || !EMAIL.test(email)) return jsonError(400, 'Enter a valid email address.')
   if (password.length < 8 || password.length > 128) return jsonError(400, 'Password must be 8–128 characters.')
+  // Emails are not verified, so an admin address must never be claimable by signing up.
+  // The admin account is created with `npm run admin:create` instead.
+  if (isAdminEmail(email)) return jsonError(403, 'This email address is reserved. Sign in instead.')
 
   return withDatabase('Sign-up', async () => {
     // Same order the signup challenge teaches: rule out a duplicate before paying for the hash.

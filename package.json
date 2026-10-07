@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "db:migrate": "node scripts/db-migrate.mjs",
+    "admin:create": "node scripts/create-admin.mjs",
     "test:journeys": "node --import ./lib/journeys/__tests__/register.mjs --test lib/journeys/__tests__/journeys.test.mjs",
     "test:github": "node --import ./lib/journeys/__tests__/register.mjs --test lib/github/__tests__/"
   },

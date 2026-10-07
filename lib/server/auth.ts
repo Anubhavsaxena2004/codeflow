@@ -14,17 +14,17 @@ export interface SessionUser {
   allLevelsOpen: boolean
 }
 
-const adminEmails = () => (process.env.ADMIN_EMAILS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
+/** The site owner: the only admin unless ADMIN_EMAILS lists the admins explicitly. */
+export const OWNER_ADMIN_EMAIL = 'anubhavsaxenavibhu@gmail.com'
 
-/** With ADMIN_EMAILS empty the admin is open to every signed-in user. Listing emails locks it to them. */
-export function adminIsOpen() {
-  return adminEmails().length === 0
+/** ADMIN_EMAILS (comma-separated) replaces the owner as the admin list. Nobody else is ever an admin. */
+export function adminEmails() {
+  const listed = (process.env.ADMIN_EMAILS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean)
+  return listed.length ? listed : [OWNER_ADMIN_EMAIL]
 }
 
-/** Admins are listed by email in ADMIN_EMAILS (comma-separated), so granting access needs no UI or migration. */
 export function isAdminEmail(email: string) {
-  const admins = adminEmails()
-  return admins.length === 0 || admins.includes(email.toLowerCase())
+  return adminEmails().includes(email.toLowerCase())
 }
 
 const SESSION_COOKIE = 'codeflow_session'

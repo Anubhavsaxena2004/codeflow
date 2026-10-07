@@ -44,11 +44,12 @@ npm run db:migrate              # creates or updates the tables; safe to run aga
 npm run dev                     # http://localhost:3000
 ```
 
-Open http://localhost:3000, create an account and pick a stack. The MERN Todo journey is ready to
+Open http://localhost:3000, create an account and pick a stack (once: after that only the admin can
+change it). The MERN Todo journey is ready to
 play.
 
-The **Admin** link in the sidebar opens `/admin`. While `ADMIN_EMAILS` is empty, every signed-in
-user can open it; see [Admin access](#admin-access).
+The **Admin** and **Mentor mode** links in the sidebar open `/admin` and `/mentor`. Only the admin
+sees them; create the admin account with `npm run admin:create` (see [Admin access](#admin-access)).
 
 ### Scripts
 
@@ -58,6 +59,7 @@ user can open it; see [Admin access](#admin-access).
 | `npm run build` | Production build |
 | `npm start` | Serve the production build (run `build` first) |
 | `npm run db:migrate` | Apply new files from `db/migrations/` to `DATABASE_URL`, in order, once each |
+| `npm run admin:create -- <email> <password>` | Create the admin account, or reset its password |
 | `npm run test:journeys` | Check the journey engine and prove every bundled level is solvable |
 | `npm run test:github` | Check the GitHub integration against a mocked GitHub (no network) |
 | `npx tsc --noEmit` | Type-check (the build skips type errors, so run this before pushing) |
@@ -74,7 +76,7 @@ under **Project → Settings → Environment Variables**.
 | `DATABASE_URL` | Everything that saves | Supabase → **Connect** (see below) |
 | `DATABASE_POOL_MAX` | Optional | Connections per server process (default 5). Use `1` on Vercel |
 | `DATABASE_CA_CERT_PATH` | Optional | Path to the database's CA certificate, for full TLS verification |
-| `ADMIN_EMAILS` | Optional | Comma-separated emails of admins, e.g. `you@example.com,teammate@example.com`. **Empty means every signed-in user can open `/admin`** |
+| `ADMIN_EMAILS` | Optional | Comma-separated admin emails. **Leave it unset**: the only admin is then the owner, `anubhavsaxenavibhu@gmail.com` (`OWNER_ADMIN_EMAIL` in `lib/server/auth.ts`). Setting it replaces the owner with the listed emails |
 | `TOKEN_ENCRYPTION_KEY` | GitHub push | Any random string of 16+ characters. **Never change it once set**: stored GitHub connections become unreadable |
 | `GITHUB_CLIENT_ID` | Optional | Your GitHub OAuth app, for the one-click **Connect GitHub** button (see section 4) |
 | `GITHUB_CLIENT_SECRET` | Optional | Your GitHub OAuth app |
@@ -200,13 +202,21 @@ open the site before a session if it has been quiet (see Troubleshooting).
 
 ### Admin access
 
-`/admin` shows every learner's name and email and lets you edit journeys for everyone. It always
-requires signing in.
+`/admin` shows every learner's name and email, lets you edit journeys for everyone, and is where a
+learner's tech stack is changed (learners pick theirs once). `/mentor` (Mentor mode) authors
+challenges. Both always require signing in as the admin; nobody else sees their links.
 
-- `ADMIN_EMAILS` **empty** (the default): every signed-in user is an admin. Handy while you set
-  things up; anyone with an account can see the learner list and edit journeys.
-- `ADMIN_EMAILS=you@example.com,teammate@example.com`: only those accounts. Set it before you share
-  the site widely, then redeploy.
+- The admin is `anubhavsaxenavibhu@gmail.com` (`OWNER_ADMIN_EMAIL` in `lib/server/auth.ts`).
+  `ADMIN_EMAILS`, when set, replaces it with the listed emails.
+- Admin emails cannot be registered through the sign-up page (emails are not verified, so anyone
+  could otherwise claim one). Create the account, or reset its password, from your machine:
+
+  ```bash
+  npm run admin:create -- anubhavsaxenavibhu@gmail.com '<password>' "Anubhav"
+  ```
+
+  It uses `DATABASE_URL` from `.env.local`, so run it against the same database the site uses. The
+  password is hashed; it is never stored in plain text or in the code.
 
 ---
 

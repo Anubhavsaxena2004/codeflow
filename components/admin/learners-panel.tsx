@@ -1,12 +1,13 @@
 'use client'
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight, CircleCheck, Clock, Download, ExternalLink, FolderGit2, LoaderCircle, RefreshCw, Search, TriangleAlert } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleCheck, Clock, Download, ExternalLink, FolderGit2, LoaderCircle, RefreshCw, Search } from 'lucide-react'
 import { kindIcons, worldThemes } from '@/components/journey/level-meta'
+import { playerLevelFor, postFor } from '@/lib/journeys/progress'
 import { trackIds, tracks, type Track } from '@/lib/journeys/types'
 import type { Learner, LearnerJourney, LearnerReport, PassedLevel, ReportJourney } from '@/lib/server/learners'
 import { cn } from '@/lib/utils'
-import { Pill, RankEmblem } from '@/components/ui/game'
+import { LevelEmblem, Pill } from '@/components/ui/game'
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/states'
 import { inputClass } from './fields'
 
@@ -101,12 +102,15 @@ export function LearnersPanel() {
     return () => clearInterval(timer)
   }, [load])
 
-  const setAllOpen = async (learner: Learner, allLevelsOpen: boolean) => {
+  /** Opens every level, or changes the tech stack (learners can only pick it once themselves). */
+  const updateLearner = async (learner: Learner, change: { allLevelsOpen: boolean } | { track: Track }) => {
     setToggling(learner.id)
-    const response = await fetch(`/api/admin/learners/${learner.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allLevelsOpen }) }).catch(() => null)
+    const response = await fetch(`/api/admin/learners/${learner.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(change) }).catch(() => null)
     setToggling(null)
     if (!response?.ok) return setError(((await response?.json().catch(() => null)) as { error?: string } | null)?.error ?? 'Could not change that learner.')
-    setReport((current) => current && { ...current, learners: current.learners.map((item) => (item.id === learner.id ? { ...item, allLevelsOpen } : item)) })
+    setReport((current) => current && { ...current, learners: current.learners.map((item) => (item.id === learner.id ? { ...item, ...change } : item)) })
+    // A new stack brings that stack's journeys into the learner's row.
+    if ('track' in change) load()
   }
 
   const journeys = useMemo(() => new Map((report?.journeys ?? []).map((journey) => [journey.id, journey])), [report])
@@ -168,12 +172,6 @@ export function LearnersPanel() {
         Everyone who signed up, the level they are on in each journey, and whether their project reached GitHub. Click a learner to see every level.
       </p>
 
-      {report?.open && (
-        <p className="mt-3 flex max-w-3xl gap-2 rounded-lg border border-(--adm-warning)/40 bg-(--adm-warning)/10 p-3 text-[12px] leading-5 text-(--adm-warning)">
-          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-          <span>The admin is open: every signed-in account can see this page and edit journeys. To lock it, set <code>ADMIN_EMAILS</code> to the admins&apos; emails (comma-separated) and redeploy.</span>
-        </p>
-      )}
       {error && (
         <div className="mt-3 max-w-xl">
           <ErrorState
@@ -257,7 +255,8 @@ export function LearnersPanel() {
                   const main = standings[0]
                   const xp = learner.journeys.reduce((sum, entry) => sum + entry.passed.reduce((total, row) => total + row.xp, 0), 0)
                   const totalStars = learner.journeys.reduce((sum, entry) => sum + entry.passed.reduce((total, row) => total + (row.stars || 0), 0), 0)
-                  const rank = Math.min(6, Math.max(1, Math.floor(xp / 500) + 1))
+                  const playerLevel = playerLevelFor(xp).level
+                  const post = postFor(xp).title
                   const open = expanded === learner.id
                   const level = main && main.current >= 0 ? main.journey.levels[main.current] : null
                   const world = main && level ? main.journey.worlds.find((w) => w.id === level.world) : null
@@ -282,7 +281,7 @@ export function LearnersPanel() {
                             <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-(--adm-selected) text-[11px] font-bold text-(--adm-heading)">
                               {getInitials(learner.name)}
                             </div>
-                            <RankEmblem rank={rank} size={28} />
+                            <LevelEmblem level={playerLevel} size={28} />
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="truncate font-semibold text-(--adm-heading)" title={learner.name}>
@@ -298,7 +297,7 @@ export function LearnersPanel() {
                                 )}
                               </div>
                               <div className="truncate text-[11px] text-(--adm-dim)" title={learner.email}>
-                                {learner.email}
+                                {post} · {learner.email}
                               </div>
                             </div>
                           </div>
@@ -384,8 +383,23 @@ export function LearnersPanel() {
                           <td colSpan={7} className="px-3 py-3">
                             <div className="mb-3 flex flex-wrap items-center gap-3">
                               <span className="text-[11px] text-(--adm-dim)">Joined {day(learner.joinedAt)}</span>
-                              <label className="ml-auto flex cursor-pointer items-center gap-2 text-[12px]" title="Lets this learner open any level in any order. Levels still have to be solved to count.">
-                                <input type="checkbox" checked={learner.allLevelsOpen} disabled={toggling === learner.id} onChange={(event) => void setAllOpen(learner, event.target.checked)} className="size-4 rounded accent-(--adm-link)" />
+                              <label className="ml-auto flex items-center gap-2 text-[12px]" title="Learners pick their stack once; only an admin can change it.">
+                                Tech stack
+                                <select
+                                  value={learner.track ?? ''}
+                                  disabled={toggling === learner.id}
+                                  onChange={(event) => {
+                                    const next = event.target.value as Track
+                                    if (next && window.confirm(`Move ${learner.name} to the ${tracks[next].label} stack? Their progress in every stack is kept.`)) void updateLearner(learner, { track: next })
+                                  }}
+                                  className={cn(inputClass, 'h-7 w-auto py-0 text-[12px]')}
+                                >
+                                  {!learner.track && <option value="">Not picked</option>}
+                                  {trackIds.map((item) => <option key={item} value={item}>{tracks[item].label}</option>)}
+                                </select>
+                              </label>
+                              <label className="flex cursor-pointer items-center gap-2 text-[12px]" title="Lets this learner open any level in any order. Levels still have to be solved to count.">
+                                <input type="checkbox" checked={learner.allLevelsOpen} disabled={toggling === learner.id} onChange={(event) => void updateLearner(learner, { allLevelsOpen: event.target.checked })} className="size-4 rounded accent-(--adm-link)" />
                                 Open every level
                                 {toggling === learner.id && <LoaderCircle className="size-3.5 animate-spin" />}
                               </label>

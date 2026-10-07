@@ -1,5 +1,4 @@
 import type { LevelKind, Track } from '@/lib/journeys/types'
-import { adminIsOpen } from './auth'
 import { query } from './db'
 import { listCatalog } from './journeys'
 
@@ -55,8 +54,6 @@ export interface Learner {
 
 export interface LearnerReport {
   generatedAt: string
-  /** No ADMIN_EMAILS: every signed-in user can open the admin. */
-  open: boolean
   journeys: ReportJourney[]
   learners: Learner[]
 }
@@ -118,5 +115,5 @@ export async function learnerReport(): Promise<LearnerReport> {
     }
   })
 
-  return { generatedAt: new Date().toISOString(), open: adminIsOpen(), journeys, learners }
+  return { generatedAt: new Date().toISOString(), journeys, learners }
 }

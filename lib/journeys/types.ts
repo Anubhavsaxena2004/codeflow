@@ -9,7 +9,7 @@ export type Track = 'mern' | 'django' | 'spring'
 export const tracks: Record<Track, { label: string; tagline: string; challengeStack: Stack }> = {
   mern: { label: 'MERN', tagline: 'MongoDB · Express · React · Node.js', challengeStack: 'express' },
   django: { label: 'Django', tagline: 'Python · Django · SQLite / PostgreSQL', challengeStack: 'django' },
-  spring: { label: 'Spring Boot', tagline: 'Java · Spring Boot · PostgreSQL', challengeStack: 'spring' },
+  spring: { label: 'Spring Boot', tagline: 'Java · Spring Boot · Thymeleaf · MySQL', challengeStack: 'spring' },
 }
 
 export const trackIds = Object.keys(tracks) as Track[]

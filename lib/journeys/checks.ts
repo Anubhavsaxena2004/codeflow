@@ -1,6 +1,6 @@
 import type { Check } from './types'
 
-type CommentStyle = 'c' | 'hash' | 'none'
+type CommentStyle = 'c' | 'hash' | 'html' | 'none'
 
 const extension = (path: string) => path.split('/').pop()?.split('.').pop()?.toLowerCase() ?? ''
 
@@ -8,16 +8,25 @@ function commentStyle(path: string): CommentStyle {
   const name = path.split('/').pop() ?? ''
   if (name.startsWith('.env') || ['py', 'sh', 'yml', 'yaml', 'toml', 'properties', 'cfg', 'txt'].includes(extension(path))) return 'hash'
   if (['js', 'jsx', 'mjs', 'cjs', 'ts', 'tsx', 'java', 'css', 'kt', 'go'].includes(extension(path))) return 'c'
+  if (['html', 'htm'].includes(extension(path))) return 'html'
   return 'none'
 }
 
 /**
+ * `<!-- -->` plus Django template comments (`{# #}`, `{% comment %}…{% endcomment %}`). Line breaks
+ * are kept. `{# #}` never spans lines in Django, and Thymeleaf's `${#lists…}` is not a comment.
+ */
+const HTML_COMMENT = /<!--[\s\S]*?(?:-->|$)|(?<![$*@~])\{#[^\n]*?#\}|\{%\s*comment\b[^%]*%\}[\s\S]*?(?:\{%\s*endcomment\s*%\}|$)/g
+
+/**
  * Removes comments so a commented-out line never satisfies a check. Quotes are tracked,
- * so "http://…" inside a string survives.
+ * so "http://…" inside a string survives. HTML text is full of apostrophes, so there only
+ * the comment markers count.
  */
 export function stripComments(code: string, path: string): string {
   const style = commentStyle(path)
   if (style === 'none') return code
+  if (style === 'html') return code.replace(HTML_COMMENT, (comment) => comment.replace(/[^\n]/g, ''))
 
   let out = ''
   let quote: string | null = null

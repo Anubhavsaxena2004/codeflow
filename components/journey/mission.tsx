@@ -195,7 +195,15 @@ export function PassedCard({ stars, next, onReplay, worldColor }: { stars: numbe
   )
 }
 
-export function HintNote({ text }: { text: string }) {
+export function HintNote({
+  text,
+  onClose,
+  onNextHint,
+}: {
+  text: string
+  onClose?: () => void
+  onNextHint?: () => void
+}) {
   const headingRef = useRef<HTMLHeadingElement>(null)
   const prefersReduced = useReducedMotion()
 
@@ -205,16 +213,39 @@ export function HintNote({ text }: { text: string }) {
 
   return (
     <motion.div
-      initial={prefersReduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-      animate={prefersReduced ? { opacity: 1 } : { height: 'auto', opacity: 1 }}
-      transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-4 mb-3 overflow-hidden rounded-md border-2 border-dashed border-[#b45309] dark:border-[#fbbf24] bg-amber-500/10 p-3 text-[12px] leading-5 text-(--ide-fg)"
+      initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
+      animate={prefersReduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      className="mx-4 mb-3 rounded-xl border-2 border-dashed border-[#b45309] dark:border-[#fbbf24] bg-amber-500/10 dark:bg-amber-500/15 p-3 text-[12px] leading-5 text-(--ide-fg)"
     >
-      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#b45309] dark:text-[#fbbf24]">
-        <Lightbulb aria-hidden className="size-3.5 shrink-0" />
-        <h4 ref={headingRef} tabIndex={-1} className="outline-none">Hint</h4>
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#b45309] dark:text-[#fbbf24]">
+          <Lightbulb aria-hidden className="size-3.5 shrink-0" />
+          <h4 ref={headingRef} tabIndex={-1} className="outline-none">Hint</h4>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close hint"
+            className="rounded p-0.5 text-(--ide-muted) hover:text-(--ide-fg) hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            <span className="text-[12px] leading-none">✕</span>
+          </button>
+        )}
       </div>
-      <p className="mt-1 text-(--ide-fg)">{text}</p>
+      <p className="mt-1.5 text-[12px] font-medium text-(--ide-fg) leading-relaxed">{text}</p>
+      {onNextHint && (
+        <div className="mt-2 pt-2 border-t border-amber-500/20 flex justify-end">
+          <button
+            type="button"
+            onClick={onNextHint}
+            className="text-[11px] font-bold text-[#b45309] dark:text-[#fbbf24] hover:underline cursor-pointer"
+          >
+            Still stuck? Reveal solution →
+          </button>
+        </div>
+      )}
     </motion.div>
   )
 }

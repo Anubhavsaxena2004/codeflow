@@ -26,7 +26,7 @@ import { matchesStep } from '@/lib/journeys/commands'
 import { draftFromSolution, readDraft, submissionOf, type LevelDraft } from '@/lib/journeys/draft'
 import { indexProgress, isUnlocked, levelStars, playerLevelFor, postFor, xpFor } from '@/lib/journeys/progress'
 import { buildOrder, filesBefore, layer, outputOf, type WorkspaceFile } from '@/lib/journeys/snapshot'
-import { kindLabels, tracks, type Level, type LevelProgress, type Project, type Solution, type Submission } from '@/lib/journeys/types'
+import { kindLabels, tracks, type CommandStep, type Level, type LevelProgress, type Project, type Solution, type Submission } from '@/lib/journeys/types'
 import { verifyLevel } from '@/lib/journeys/verify'
 import { useLearner } from '@/lib/use-learner'
 import { useLearnerFiles } from '@/lib/use-learner-files'
@@ -47,6 +47,7 @@ import { FlowBoard } from './flow-board'
 import { JourneyPanel, type FlowContext, type JourneyTab } from './journey-panel'
 import { Celebration } from '@/components/effects/celebration'
 import { CommandSteps, CompletionCard, HintNote, HowToPlay, howToPlay, MissionHeader, MissionSection, NewFiles, PassedCard, QuizCard, TestList } from './mission'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import { kindIcons, worldThemes } from './level-meta'
 
 type IconType = ComponentType<{ className?: string; strokeWidth?: number }>
@@ -96,6 +97,20 @@ function resolvePath(cwd: string, target: string) {
     else parts.push(part)
   }
   return parts.join('/')
+}
+
+/**
+ * What the terminal prints about the files a command made: the project files, then the ones the
+ * project never uses (locked in the explorer). Tool output like node_modules is not listed.
+ */
+function addedLines(step: CommandStep): TerminalLine[] {
+  const made = (step.adds ?? []).filter((file) => !file.generated)
+  const used = made.filter((file) => !file.unused).map((file) => file.path)
+  const unused = made.filter((file) => file.unused).map((file) => file.path)
+  return [
+    ...(used.length ? [{ kind: 'success' as const, text: `✓ ${used.join(', ')}` }] : []),
+    ...(unused.length ? [{ kind: 'info' as const, text: `🔒 Also made, not used in this project: ${unused.join(', ')}` }] : []),
+  ]
 }
 
 function ToolButton({ icon: Icon, label, onClick, disabled, variant = 'ghost' }: { icon: IconType; label: string; onClick: () => void; disabled?: boolean; variant?: 'ghost' | 'primary' }) {
@@ -183,7 +198,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const [hintNote, setHintNote] = useState<string | null>(null)
 
   // explore
-  const newFiles = useMemo(() => (level.kind === 'explore' ? level.adds.filter((file) => !file.path.endsWith('/') && !file.generated) : []), [level])
+  const newFiles = useMemo(() => (level.kind === 'explore' ? level.adds.filter((file) => !file.path.endsWith('/') && !file.generated && !file.unused) : []), [level])
   const [opened, setOpened] = useState<Set<string>>(() => new Set())
   const [answer, setAnswer] = useState<number | null>(null)
   const [quizResult, setQuizResult] = useState<'right' | 'wrong' | null>(null)
@@ -226,6 +241,8 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const firstTab = isCodeLevel(level) || level.kind === 'build' ? (level as { path: string }).path : level.kind === 'architecture' ? FLOW_TAB : LESSON_TAB
   const [tabs, setTabs] = useState<string[]>(() => [...new Set([firstTab, ...(level.kind === 'architecture' ? [LESSON_TAB] : [])])])
   const [activeTab, setActiveTab] = useState<string | null>(firstTab)
+  // How this stack runs its tests, echoed whenever a code level's checks run.
+  const testCommand = project.track === 'django' ? 'python manage.py test' : project.track === 'spring' ? '.\\mvnw.cmd test' : 'npm test'
 
   const welcome: TerminalLine[] = [
     {
@@ -234,7 +251,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         level.kind === 'command'
           ? 'Type the command for each step and press Enter. Try ls, cat <file>, hint or help any time.'
           : isCodeLevel(level)
-            ? 'Run the tests with the button above, Ctrl+S in the editor, or by typing npm test here.'
+            ? `Run the tests with the button above, Ctrl+S in the editor, or by typing ${testCommand} here.`
             : 'Look around with ls and cat <file>. Type help for more.',
     },
   ]
@@ -330,7 +347,8 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   }, [project, level])
 
   const openFile = (path: string) => {
-    if (path.endsWith('/') || !allFiles.has(path)) return
+    // Files the project never uses stay locked: the explorer shows them, nothing opens them.
+    if (path.endsWith('/') || !allFiles.has(path) || allFiles.get(path)?.unused) return
     setTabs((current) => (current.includes(path) ? current : [...current, path]))
     setActiveTab(path)
     if (newFiles.some((file) => file.path === path)) setOpened((current) => new Set(current).add(path))
@@ -419,7 +437,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     setPanelOpen(true)
     setPanelTab('terminal')
     print(
-      { kind: 'input', prompt: prompt, text: 'npm test' },
+      { kind: 'input', prompt: prompt, text: testCommand },
       { kind: failing.length ? 'error' : 'success', text: `${failing.length ? ' FAIL ' : ' PASS '} ${codeLevel.path}` },
       ...outcome.map((result): TerminalLine => ({ kind: result.passed ? 'success' : 'error', text: `   ${result.passed ? '✓' : '✕'} ${result.name}` })),
       { kind: 'output', text: `\nTests: ${failing.length ? `${failing.length} failed, ` : ''}${outcome.length - failing.length} passed, ${outcome.length} total\n` },
@@ -513,50 +531,69 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     return [...names].sort((a, b) => a.localeCompare(b))
   }
 
-  const giveHint = () => {
-    if (phase === 'passed') return
-    const nextLevel = hintLevel + 1
-    setHints((count) => count + 1)
-    setHintLevel(nextLevel)
+  const getHintMessage = (nextLevel: number): string => {
     switch (level.kind) {
       case 'explore': {
-        if (!allOpened) return setHintNote('Open each new file from the list (or the explorer). The ABOUT box under the explorer explains every file and folder.')
-        const wrongOption = level.quiz?.options.findIndex((_, option) => option !== level.quiz?.answer && !eliminated.has(option)) ?? -1
-        if (wrongOption >= 0) setEliminated((current) => new Set(current).add(wrongOption))
-        return setHintNote('One wrong answer is crossed out.')
+        if (!allOpened) return 'Open each new file from the list (or explorer). The ABOUT box under explorer explains every file and folder.'
+        return 'One wrong answer is crossed out.'
       }
       case 'command': {
         const step = level.steps[stepIndex]
-        if (!step) return
-        return setHintNote(nextLevel === 1 ? step.hint : `Type: ${step.accept[0]}`)
+        if (!step) return 'All steps are completed! Press complete or continue.'
+        return nextLevel === 1 ? (step.hint || `Try command: ${step.accept[0]}`) : `Run command: ${step.accept[0]}`
       }
       case 'edit':
       case 'bugfix': {
         const outcome = runChecks(code, level.path, level.checks)
         const failing = outcome.find((result) => !result.passed)
-        return setHintNote(failing ? `${failing.name}: ${failing.hint}` : 'Every check passes. Run the tests to finish the level.')
+        return failing ? `${failing.name}: ${failing.hint}` : 'Every check passes. Run the tests to finish the level.'
       }
       case 'build': {
         const position = slots.findIndex((id, at) => id !== order[at])
-        if (position < 0) return setHintNote('Every block is in place. Press Check.')
+        if (position < 0) return 'Every block is in place. Press Check.'
         const guide = level.steps?.[position]
-        if (nextLevel === 1 && guide) return setHintNote(`Step ${position + 1} is “${guide.kind}”: ${guide.goal}`)
-        moveBlock(order[position], position)
-        setHinted((current) => new Set(current).add(position))
-        return setHintNote(`Step ${position + 1} was filled in for you: ${blockById(order[position])?.label}.`)
+        if (nextLevel === 1 && guide) return `Step ${position + 1} is “${guide.kind}”: ${guide.goal}`
+        return `Step ${position + 1} was filled in for you: ${blockById(order[position])?.label || ''}.`
       }
       case 'architecture': {
         const position = arrangement.findIndex((id, at) => id !== level.nodes[at].id)
-        if (position < 0) return setHintNote('Everything is in order. Press Check order.')
+        if (position < 0) return 'Everything is in order. Press Check order.'
+        const correct = level.nodes[position]
+        return `Stop ${position + 1} is ${correct.label}: ${correct.role}`
+      }
+    }
+  }
+
+  const giveHint = (): string => {
+    if (phase === 'passed') return 'You already passed this level!'
+    const nextLevel = hintLevel + 1
+    setHints((count) => count + 1)
+    setHintLevel(nextLevel)
+    const message = getHintMessage(nextLevel)
+    setHintNote(message)
+    setMissionOpen(true)
+
+    if (level.kind === 'explore' && allOpened) {
+      const wrongOption = level.quiz?.options.findIndex((_, option) => option !== level.quiz?.answer && !eliminated.has(option)) ?? -1
+      if (wrongOption >= 0) setEliminated((current) => new Set(current).add(wrongOption))
+    } else if (level.kind === 'build') {
+      const position = slots.findIndex((id, at) => id !== order[at])
+      if (position >= 0 && nextLevel > 1) {
+        moveBlock(order[position], position)
+        setHinted((current) => new Set(current).add(position))
+      }
+    } else if (level.kind === 'architecture') {
+      const position = arrangement.findIndex((id, at) => id !== level.nodes[at].id)
+      if (position >= 0) {
         const correct = level.nodes[position]
         setArrangement((current) => {
           const nextArrangement = current.map((id) => (id === correct.id ? null : id))
           nextArrangement[position] = correct.id
           return nextArrangement
         })
-        return setHintNote(`Stop ${position + 1} is ${correct.label}: ${correct.role}`)
       }
     }
+    return message
   }
 
   const runCommand = (raw: string) => {
@@ -572,7 +609,10 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         text: 'This terminal runs the commands each level teaches, plus:\n  ls [-a]      list the current folder\n  cat <file>   print a file\n  pwd          show where you are\n  hint         a clue for the current step\n  clear        clear the screen',
       })
     }
-    if (command === 'hint') return giveHint()
+    if (command === 'hint') {
+      const note = giveHint()
+      return print({ kind: 'info', text: `💡 Hint: ${note}` })
+    }
     if (command === 'pwd') return print({ kind: 'output', text: `/${project.projectName}${cwd ? `/${cwd}` : ''}` })
     const ls = /^(?:ls|dir)(?:\s+(-\w+))?(?:\s+(\S+))?$/.exec(command)
     if (ls) {
@@ -584,6 +624,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     if (cat) {
       const file = allFiles.get(resolvePath(cwd, cat[1]))
       if (!file || file.path.endsWith('/')) return print({ kind: 'error', text: `cat: ${cat[1]}: No such file or directory` })
+      if (file.unused) return print({ kind: 'info', text: `🔒 ${file.path} is locked: a setup command made it, but this project never uses it.` })
       return print({ kind: 'output', text: file.content ?? '' })
     }
 
@@ -591,7 +632,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
       const step = level.steps[stepIndex]
       if (matchesStep(step, command)) {
         if (step.output) print({ kind: 'output', text: step.output })
-        if (step.adds?.some((file) => !file.generated)) print({ kind: 'success', text: `✓ ${step.adds.filter((file) => !file.generated).map((file) => file.path).join(', ')}` })
+        print(...addedLines(step))
         if (step.cwd !== undefined) setCwd(step.cwd)
         if (step.env !== undefined) setEnv(step.env)
         const nextTyped = [...typed, command]
@@ -609,7 +650,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
       return print({ kind: 'error', text: sameTool ? 'Right tool, but not quite the right arguments. Type hint for a clue.' : 'That is not what this step needs. Type hint for a clue.' })
     }
 
-    if (isCodeLevel(level) && /^(?:npm (?:run )?test|npm t|npx jest|jest|pytest|python3? manage\.py test)$/.test(command)) {
+    if (isCodeLevel(level) && /^(?:npm (?:run )?test|npm t|npx jest|jest|pytest|python3? manage\.py test|(?:\.[\\/])?mvnw(?:\.cmd)? test|mvn test)$/.test(command)) {
       setTerminal((current) => current.slice(0, -1))
       return runTests()
     }
@@ -684,7 +725,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
       if (!step || !matchesStep(step, command)) break
       lines.push({ kind: 'input', prompt: `${envNow ? `${envNow} ` : ''}${project.projectName}${cwdNow ? `/${cwdNow}` : ''} $`, text: command })
       if (step.output) lines.push({ kind: 'output', text: step.output })
-      if (step.adds?.some((file) => !file.generated)) lines.push({ kind: 'success', text: `✓ ${step.adds.filter((file) => !file.generated).map((file) => file.path).join(', ')}` })
+      lines.push(...addedLines(step))
       if (step.cwd !== undefined) cwdNow = step.cwd
       if (step.env !== undefined) envNow = step.env
       accepted.push(command)
@@ -860,7 +901,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   }
   const primary =
     isCodeLevel(level) ? { label: 'Run tests', icon: Play, action: runTests } : level.kind === 'build' ? { label: 'Check', icon: Check, action: checkBuild } : level.kind === 'architecture' ? { label: 'Check order', icon: Check, action: checkFlow } : null
-  const pushPath = isCodeLevel(level) || level.kind === 'build' ? (level as { path: string }).path : outputOf(level).filter((file) => !file.path.endsWith('/') && !file.generated).at(-1)?.path ?? 'README.md'
+  const pushPath = isCodeLevel(level) || level.kind === 'build' ? (level as { path: string }).path : outputOf(level).filter((file) => !file.path.endsWith('/') && !file.generated && !file.unused).at(-1)?.path ?? 'README.md'
 
   const palette = world ? worldThemes[world.theme] : worldThemes.village
   const isBoss = !!level.boss
@@ -1232,7 +1273,9 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                 <ThemeToggle className="size-7 rounded text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)" iconClassName="size-3.5" />
                 {session.status === 'signed-in' ? (
                   <>
-                    <Link href="/profile" title={`${session.user.name} · ${session.user.email}`} className="grid size-6 place-items-center rounded-full bg-[#0078d4] text-[10px] font-semibold text-white">{initials}</Link>
+                    <Link href="/profile" title={`${session.user.name} · ${session.user.email}`} className="size-6 overflow-hidden rounded-full ring-1 ring-(--ide-border) transition-transform hover:scale-105">
+                      <UserAvatar avatar={session.user.avatar} className="size-full text-[9px]" fallback={initials} />
+                    </Link>
                     <button type="button" onClick={session.signOut} aria-label="Sign out" title="Sign out" className="rounded p-1 text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)">
                       <LogOut className="size-3.5" />
                     </button>
@@ -1259,8 +1302,10 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                     <UserRound className="size-6" strokeWidth={1.5} />
                   </Link>
                 ) : (
-                  <Link href="/profile" aria-label="Profile" title="Profile" className="flex size-12 items-center justify-center text-(--ide-icon) hover:text-(--ide-fg)">
-                    <UserRound className="size-6" strokeWidth={1.5} />
+                  <Link href="/profile" aria-label="Profile" title={`${session.user?.name ?? 'Profile'} · Profile`} className="flex size-12 items-center justify-center text-(--ide-icon) hover:text-(--ide-fg)">
+                    <div className="size-7 overflow-hidden rounded-full ring-1 ring-(--ide-border) transition-transform hover:scale-105">
+                      <UserAvatar avatar={session.user?.avatar} className="size-full text-[10px]" fallback={initials} />
+                    </div>
                   </Link>
                 )}
               </div>
@@ -1394,6 +1439,18 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                       <HowToPlay steps={howToPlay(level.kind, level.kind === 'explore' && !!level.quiz)} />
                     </MissionSection>
                   )}
+                  {!passed && !hintNote && (
+                    <div className="px-4 pb-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => giveHint()}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-amber-500/60 bg-amber-500/10 py-2 px-3 text-[12px] font-semibold text-amber-800 transition-colors hover:bg-amber-500/20 dark:text-amber-300 dark:hover:bg-amber-500/25 cursor-pointer"
+                      >
+                        <Lightbulb className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <span>Stuck? Click for a hint or type <code className="font-mono text-[11px] underline">hint</code></span>
+                      </button>
+                    </div>
+                  )}
                   {!passed && previous && (
                     <p className="mx-4 mb-3 rounded border border-(--ide-border-strong) p-2 text-[12px] leading-5 text-(--ide-muted)">
                       You passed this level before. Replay it, or{' '}
@@ -1406,7 +1463,18 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                       <button type="button" onClick={() => void submit(pending)} className="mt-2 block rounded-sm bg-[#0078d4] px-2 py-1 text-white hover:bg-[#026ec1]">Save again</button>
                     </div>
                   )}
-                  {hintNote && !passed && <HintNote text={hintNote} />}
+                  {hintNote && !passed && (
+                    <HintNote
+                      text={hintNote}
+                      onClose={() => setHintNote(null)}
+                      onNextHint={
+                        (level.kind === 'command' && hintLevel === 1) ||
+                        (level.kind === 'build' && hintLevel === 1)
+                          ? () => { giveHint() }
+                          : undefined
+                      }
+                    />
+                  )}
 
                   {level.kind === 'explore' && (
                     <>

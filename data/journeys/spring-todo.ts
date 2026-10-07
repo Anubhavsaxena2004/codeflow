@@ -1421,6 +1421,63 @@ The password never goes in this file: the file is committed, and anything commit
         { id: 'password', name: 'The password comes from DB_PASSWORD, not from the file', hint: 'spring.datasource.password=${DB_PASSWORD}. Never type your real password here.', type: 'matches', value: /^\s*spring\.datasource\.password\s*=\s*\$\{DB_PASSWORD(?::[^}]*)?\}\s*$/.source, flags: 'm' },
         { id: 'ddl-auto', name: 'Hibernate creates the tables', hint: 'spring.jpa.hibernate.ddl-auto=update', type: 'matches', value: /^\s*spring\.jpa\.hibernate\.ddl-auto\s*=\s*update\s*$/.source, flags: 'm' },
       ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: 'Point spring.datasource.url at the todo_db database on your MySQL.',
+          options: [
+            { code: 'spring.datasource.url=http://localhost:3306/todo_db', why: 'Java talks to databases over JDBC, not HTTP. Spring finds no driver for an http:// address and refuses to start.' },
+            { code: 'spring.datasource.url=jdbc:mysql://localhost:3306/todo_db', why: 'A JDBC URL: the driver (mysql), the server (localhost, on MySQL\'s port 3306) and the database (todo_db).' },
+            { code: 'spring.datasource.url=jdbc:mysql://localhost:8080/todo_db', why: "8080 is your own app's port (server.port, at the bottom). MySQL listens on 3306, so the connection is refused." },
+          ],
+          answer: 1,
+          checks: ['url'],
+          sources: [
+            { name: 'jdbc:mysql://', from: 'file', path: 'pom.xml', find: '<artifactId>mysql-connector-j</artifactId>', note: 'The MySQL Driver you picked in Initializr. It is what understands jdbc:mysql:// addresses.' },
+            { name: 'todo_db', from: 'command', note: 'The empty database you made with CREATE DATABASE todo_db in the last level.' },
+          ],
+          result: 'Spring Boot builds its DataSource from this, so JPA stops failing with "Failed to configure a DataSource".',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Log in to MySQL as the root user.',
+          options: [
+            { code: 'spring.datasource.user=root', why: 'The key is username. Spring ignores keys it does not know, so it logs in with no user and MySQL answers Access denied.' },
+            { code: 'spring.datasource.username="root"', why: 'Properties files take values as they are: the quotes become part of the name, and MySQL looks for a user called "root", quotes included.' },
+            { code: 'spring.datasource.username=root', why: 'key=value, no quotes. root is MySQL\'s admin user.' },
+          ],
+          answer: 2,
+          checks: ['username'],
+          sources: [{ name: 'root', from: 'builtin', note: "MySQL's admin user, made when MySQL was installed." }],
+          result: 'Spring logs in as root, with the password from the next line.',
+        },
+        {
+          marker: 'TODO 3:',
+          goal: 'Read the password from the DB_PASSWORD environment variable, never from this file.',
+          options: [
+            { code: 'spring.datasource.password=${DB_PASSWORD}', why: '${…} is a placeholder: Spring fills it in from the environment when the app starts, so the file never holds the secret.' },
+            { code: 'spring.datasource.password=DB_PASSWORD', why: 'Without ${…}, the password is literally the text DB_PASSWORD, and MySQL answers Access denied.' },
+            { code: 'spring.datasource.password=my-real-password', why: 'It works until you commit. application.properties goes to GitHub, and your password with it.' },
+          ],
+          answer: 0,
+          checks: ['password'],
+          sources: [{ name: 'DB_PASSWORD', from: 'command', note: 'You set it in the terminal before running the app, in Run it for real: $env:DB_PASSWORD="…".' }],
+          result: 'At startup Spring swaps ${DB_PASSWORD} for the real value; the file stays safe to push.',
+        },
+        {
+          marker: 'TODO 4:',
+          goal: 'Let Hibernate create the tables from your entities.',
+          options: [
+            { code: 'spring.jpa.hibernate.ddl-auto=create-drop', why: 'create-drop deletes every table when the app stops, so each restart starts with an empty database.' },
+            { code: 'spring.jpa.hibernate.ddl-auto=none', why: "none means Hibernate never touches the tables, so todos is never created and the first query fails: Table 'todo_db.todos' doesn't exist." },
+            { code: 'spring.jpa.hibernate.ddl-auto=update', why: 'update creates missing tables and columns, and keeps your data between runs.' },
+          ],
+          answer: 2,
+          checks: ['ddl-auto'],
+          sources: [{ name: 'Hibernate', from: 'file', path: 'pom.xml', find: '<artifactId>spring-boot-starter-data-jpa</artifactId>', note: 'Spring Data JPA, from pom.xml, brings Hibernate along.' }],
+          result: 'On the next run Hibernate reads every @Entity and creates its table. The Todo entity comes next.',
+        },
+      ],
     },
     {
       id: 'todo-entity',
@@ -1465,6 +1522,26 @@ You get findAll(), findById(), save(), deleteById(), existsById(), count() and m
       checks: [
         { id: 'extends', name: 'TodoRepository is a JpaRepository for Todo with Long ids', hint: 'public interface TodoRepository extends JpaRepository<Todo, Long>', type: 'matches', value: /interface\s+TodoRepository\s+extends\s+JpaRepository\s*<\s*Todo\s*,\s*Long\s*>/.source },
         { id: 'interface', name: 'It stays an interface', hint: 'Spring writes the class for you. Keep it an interface, with no class of your own.', type: 'notMatches', value: /\bclass\s+TodoRepository\b/.source },
+      ],
+      gaps: [
+        {
+          marker: 'TODO: extend JpaRepository',
+          span: 2,
+          goal: 'Make TodoRepository a JpaRepository for Todo entities with Long ids.',
+          options: [
+            { code: 'public interface TodoRepository extends JpaRepository<Long, Todo> {', why: 'Order matters: the entity first, then the id type. This one says the entity is Long, and startup fails: Not a managed type: class java.lang.Long.' },
+            { code: 'public interface TodoRepository extends JpaRepository<Todo, Long> {', why: 'What it stores (Todo), then the type of its id (Long, like the @Id field). Spring writes the class for you.' },
+            { code: 'public class TodoRepository implements JpaRepository<Todo, Long> {', why: 'A class would have to write every method of JpaRepository itself, dozens of them. Keep it an interface: Spring writes the class at startup.' },
+          ],
+          answer: 1,
+          checks: ['extends'],
+          sources: [
+            { name: 'JpaRepository', from: 'import', find: 'import org.springframework.data.jpa.repository.JpaRepository', note: 'From Spring Data JPA, imported at the top.' },
+            { name: 'Todo', from: 'file', path: `${JAVA}/model/Todo.java`, find: 'public class Todo', note: 'The entity you fixed in the last level, imported at the top.' },
+            { name: 'Long', from: 'file', path: `${JAVA}/model/Todo.java`, find: 'private Long id', note: "The type of Todo's @Id field." },
+          ],
+          result: 'TodoService will call findAll(), findById() and save() on it: all written by Spring.',
+        },
       ],
     },
     {
@@ -1527,6 +1604,40 @@ Each takes a message, shown next to the field when the rule fails.`,
         { id: 'not-blank', name: 'A blank title is rejected', hint: '@NotBlank(message = "Title cannot be empty") above private String title;', type: 'matches', value: /@NotBlank\b[^;]*private\s+String\s+title/.source },
         { id: 'size', name: 'The title has at most 200 characters', hint: '@Size(max = 200, message = "Title cannot exceed 200 characters")', type: 'matches', value: /@Size\([^)]*\bmax\s*=\s*200\b[^;]*private\s+String\s+title/.source },
         { id: 'message', name: 'The user is told what is wrong', hint: 'Give @NotBlank the message "Title cannot be empty".', type: 'includes', value: 'message = "Title cannot be empty"' },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: 'Reject a missing or blank title, with the message "Title cannot be empty".',
+          options: [
+            { code: '@NotNull(message = "Title cannot be empty")', why: '@NotNull only rejects a missing title. An empty or spaces-only one still passes, and NotNull is not even imported here.' },
+            { code: '@NotBlank(message = "Title cannot be empty")', why: '@NotBlank rejects null, empty and spaces-only text, and message is what the form shows.' },
+            { code: '@NotBlank', why: 'It rejects a blank title, but the form shows the default text, "must not be blank", instead of your message.' },
+          ],
+          answer: 1,
+          checks: ['not-blank', 'message'],
+          sources: [
+            { name: 'NotBlank', from: 'import', find: 'import jakarta.validation.constraints.NotBlank', note: 'From the Validation dependency you picked in Initializr.' },
+            { name: 'title', from: 'here', find: 'private String title', note: 'The field the rule guards: an annotation applies to the declaration right after it.' },
+          ],
+          result: '@Valid in the controller runs this rule. When it fails, the BindingResult carries your message to the form.',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Allow at most 200 characters, with the message "Title cannot exceed 200 characters".',
+          options: [
+            { code: '@Size(min = 200, message = "Title cannot exceed 200 characters")', why: 'min sets the shortest allowed title, so every title under 200 characters would be rejected.' },
+            { code: '@Max(value = 200, message = "Title cannot exceed 200 characters")', why: "@Max is for numbers, like a quantity. A String's length needs @Size." },
+            { code: '@Size(max = 200, message = "Title cannot exceed 200 characters")', why: 'max = 200 caps the length, the same 200 as the column.' },
+          ],
+          answer: 2,
+          checks: ['size'],
+          sources: [
+            { name: 'Size', from: 'import', find: 'import jakarta.validation.constraints.Size', note: 'From the Validation dependency too.' },
+            { name: '200', from: 'file', path: `${JAVA}/model/Todo.java`, find: 'length = 200', note: "The entity's title column holds 200 characters, so the form allows no more." },
+          ],
+          result: 'A 300-character title comes back with your message, instead of failing later in MySQL.',
+        },
       ],
     },
     {
@@ -1599,8 +1710,60 @@ For the form, \`@Valid\` checks the TodoRequest and the \`BindingResult\` right 
       solution: CONTROLLER,
       checks: [
         { id: 'model', name: 'GET /todos hands the todos to the template', hint: 'model.addAttribute("todos", todoService.getAllTodos());', type: 'includes', value: 'model.addAttribute("todos", todoService.getAllTodos())' },
-        { id: 'errors', name: 'An invalid form is shown again', hint: 'if (result.hasErrors()) { return "todos/todo-form"; } before saving.', type: 'matches', value: /if\s*\(\s*\w+\.hasErrors\(\)\s*\)\s*\{?\s*return\s+"todos\/todo-form"\s*;/.source },
+        { id: 'errors', name: 'An invalid form is shown again', hint: 'if (result.hasErrors()) { return "todos/todo-form"; } before saving.', type: 'matches', value: /if\s*\(\s*result\.hasErrors\(\)\s*\)\s*\{?\s*return\s+"todos\/todo-form"\s*;/.source },
         { id: 'redirect', name: 'A saved todo redirects to the list', hint: 'After todoService.createTodo(request); return "redirect:/todos";', type: 'matches', value: /todoService\.createTodo\(\s*\w+\s*\)\s*;\s*return\s+"redirect:\/todos"\s*;/.source },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: 'Hand the todos to the template, under the name "todos".',
+          options: [
+            { code: 'return todoService.getAllTodos();', why: 'listTodos returns a String: the name of the template. Returning the list does not compile: incompatible types.' },
+            { code: 'model.addAttribute("todos", todoService.getAllTodos());', why: 'Model is the bag of data the template receives. Under the name "todos", the list is ${todos} in todo-list.html.' },
+            { code: 'model.addAttribute("todo", todoService.getAllTodos());', why: 'The template loops over ${todos}. Under the name todo, the list page finds nothing and shows no todos.' },
+          ],
+          answer: 1,
+          checks: ['model'],
+          sources: [
+            { name: 'model', from: 'param', find: 'public String listTodos(Model model)', note: 'Spring MVC hands in an empty Model every time it calls this method.' },
+            { name: 'todoService', from: 'here', find: 'private final TodoService todoService', note: 'The service, handed to the constructor below it (constructor injection).' },
+            { name: 'getAllTodos', from: 'file', path: `${JAVA}/service/TodoService.java`, find: 'public List<Todo> getAllTodos()', note: 'The method in TodoService: it returns the todos, newest first.' },
+          ],
+          result: 'Thymeleaf renders templates/todos/todo-list.html, where th:each="todo : ${todos}" loops over this list.',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'When validation failed, show the form again.',
+          options: [
+            { code: 'if (result.hasErrors()) {\n    return "redirect:/todos/new";\n}', why: 'A redirect starts a fresh request: the errors and what the user typed are lost, and the form comes back empty, with no message.' },
+            { code: 'if (request.hasErrors()) {\n    return "todos/todo-form";\n}', why: 'request is the TodoRequest: it has a title, not errors. The errors are in result, the BindingResult. This does not compile.' },
+            { code: 'if (result.hasErrors()) {\n    return "todos/todo-form";\n}', why: 'Return early with the form\'s template name. The BindingResult goes with it, so the page can show the messages.' },
+          ],
+          answer: 2,
+          checks: ['errors'],
+          sources: [
+            { name: 'result', from: 'param', find: 'BindingResult result', note: 'Spring hands it in right after the @Valid parameter. It holds every rule that failed.' },
+            { name: 'todos/todo-form', from: 'file', note: 'The form page, templates/todos/todo-form.html. You meet it in Template Castle.' },
+          ],
+          result: 'The user sees the form again, with what they typed and "Title cannot be empty" under the input.',
+        },
+        {
+          marker: 'TODO 3:',
+          span: 2,
+          goal: 'After saving, redirect the browser to /todos.',
+          options: [
+            { code: 'return "redirect:/todos";', why: 'redirect: makes Spring answer 302, and the browser loads GET /todos itself. A refresh repeats that GET, not the POST.' },
+            { code: 'return "todos/todo-list";', why: 'Rendering here leaves the browser on the POST: a refresh submits the form again and saves a duplicate. And the model has no todos in it.' },
+            { code: 'return "redirect:todos/todo-list";', why: 'redirect: takes a URL, not a template name. The browser is sent to a page that has no handler.' },
+          ],
+          answer: 0,
+          checks: ['redirect'],
+          sources: [
+            { name: 'redirect:', from: 'builtin', note: 'Spring MVC reads a view name that starts with redirect: as "send the browser to this URL".' },
+            { name: 'listTodos', from: 'here', find: 'public String listTodos', note: 'The method that answers GET /todos: where the browser lands next.' },
+          ],
+          result: 'The browser follows the 302 to GET /todos, and listTodos shows the list with the new todo on top.',
+        },
       ],
     },
     {
@@ -1694,6 +1857,55 @@ Links go through \`@{...}\`: \`th:href="@{/css/style.css}"\` builds the URL, wit
           value: /<link(?=[^>]*rel=["']stylesheet["'])(?=[^>]*th:href=["']@\{\/css\/style\.css\}["'])[^>]*>/.source,
         },
         { id: 'navbar', name: 'The header is a fragment named navbar', hint: '<header class="navbar" th:fragment="navbar">', type: 'matches', value: /<header\b[^>]*th:fragment=["']navbar["']/.source },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          span: 2,
+          goal: 'Make this <head> a fragment named head, taking one parameter: title.',
+          options: [
+            { code: '<head th:fragment="head">', why: "The pages call head('My Todos') with a title, and Thymeleaf fails: the fragment declares no parameters." },
+            { code: '<head th:fragment="head(title)">', why: "Names the piece and its parameter. A page calls ~{todos/base :: head('My Todos')}, and ${title} becomes My Todos." },
+            { code: '<head th:replace="head(title)">', why: 'th:replace pulls a fragment in; it does not define one. This <head> would try to replace itself.' },
+          ],
+          answer: 1,
+          checks: ['head-fragment'],
+          sources: [
+            { name: 'title', from: 'here', find: '<title th:text="${title}">', note: 'The <title> already prints ${title}: the parameter fills it.' },
+            { name: 'th:', from: 'here', find: 'xmlns:th="http://www.thymeleaf.org"', note: 'This line declares the th: attributes, so editors know them. Thymeleaf reads them on the server.' },
+          ],
+          result: "Each page's <head th:replace=\"~{todos/base :: head('My Todos')}\"> is swapped for this whole <head>, with its own title.",
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Link the stylesheet in static/css with th:href and a @{...} link.',
+          options: [
+            { code: '<link rel="stylesheet" th:href="@{/static/css/style.css}">', why: 'static/ is where the file sits, not part of its URL. Spring serves static/css/style.css at /css/style.css, so this answers 404.' },
+            { code: '<link rel="stylesheet" th:href="@{/css/style.css}">', why: 'th:href makes Thymeleaf build the link, and /css/style.css is the URL Spring serves the file at.' },
+            { code: '<link rel="stylesheet" href="@{/css/style.css}">', why: 'Without th:, the browser gets the text @{/css/style.css} as it is and asks the server for a URL with braces in it.' },
+          ],
+          answer: 1,
+          checks: ['stylesheet'],
+          sources: [
+            { name: '@{…}', from: 'here', find: 'th:src="@{/js/script.js}"', note: 'The script at the bottom is linked the same way: follow it.' },
+            { name: 'style.css', from: 'file', note: 'The stylesheet you meet in the next level. It lives in static/css/.' },
+          ],
+          result: 'Thymeleaf writes href="/css/style.css" into every page that uses this head.',
+        },
+        {
+          marker: 'TODO 3:',
+          span: 2,
+          goal: 'Make this header a fragment named navbar.',
+          options: [
+            { code: '<header class="navbar" id="navbar">', why: 'An id is for CSS and JavaScript. Thymeleaf only pulls in pieces that th:fragment names.' },
+            { code: '<header class="navbar" th:fragment="header">', why: 'The pages ask for ~{todos/base :: navbar}. A fragment named header matches nothing, so Thymeleaf fails to find it.' },
+            { code: '<header class="navbar" th:fragment="navbar">', why: 'Keeps the class for the CSS and adds the name the pages ask for.' },
+          ],
+          answer: 2,
+          checks: ['navbar'],
+          sources: [{ name: 'th:fragment', from: 'here', find: 'th:fragment="scripts"', note: 'The <script> at the bottom is a fragment already, named scripts.' }],
+          result: "Every page's <header th:replace=\"~{todos/base :: navbar}\"> becomes this header.",
+        },
       ],
     },
     {
@@ -1804,10 +2016,77 @@ JUnit's assertions check the results: \`assertEquals(expected, actual)\`, \`asse
       starter: SERVICE_TEST_STARTER,
       solution: SERVICE_TEST_SOLUTION,
       checks: [
-        { id: 'trimmed', name: 'The create test checks the title was trimmed', hint: 'assertEquals("Learn Spring Boot", saved.getTitle());', type: 'includes', value: 'assertEquals("Learn Spring Boot", saved.getTitle())' },
+        { id: 'trimmed', name: 'The create test checks the title was trimmed', hint: 'assertEquals("Learn Spring Boot", saved.getTitle()); with no spaces inside the quotes.', type: 'matches', value: /assertEquals\(\s*"Learn Spring Boot"\s*,\s*saved\.getTitle\(\)\s*\)/.source },
         { id: 'completed', name: 'The toggle test checks the todo is completed', hint: 'assertTrue(todo.isCompleted());', type: 'includes', value: 'assertTrue(todo.isCompleted())' },
         { id: 'saved', name: 'The toggle test checks the change was saved', hint: 'verify(todoRepository).save(todo);', type: 'includes', value: 'verify(todoRepository).save(todo)' },
         { id: 'throws', name: 'The delete test checks a missing todo throws', hint: 'assertThrows(ResourceNotFoundException.class, () -> todoService.deleteTodo(99L));', type: 'matches', value: /assertThrows\(\s*ResourceNotFoundException\.class\s*,\s*\(\)\s*->\s*todoService\.deleteTodo\(\s*99L\s*\)\s*\)/.source },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: 'Assert the saved title is "Learn Spring Boot", without the spaces.',
+          options: [
+            { code: 'assertEquals("  Learn Spring Boot  ", saved.getTitle());', why: 'That expects the spaces to survive. createTodo trims them, so this test fails on correct code.' },
+            { code: 'assertEquals("Learn Spring Boot", request.getTitle());', why: 'request still holds what the user typed, spaces included. The trimmed title is on saved, the Todo the service built.' },
+            { code: 'assertEquals("Learn Spring Boot", saved.getTitle());', why: 'Expected value first, then the actual one: the title of the Todo the service saved.' },
+          ],
+          answer: 2,
+          checks: ['trimmed'],
+          sources: [
+            { name: 'assertEquals', from: 'import', find: 'import static org.junit.jupiter.api.Assertions.assertEquals', note: 'From JUnit. A static import, so no class name is needed in front of it.' },
+            { name: 'saved', from: 'here', find: 'Todo saved = todoService.createTodo(request)', note: 'What createTodo returned: the fake save hands back whatever it was given.' },
+            { name: 'getTitle', from: 'file', path: `${JAVA}/model/Todo.java`, find: 'public String getTitle()', note: "The entity's getter." },
+          ],
+          result: 'If it fails, JUnit stops the test and prints both values: expected, then what it got.',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Assert the todo is now completed.',
+          options: [
+            { code: 'assertTrue(todo.isCompleted());', why: 'The todo started as not completed. After one toggle it must be.' },
+            { code: 'assertTrue(todo.completed);', why: "completed is private in Todo. Outside the class you go through its getter, isCompleted(): this does not compile." },
+            { code: 'assertFalse(todo.isCompleted());', why: 'The todo started as false. A toggle makes it true, so this fails on correct code.' },
+          ],
+          answer: 0,
+          checks: ['completed'],
+          sources: [
+            { name: 'assertTrue', from: 'import', find: 'import static org.junit.jupiter.api.Assertions.assertTrue', note: 'From JUnit, imported at the top.' },
+            { name: 'todo', from: 'here', find: 'Todo todo = new Todo("Learn JPA", false)', note: 'The fake findById hands this exact object to the service.' },
+            { name: 'isCompleted', from: 'file', path: `${JAVA}/model/Todo.java`, find: 'public boolean isCompleted()', note: "The entity's getter for a boolean: is, not get." },
+          ],
+        },
+        {
+          marker: 'TODO 3:',
+          goal: 'Verify the repository saved that same todo.',
+          options: [
+            { code: 'verify(todoRepository).save(any());', why: 'It passes for any object at all, even a brand-new Todo. Name the todo you expect.' },
+            { code: 'verify(todoRepository).save(todo);', why: 'Passes only if save was called with this exact todo, the one findById returned.' },
+            { code: 'verify(todoRepository.save(todo));', why: 'verify takes the mock first: verify(todoRepository).save(todo). Here save runs first, and Mockito fails because what verify got is not a mock.' },
+          ],
+          answer: 1,
+          checks: ['saved'],
+          sources: [
+            { name: 'verify', from: 'import', find: 'import static org.mockito.Mockito.verify', note: 'From Mockito, imported at the top.' },
+            { name: 'todoRepository', from: 'here', find: 'private TodoRepository todoRepository', note: 'The fake made by @Mock, the same one @InjectMocks handed to the service.' },
+          ],
+        },
+        {
+          marker: 'TODO 4:',
+          goal: 'Assert deleteTodo(99L) throws ResourceNotFoundException.',
+          options: [
+            { code: 'todoService.deleteTodo(99L);', why: 'Nothing catches the exception, so the test ends here and JUnit reports an error, not a pass.' },
+            { code: 'assertThrows(ResourceNotFoundException.class, todoService.deleteTodo(99L));', why: 'Without () ->, Java runs deleteTodo(99L) before assertThrows can catch anything, and a void call is no lambda: this does not compile.' },
+            { code: 'assertThrows(ResourceNotFoundException.class, () -> todoService.deleteTodo(99L));', why: '() -> wraps the call in a lambda, so it runs inside assertThrows, which passes only if that exception is thrown.' },
+          ],
+          answer: 2,
+          checks: ['throws'],
+          sources: [
+            { name: 'assertThrows', from: 'import', find: 'import static org.junit.jupiter.api.Assertions.assertThrows', note: 'From JUnit, imported at the top.' },
+            { name: 'ResourceNotFoundException', from: 'file', path: `${JAVA}/exception/ResourceNotFoundException.java`, find: 'public class ResourceNotFoundException', note: 'Your exception from Service Forest, imported at the top.' },
+            { name: 'todoService', from: 'here', find: 'private TodoService todoService', note: 'The real service, built by @InjectMocks with the fake repository.' },
+          ],
+          result: 'Proves a missing todo fails clearly. The next line checks nothing was deleted.',
+        },
       ],
     },
     {

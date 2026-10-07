@@ -24,6 +24,7 @@ import { runChecks, type CheckResult } from '@/lib/journeys/checks'
 import { termsFor } from '@/lib/journeys/glossary'
 import { matchesStep } from '@/lib/journeys/commands'
 import { draftFromSolution, readDraft, submissionOf, type LevelDraft } from '@/lib/journeys/draft'
+import { fillGap, gapFilled, gapLine } from '@/lib/journeys/gaps'
 import { indexProgress, isUnlocked, levelStars, playerLevelFor, postFor, xpFor } from '@/lib/journeys/progress'
 import { buildOrder, filesBefore, layer, outputOf, type WorkspaceFile } from '@/lib/journeys/snapshot'
 import { kindLabels, tracks, type CommandStep, type Level, type LevelProgress, type Project, type Solution, type Submission } from '@/lib/journeys/types'
@@ -33,17 +34,18 @@ import { useLearnerFiles } from '@/lib/use-learner-files'
 import { loginHref } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { SoundToggle } from '@/components/ui/sound'
+import { SoundToggle, useSound } from '@/components/ui/sound'
 import { BlockCard, BlockPalette, codeSnippet } from '../ide/block-palette'
 import type { Problem, SlotGuideRow } from '../ide/bottom-panel'
 import { ChallengeEditor, FileView, type SlotStatus } from '../ide/code-editor'
 import { FileIcon, languageFor } from '../ide/code'
-import { EditableCode } from '../ide/editable-code'
+import { EditableCode, type LineReveal } from '../ide/editable-code'
 import { FileExplorer } from '../ide/file-explorer'
 import { GithubPanel, type GithubRepo } from '../ide/github-panel'
 import { Sash } from '../ide/sash'
 import { Terminal, type TerminalLine } from '../ide/terminal'
 import { FlowBoard } from './flow-board'
+import { GapList, type GapState } from './gap-list'
 import { JourneyPanel, type FlowContext, type JourneyTab } from './journey-panel'
 import { Celebration } from '@/components/effects/celebration'
 import { CommandSteps, CompletionCard, HintNote, HowToPlay, howToPlay, MissionHeader, MissionSection, NewFiles, PassedCard, QuizCard, TestList } from './mission'
@@ -217,6 +219,20 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const [code, setCode] = useState(starter)
   const [results, setResults] = useState<CheckResult[] | null>(null)
 
+  // edit with gaps: every TODO offered as three choices, one of them right
+  const gaps = useMemo(() => (level.kind === 'edit' ? (level.gaps ?? []) : []), [level])
+  const [gapMisses, setGapMisses] = useState<number[][]>(() => gaps.map(() => []))
+  // The gap card the learner opened (-1: none); null follows the first gap still to fill.
+  const [activeGap, setActiveGap] = useState<number | null>(null)
+  // Lines to flash and scroll to: a gap just filled, or where Go to definition landed.
+  const [reveal, setReveal] = useState<(LineReveal & { path: string }) | null>(null)
+  const gapStates = useMemo<GapState[]>(
+    () => (level.kind === 'edit' ? gaps.map((gap) => ({ filled: gapFilled(code, level.path, gap, level.checks), line: gapLine(code, gap) })) : []),
+    [gaps, code, level],
+  )
+  const openGap = activeGap ?? gapStates.findIndex((state) => !state.filled)
+  const { play } = useSound()
+
   // build
   const order = useMemo(() => (level.kind === 'build' ? buildOrder(level) : []), [level])
   const [slots, setSlots] = useState<(string | null)[]>(() => Array(order.length).fill(null))
@@ -357,6 +373,51 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     const remaining = tabs.filter((item) => item !== tab)
     setTabs(remaining)
     if (activeTab === tab) setActiveTab(remaining[Math.max(0, tabs.indexOf(tab) - 1)] ?? null)
+  }
+
+  // ---- gaps ------------------------------------------------------------------
+  /** Opens a gap card (or closes the open one) and shows its TODO line in the editor. */
+  const showGap = (index: number, fromEditor = false) => {
+    if (level.kind !== 'edit') return
+    if (openGap === index && !fromEditor) return setActiveGap(-1)
+    setActiveGap(index)
+    const line = gapStates[index]?.line ?? -1
+    if (line >= 0) {
+      openFile(level.path)
+      setReveal({ path: level.path, line: line + 1, span: gaps[index].span ?? 1, key: Date.now() })
+    }
+    if (fromEditor) {
+      setMissionOpen(true)
+      window.requestAnimationFrame(() => document.getElementById(`gap-card-${index}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+    }
+  }
+
+  /** A wrong pick is crossed out with its reason; the right one is written over the TODO line. */
+  const pickGap = (index: number, choice: number) => {
+    const gap = gaps[index]
+    if (!gap || level.kind !== 'edit' || phase !== 'playing') return
+    if (choice !== gap.answer) {
+      setWrong((count) => count + 1)
+      setGapMisses((current) => current.map((tried, at) => (at === index && !tried.includes(choice) ? [...tried, choice] : tried)))
+      play('error')
+      return
+    }
+    const line = gapLine(code, gap)
+    const filled = fillGap(code, gap, choice)
+    if (filled === null) return
+    setCode(filled)
+    play('success')
+    openFile(level.path)
+    setReveal({ path: level.path, line: line + 1, span: gap.options[choice].code.split('\n').length, key: Date.now() })
+    const unfilled = gaps.map((other, at) => (at !== index && !gapFilled(filled, level.path, other, level.checks) ? at : -1)).filter((at) => at >= 0)
+    setActiveGap(unfilled.find((at) => at > index) ?? unfilled[0] ?? null)
+  }
+
+  /** Go to definition: opens the file and flashes the line. */
+  const goToLine = (path: string, line: number) => {
+    if (!allFiles.has(path)) return
+    openFile(path)
+    setReveal({ path, line, span: 1, key: Date.now() })
   }
 
   // New File / New Folder in the explorer. A new file opens straight away, like in VS Code.
@@ -544,6 +605,16 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
       }
       case 'edit':
       case 'bugfix': {
+        const gapIndex = gapStates.findIndex((state) => !state.filled)
+        if (gapIndex >= 0) {
+          const gap = gaps[gapIndex]
+          if (nextLevel === 1) {
+            const failing = runChecks(code, level.path, level.checks.filter((check) => gap.checks.includes(check.id))).find((result) => !result.passed)
+            return `Gap ${gapIndex + 1}: ${gap.goal}${failing ? ` ${failing.hint}` : ''}`
+          }
+          const left = gap.options.filter((_, choice) => choice !== gap.answer && !(gapMisses[gapIndex] ?? []).includes(choice)).length
+          return left > 0 ? `Gap ${gapIndex + 1}: one wrong choice is crossed out.` : `Gap ${gapIndex + 1}: only the right choice is left. Pick it.`
+        }
         const outcome = runChecks(code, level.path, level.checks)
         const failing = outcome.find((result) => !result.passed)
         return failing ? `${failing.name}: ${failing.hint}` : 'Every check passes. Run the tests to finish the level.'
@@ -581,6 +652,14 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
       if (position >= 0 && nextLevel > 1) {
         moveBlock(order[position], position)
         setHinted((current) => new Set(current).add(position))
+      }
+    } else if (level.kind === 'edit' && gaps.length) {
+      const gapIndex = gapStates.findIndex((state) => !state.filled)
+      const gap = gaps[gapIndex]
+      if (gap) {
+        setActiveGap(gapIndex)
+        const wrongChoice = gap.options.findIndex((_, choice) => choice !== gap.answer && !(gapMisses[gapIndex] ?? []).includes(choice))
+        if (nextLevel > 1 && wrongChoice >= 0) setGapMisses((current) => current.map((tried, at) => (at === gapIndex ? [...tried, wrongChoice] : tried)))
       }
     } else if (level.kind === 'architecture') {
       const position = arrangement.findIndex((id, at) => id !== level.nodes[at].id)
@@ -675,6 +754,9 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     setEnv(startEnv)
     setCode(starter)
     setResults(null)
+    setGapMisses(gaps.map(() => []))
+    setActiveGap(null)
+    setReveal(null)
     setSlots(Array(order.length).fill(null))
     setBuildChecked(false)
     setHinted(new Set())
@@ -690,6 +772,13 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   // this browser. On load the newer copy wins; a level passed before, with no draft, shows the
   // learner's saved solution.
   const [draftReady, setDraftReady] = useState(preview)
+  // A gap level opens scrolled to the first gap still to fill, which may sit far down the file.
+  useEffect(() => {
+    if (!draftReady || level.kind !== 'edit') return
+    const index = gapStates.findIndex((state) => !state.filled)
+    const line = gapStates[index]?.line ?? -1
+    if (line >= 0) setReveal({ path: level.path, line: line + 1, span: gaps[index].span ?? 1, key: Date.now() })
+  }, [level.id, draftReady]) // eslint-disable-line react-hooks/exhaustive-deps
   const draftOwner = signedIn ? (session.user?.id ?? 'me') : 'guest'
   const localKey = localDraftKey(draftOwner, project.id, level.id)
   const lastSaved = useRef<string | null>(null)
@@ -705,13 +794,13 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         return { ...base, typed }
       case 'edit':
       case 'bugfix':
-        return { ...base, code }
+        return { ...base, code, ...(gaps.length ? { gapMisses } : {}) }
       case 'build':
         return { ...base, slots, hinted: [...hinted] }
       case 'architecture':
         return { ...base, arrangement }
     }
-  }, [level.kind, phase, wrong, hints, hintLevel, opened, answer, eliminated, typed, code, slots, hinted, arrangement])
+  }, [level.kind, phase, wrong, hints, hintLevel, opened, answer, eliminated, typed, code, gaps.length, gapMisses, slots, hinted, arrangement])
 
   /** Rebuilds the terminal, folder and prompt from the commands of finished steps. */
   const replayCommands = (commands: string[]) => {
@@ -759,6 +848,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
       case 'edit':
       case 'bugfix':
         if (typeof draft.code === 'string') setCode(draft.code)
+        if (draft.gapMisses) setGapMisses(draft.gapMisses)
         break
       case 'build':
         if (draft.slots) setSlots(draft.slots)
@@ -1075,10 +1165,19 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
       value={code}
       language={languageFor(activeFile.path)}
       about={activeFile.about}
-      instruction={level.kind === 'bugfix' ? 'Find and fix the bugs, then run the tests.' : 'Complete the TODOs, then run the tests.'}
+      instruction={
+        level.kind === 'bugfix'
+          ? 'Find and fix the bugs, then run the tests.'
+          : gaps.length
+            ? `Fill the ${gaps.length} numbered gap${gaps.length > 1 ? 's' : ''}: pick the code under MISSING CODE on the right, or type it over the TODO. Then run the tests.`
+            : 'Complete the TODOs, then run the tests.'
+      }
       readOnly={passed}
       onChange={setCode}
       onSave={runTests}
+      marks={gaps.flatMap((gap, index) => (gapStates[index] && !gapStates[index].filled && gapStates[index].line >= 0 ? [{ line: gapStates[index].line + 1, span: gap.span ?? 1, label: String(index + 1), active: index === openGap }] : []))}
+      onMark={(label) => showGap(Number(label) - 1, true)}
+      reveal={reveal?.path === activeFile.path ? reveal : null}
     />
   ) : activeFile && level.kind === 'build' && activeFile.path === level.path ? (
     <ChallengeEditor
@@ -1108,7 +1207,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
       onChange={(value) => learnerFiles.write(activeFile.path, value)}
     />
   ) : activeFile ? (
-    <FileView file={activeFile} language={languageFor(activeFile.path)} />
+    <FileView file={activeFile} language={languageFor(activeFile.path)} reveal={reveal?.path === activeFile.path ? reveal : null} />
   ) : (
     <div className="grid h-full min-h-60 place-items-center p-6 text-center text-[13px] text-(--ide-dim)">
       <div>
@@ -1436,7 +1535,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                   )}
                   {!passed && (
                     <MissionSection title="HOW TO PLAY" storageKey="how-to-play">
-                      <HowToPlay steps={howToPlay(level.kind, level.kind === 'explore' && !!level.quiz)} />
+                      <HowToPlay steps={howToPlay(level.kind, level.kind === 'explore' && !!level.quiz, gaps.length > 0)} />
                     </MissionSection>
                   )}
                   {!passed && !hintNote && (
@@ -1469,7 +1568,8 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                       onClose={() => setHintNote(null)}
                       onNextHint={
                         (level.kind === 'command' && hintLevel === 1) ||
-                        (level.kind === 'build' && hintLevel === 1)
+                        (level.kind === 'build' && hintLevel === 1) ||
+                        (level.kind === 'edit' && gaps.length > 0 && hintLevel === 1)
                           ? () => { giveHint() }
                           : undefined
                       }
@@ -1504,6 +1604,25 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
 
                   {isCodeLevel(level) && (
                     <>
+                      {level.kind === 'edit' && gaps.length > 0 && (
+                        <MissionSection title={`MISSING CODE ${gapStates.filter((state) => state.filled).length}/${gaps.length}`}>
+                          <GapList
+                            gaps={gaps}
+                            states={gapStates}
+                            open={openGap}
+                            misses={gapMisses}
+                            locked={phase !== 'playing'}
+                            levelPath={level.path}
+                            language={languageFor(level.path)}
+                            code={code}
+                            fileContent={(path) => allFiles.get(path)?.content}
+                            onActivate={(index) => showGap(index)}
+                            onPick={pickGap}
+                            onGoTo={goToLine}
+                            onRunTests={runTests}
+                          />
+                        </MissionSection>
+                      )}
                       <MissionSection title="LESSON">
                         <LessonText text={level.lesson} className="text-[12px] leading-5 text-(--ide-fg)" />
                       </MissionSection>

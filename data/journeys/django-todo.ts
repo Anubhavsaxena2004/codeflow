@@ -288,8 +288,8 @@ urlpatterns = [
 `
 
 const URLS_STARTER = `${URLS_HEAD}
+# TODO 1: import include from django.urls as well, on the line below
 from django.urls import path
-# TODO 1: import include from django.urls as well
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -1007,7 +1007,7 @@ Notice what is missing: no forms.py, no urls.py, no templates. startapp gives yo
 Add \`'todos'\` to the end of the list. (The longer form \`'todos.apps.TodosConfig'\` works too.)`,
       path: 'config/settings.py',
       about: 'Every setting of the site: installed apps, database, templates, middleware.',
-      starter: SETTINGS,
+      starter: SETTINGS.replace("    'django.contrib.staticfiles',\n]", "    'django.contrib.staticfiles',\n    # TODO: add the todos app, so Django loads it\n]"),
       solution: SETTINGS_WITH_APP,
       checks: [
         {
@@ -1018,6 +1018,24 @@ Add \`'todos'\` to the end of the list. (The longer form \`'todos.apps.TodosConf
           value: /INSTALLED_APPS\s*=\s*\[[^\]]*["'](?:todos|todos\.apps\.TodosConfig)["']/.source,
         },
         { id: 'builtins', name: "Django's built-in apps are still installed", hint: 'Only add a line: the admin, auth and other built-in apps must stay.', type: 'includes', value: "'django.contrib.admin'," },
+      ],
+      gaps: [
+        {
+          marker: 'TODO: add the todos app',
+          goal: 'Add the todos app to the end of INSTALLED_APPS.',
+          options: [
+            { code: 'todos,', why: "Without quotes, Python looks for a variable named todos, and settings.py stops with NameError: name 'todos' is not defined." },
+            { code: "'todos/',", why: "INSTALLED_APPS takes Python module names, not folder paths. Django stops with ModuleNotFoundError: No module named 'todos/'." },
+            { code: "'todos',", why: "The app's name, as text, like every other entry in the list. Django finds todos/apps.py and loads the app." },
+          ],
+          answer: 2,
+          checks: ['installed'],
+          sources: [
+            { name: 'todos', from: 'file', path: 'todos/apps.py', find: "name = 'todos'", note: 'The app you made with startapp. Its apps.py names it todos.' },
+            { name: 'INSTALLED_APPS', from: 'here', find: 'INSTALLED_APPS = [', note: "Django's list of apps to load, written by startproject. Only add a line." },
+          ],
+          result: 'Django now loads the app: makemigrations finds its models, and later Django finds its templates and static files.',
+        },
       ],
     },
 
@@ -1132,6 +1150,54 @@ List the fields one by one. \`fields = '__all__'\` would let anyone who edits th
         { id: 'model', name: 'The form saves Todo rows', hint: 'Inside class Meta: model = Todo', type: 'matches', value: /class\s+Meta\s*:[\s\S]*?\bmodel\s*=\s*Todo\b/.source },
         { id: 'fields', name: 'Only the title can be filled in', hint: "fields = ['title']. Never '__all__': list each field on purpose.", type: 'matches', value: /\bfields\s*=\s*[[(]\s*["']title["']\s*,?\s*[\])]/.source },
       ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: 'Import the Todo model from models.py, in this same app.',
+          options: [
+            { code: 'from models import Todo', why: 'Without the dot, Python looks for a top-level module called models, finds none, and stops with ModuleNotFoundError.' },
+            { code: 'from .models import Todo', why: 'The dot means "this app": todos/models.py. Todo is now a name you can use in this file.' },
+            { code: 'import Todo', why: 'Todo is a class inside models.py, not a module of its own. Python needs the file it lives in.' },
+          ],
+          answer: 1,
+          checks: ['import'],
+          sources: [
+            { name: 'Todo', from: 'file', path: 'todos/models.py', find: 'class Todo(models.Model)', note: 'The model you fixed in the Database Dungeon.' },
+            { name: 'forms', from: 'import', find: 'from django import forms', note: "Django's forms package, imported on line 1. ModelForm comes from it." },
+          ],
+          result: 'Todo becomes a name in this file, so class Meta can point at it.',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Tell the form which model it saves.',
+          options: [
+            { code: "model = 'Todo'", why: "That is the text 'Todo', not the class. Django needs the class itself and fails: 'str' object has no attribute '_meta'." },
+            { code: 'models = Todo', why: 'The option is model, singular. Django ignores the unknown name and refuses: ModelForm has no model class specified.' },
+            { code: 'model = Todo', why: 'The class you imported. Django reads its fields, and their rules, from here.' },
+          ],
+          answer: 2,
+          checks: ['model'],
+          sources: [
+            { name: 'Todo', from: 'import', find: 'from .models import Todo', note: 'Imported in gap 1, from todos/models.py.' },
+            { name: 'class Meta', from: 'here', find: 'class Meta:', note: 'Options for the form. A ModelForm reads model and fields from here.' },
+          ],
+          result: 'TodoForm(request.POST).save() will create a Todo row.',
+        },
+        {
+          marker: 'TODO 3:',
+          span: 2,
+          goal: 'List the fields people may fill in: only title.',
+          options: [
+            { code: "fields = ['title']", why: 'A list with one field: the form draws one input, named title, and accepts nothing else.' },
+            { code: "fields = 'title'", why: "A plain string is not a list. Django refuses: TodoForm.Meta.fields cannot be a string. Did you mean to type: ('title',)?" },
+            { code: "fields = '__all__'", why: 'Every field becomes editable, completed included, so anyone who edits the HTML can post completed=True. List fields on purpose.' },
+          ],
+          answer: 0,
+          checks: ['fields'],
+          sources: [{ name: 'title', from: 'file', path: 'todos/models.py', find: 'title = models.CharField', note: 'The column in models.py. The form takes its max_length=200 rule from here.' }],
+          result: 'todo_create can now trust form.is_valid(): only a valid title gets through.',
+        },
+      ],
     },
     {
       id: 'create-view',
@@ -1186,6 +1252,51 @@ The name matters: templates ask for \`{% url 'todo_list' %}\` and views for \`re
         { id: 'toggle', name: '/toggle/<pk>/ goes to todo_toggle', hint: "The id is part of the path: path('toggle/<int:pk>/', views.todo_toggle, name='todo_toggle'),", type: 'includes', value: "path('toggle/<int:pk>/', views.todo_toggle, name='todo_toggle')" },
         { id: 'delete', name: '/delete/<pk>/ goes to todo_delete', hint: "path('delete/<int:pk>/', views.todo_delete, name='todo_delete'),", type: 'includes', value: "path('delete/<int:pk>/', views.todo_delete, name='todo_delete')" },
       ],
+      gaps: [
+        {
+          marker: "TODO: 'add/'",
+          goal: '/add/ goes to views.todo_create, named todo_create.',
+          options: [
+            { code: "path('add/', views.todo_create(), name='todo_create'),", why: 'The parentheses call the view now, while the URLs load, with no request. Pass the function: views.todo_create.' },
+            { code: "path('add/', views.todo_create, name='todo_create'),", why: 'The path, the view function itself, and a name for templates to link to.' },
+            { code: "path('/add/', views.todo_create, name='todo_create'),", why: "Django paths never start with a slash: this one would only match //add/, and Django warns about it." },
+          ],
+          answer: 1,
+          checks: ['add'],
+          sources: [
+            { name: 'path', from: 'import', find: 'from django.urls import path', note: "Django's function for one URL pattern, imported on line 1." },
+            { name: 'views', from: 'import', find: 'from . import views', note: "This app's views.py, imported as a module: views.todo_create is a function inside it." },
+            { name: 'todo_create', from: 'file', path: 'todos/views.py', find: 'def todo_create(request)', note: 'The view you built in Build todo_create.' },
+          ],
+          result: "Templates link to it with {% url 'todo_create' %}, and Django writes /add/.",
+        },
+        {
+          marker: "TODO: 'toggle",
+          goal: '/toggle/<id>/ goes to views.todo_toggle, named todo_toggle.',
+          options: [
+            { code: "path('toggle/<pk>/', views.todo_toggle, name='todo_toggle'),", why: 'Without int:, any text matches, so /toggle/abc/ reaches the view and crashes with a 500 instead of answering 404.' },
+            { code: "path('toggle/<int:id>/', views.todo_toggle, name='todo_toggle'),", why: "Django passes the captured value by its name. The view is todo_toggle(request, pk), so a capture named id fails: unexpected keyword argument 'id'." },
+            { code: "path('toggle/<int:pk>/', views.todo_toggle, name='todo_toggle'),", why: '<int:pk> captures a number and hands it to the view as pk: /toggle/3/ calls todo_toggle(request, pk=3).' },
+          ],
+          answer: 2,
+          checks: ['toggle'],
+          sources: [{ name: 'todo_toggle', from: 'file', path: 'todos/views.py', find: 'def todo_toggle(request, pk)', note: 'Its second parameter is called pk, so the capture must be called pk too.' }],
+          result: 'Django calls todo_toggle(request, pk=3) for a POST to /toggle/3/.',
+        },
+        {
+          marker: "TODO: 'delete",
+          goal: '/delete/<id>/ goes to views.todo_delete, named todo_delete.',
+          options: [
+            { code: "path('delete/<int:pk>/', views.todo_delete, name='todo_delete'),", why: 'Same shape as toggle, with its own view and its own name.' },
+            { code: "path('delete/<int:pk>/', views.todo_toggle, name='todo_delete'),", why: 'Delete would toggle instead. Each path needs its own view.' },
+            { code: "path('delete/<int:pk>/', views.todo_delete),", why: "Without a name, {% url 'todo_delete' todo.id %} in the list page fails with NoReverseMatch." },
+          ],
+          answer: 0,
+          checks: ['delete'],
+          sources: [{ name: 'todo_delete', from: 'file', path: 'todos/views.py', find: 'def todo_delete(request, pk)', note: 'Written for you in views.py, POST only.' }],
+          result: "The list page's Delete form posts to {% url 'todo_delete' todo.id %}, which becomes /delete/3/.",
+        },
+      ],
     },
     {
       id: 'project-urls',
@@ -1204,6 +1315,41 @@ The name matters: templates ask for \`{% url 'todo_list' %}\` and views for \`re
         { id: 'import', name: 'include is imported', hint: 'from django.urls import include, path', type: 'matches', value: /from\s+django\.urls\s+import\s+[\w\s,()]*\binclude\b/.source },
         { id: 'mount', name: 'The todos app answers at the site root', hint: "Add path('', include('todos.urls')), to urlpatterns.", type: 'includes', value: "path('', include('todos.urls'))" },
         { id: 'admin', name: 'The admin site is still there', hint: "Only add a line: keep path('admin/', admin.site.urls).", type: 'includes', value: "path('admin/', admin.site.urls)" },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          span: 2,
+          goal: 'Import include from django.urls, next to path.',
+          options: [
+            { code: 'import include', why: "include is not a module: it lives in django.urls. Python stops with ModuleNotFoundError, and path is no longer imported either." },
+            { code: 'from django import include, path', why: "Both live in django.urls, not at the top of the django package: ImportError: cannot import name 'include' from 'django'." },
+            { code: 'from django.urls import include, path', why: 'One import line can bring several names from the same module.' },
+          ],
+          answer: 2,
+          checks: ['import'],
+          sources: [
+            { name: 'include', from: 'import', note: 'Django\'s function that hands a whole URL table to another urls.py. It lives in django.urls, next to path.' },
+            { name: 'path', from: 'import', find: 'from django.urls import path', note: 'Already imported on the next line. Keep it.' },
+          ],
+          result: 'include can now be used in urlpatterns, below.',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: "Send every other URL to the todos app's urls.py, mounted at the site root.",
+          options: [
+            { code: "path('', include(todos.urls)),", why: 'Without quotes, Python looks for a variable named todos and stops with NameError. include takes the module name as text.' },
+            { code: "path('', include('todos.urls')),", why: "'' mounts it at the root, and 'todos.urls' names the module todos/urls.py." },
+            { code: "path('todos/', include('todos.urls')),", why: "Then the list lives at /todos/ and the form at /todos/add/, and the home page, /, answers 404." },
+          ],
+          answer: 1,
+          checks: ['mount'],
+          sources: [
+            { name: 'include', from: 'import', find: 'import include', note: 'Imported in gap 1.' },
+            { name: 'todos.urls', from: 'file', path: 'todos/urls.py', find: 'urlpatterns = [', note: "The app's own URL table, from the last level." },
+          ],
+          result: "Django tries admin/ first. Everything else goes to todos/urls.py, where '' is the list and 'add/' is /add/.",
+        },
       ],
     },
     {
@@ -1299,6 +1445,53 @@ Static files need the \`static\` tag, which is not built in: \`{% load static %}
           value: /<link(?=[^>]*rel=["']stylesheet["'])(?=[^>]*href=["']\{%\s*static\s+["']todos\/css\/style\.css["']\s*%\}["'])[^>]*>/.source,
         },
         { id: 'content-block', name: 'Pages have a content block to fill', hint: 'Inside <main>: {% block content %} then {% endblock %}.', type: 'matches', value: /\{%\s*block\s+content\s*%\}[\s\S]*?\{%\s*endblock(?:\s+content)?\s*%\}/.source },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: 'Load the static tag library, on the very first line.',
+          options: [
+            { code: '{% load static %}', why: '{% load %} turns on a tag library for this template. static ships with Django but is off until you load it.' },
+            { code: '{% static %}', why: "That uses the tag before it exists. Django stops: Invalid block tag on line 1: 'static'. Did you forget to register or load this tag?" },
+            { code: "{% include 'static' %}", why: 'include pulls in another template, here one named static, which does not exist: TemplateDoesNotExist.' },
+          ],
+          answer: 0,
+          checks: ['load-static'],
+          sources: [
+            { name: 'static', from: 'builtin', note: 'A template tag library that ships with Django. Each template that uses {% static %} loads it.' },
+            { name: 'STATIC_URL', from: 'file', path: 'config/settings.py', find: "STATIC_URL = 'static/'", note: 'From settings.py: every static file URL starts with /static/.' },
+          ],
+          result: '{% static %} now works in the rest of this file: the stylesheet below and the script at the bottom.',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Link the stylesheet todos/css/style.css, its URL built by {% static %}.',
+          options: [
+            { code: '<link rel="stylesheet" href="/todos/css/style.css">', why: 'Static files are served under /static/, so this URL answers 404. {% static %} writes the prefix for you.' },
+            { code: "<script src=\"{% static 'todos/css/style.css' %}\"></script>", why: 'A script tag runs JavaScript. CSS needs <link rel="stylesheet">.' },
+            { code: "<link rel=\"stylesheet\" href=\"{% static 'todos/css/style.css' %}\">", why: 'The path inside static/, and {% static %} turns it into /static/todos/css/style.css.' },
+          ],
+          answer: 2,
+          checks: ['stylesheet'],
+          sources: [
+            { name: '{% static %}', from: 'here', find: '{% load static %}', note: 'Loaded in gap 1.' },
+            { name: 'style.css', from: 'file', note: 'The stylesheet you meet in the next level. It lives in todos/static/todos/css/.' },
+          ],
+          result: 'Every page that extends base.html gets <link href="/static/todos/css/style.css">, and the browser loads it.',
+        },
+        {
+          marker: 'TODO 3:',
+          goal: 'Leave an empty block named content, for each page to fill.',
+          options: [
+            { code: '{% block content %}', why: "Every block needs its end tag. Without {% endblock %}, Django stops: Unclosed tag on line 16: 'block'." },
+            { code: '{% block content %}\n{% endblock %}', why: 'A named hole. A page that extends base.html puts its own HTML in it.' },
+            { code: '{% content %}', why: "There is no content tag: Django stops with Invalid block tag 'content'. Holes are made with block." },
+          ],
+          answer: 1,
+          checks: ['content-block'],
+          sources: [{ name: 'block', from: 'here', find: '{% block title %}', note: 'The <title> line already has one: a block named title, with a default.' }],
+          result: "todo_list.html and todo_form.html start with {% extends 'todos/base.html' %} and fill this block.",
+        },
       ],
     },
     {
@@ -1424,6 +1617,68 @@ Fill in the four missing assertions.`,
         { id: 'redirects', name: 'The create test checks the redirect to the list', hint: "self.assertRedirects(response, reverse('todo_list'))", type: 'matches', value: /self\.assertRedirects\(\s*response\s*,\s*(?:reverse\(\s*["']todo_list["']\s*\)|["']\/["'])\s*\)/.source },
         { id: 'saved-one', name: 'The create test checks one todo was saved', hint: 'self.assertEqual(Todo.objects.count(), 1)', type: 'matches', value: /self\.assertEqual\(\s*Todo\.objects\.count\(\)\s*,\s*1\s*\)/.source },
         { id: 'saved-none', name: 'The empty-title test checks nothing was saved', hint: 'self.assertEqual(Todo.objects.count(), 0), or self.assertFalse(Todo.objects.exists())', type: 'matches', value: /self\.assertEqual\(\s*Todo\.objects\.count\(\)\s*,\s*0\s*\)|self\.assertFalse\(\s*Todo\.objects\.exists\(\)\s*\)/.source },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: "Check that the page contains 'Buy milk'.",
+          options: [
+            { code: "self.assertIn('Buy milk', response)", why: 'response is an object, not text. assertContains reads its HTML for you, and checks the status is 200 too.' },
+            { code: "self.assertContains(response, 'Buy milk')", why: 'Passes when the page answered 200 and its HTML contains the text.' },
+            { code: "assertContains(response, 'Buy milk')", why: 'assertContains is a method of TestCase, not a free function: NameError. Call it on self.' },
+          ],
+          answer: 1,
+          checks: ['contains'],
+          sources: [
+            { name: 'self', from: 'param', find: 'def test_list_shows_todos(self)', note: 'The test itself. TestCase gives it every assert method, and a fake browser: self.client.' },
+            { name: 'response', from: 'here', find: 'response = self.client.get', note: 'What the list page answered.' },
+            { name: 'assertContains', from: 'import', find: 'from django.test import TestCase', note: 'Comes with TestCase, imported on line 1.' },
+          ],
+          result: 'If the text is missing, the test fails and prints the page it got.',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Check that the response redirects to the list.',
+          options: [
+            { code: 'self.assertEqual(response.status_code, 200)', why: 'After a successful POST the view redirects, so the status is 302. 200 is what an invalid form gets.' },
+            { code: "self.assertRedirects(response, 'todo_list')", why: "'todo_list' is the URL's name, not the URL. reverse('todo_list') turns it into '/'." },
+            { code: "self.assertRedirects(response, reverse('todo_list'))", why: 'Checks for a 302 to the list, and that the list page itself works.' },
+          ],
+          answer: 2,
+          checks: ['redirects'],
+          sources: [
+            { name: 'reverse', from: 'import', find: 'from django.urls import reverse', note: "Imported on line 2: the Python version of {% url %}." },
+            { name: 'response', from: 'here', find: 'response = self.client.post', note: 'What POST /add/ answered.' },
+          ],
+        },
+        {
+          marker: 'TODO 3:',
+          goal: 'Check that exactly one todo is now in the database.',
+          options: [
+            { code: 'self.assertEqual(Todo.objects.count(), 1)', why: 'count() asks the test database how many rows the table has.' },
+            { code: 'self.assertEqual(Todo.objects.all(), 1)', why: 'all() is a QuerySet of rows, never equal to the number 1. Count them: count().' },
+            { code: 'self.assertEqual(Todo.count(), 1)', why: 'Queries go through the manager, Todo.objects. The model class itself has no count: AttributeError.' },
+          ],
+          answer: 0,
+          checks: ['saved-one'],
+          sources: [
+            { name: 'Todo', from: 'import', find: 'from .models import Todo', note: 'The model, imported on line 4.' },
+            { name: 'objects', from: 'builtin', note: 'Django gives every model a manager named objects: Todo.objects.count(), .all(), .create().' },
+          ],
+        },
+        {
+          marker: 'TODO 4:',
+          goal: 'Check that nothing was saved.',
+          options: [
+            { code: 'self.assertIsNone(Todo.objects)', why: 'Todo.objects is the manager, which always exists. Ask it how many rows there are: count().' },
+            { code: 'self.assertEqual(Todo.objects.count(), 0)', why: 'No rows: the empty title never reached the database.' },
+            { code: 'self.assertEqual(response.status_code, 302)', why: 'That checks the opposite: a redirect means the todo was saved. Here the form comes back with 200.' },
+          ],
+          answer: 1,
+          checks: ['saved-none'],
+          sources: [{ name: 'Todo', from: 'import', find: 'from .models import Todo', note: 'The model, imported on line 4.' }],
+          result: 'Together with the 200 above, this proves an empty title is turned back before it reaches the database.',
+        },
       ],
     },
     {

@@ -1,8 +1,35 @@
 'use client'
 
-import { useRef, type KeyboardEvent } from 'react'
+import { useEffect, useRef, type KeyboardEvent } from 'react'
 import { Info } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { CodeLines } from './code'
+
+/** A numbered badge in the gutter over a run of lines (1-based), e.g. a gap's TODO line. */
+export interface LineMark {
+  line: number
+  span: number
+  label: string
+  active: boolean
+}
+
+/** Lines to flash and scroll to (1-based). A new `key` replays it. */
+export interface LineReveal {
+  line: number
+  span: number
+  key: number
+}
+
+const LINE_HEIGHT = 20
+
+/** The bar that flashes over revealed lines, scrolled into view when it appears. */
+export function RevealBar({ reveal }: { reveal: LineReveal }) {
+  const bar = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    bar.current?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  }, [reveal.key])
+  return <div ref={bar} aria-hidden className="animate-file-in pointer-events-none absolute inset-x-0" style={{ top: (reveal.line - 1) * LINE_HEIGHT, height: reveal.span * LINE_HEIGHT }} />
+}
 
 /** Inserts text at the caret through the browser's editing pipeline, so Ctrl+Z still works. */
 function insertText(textarea: HTMLTextAreaElement, text: string) {
@@ -20,15 +47,19 @@ interface EditableCodeProps {
   onChange: (value: string) => void
   /** Ctrl/Cmd+S. */
   onSave?: () => void
+  marks?: LineMark[]
+  onMark?: (label: string) => void
+  reveal?: LineReveal | null
 }
 
 /**
  * A plain-textarea code editor: the highlighted code is drawn underneath and an invisible
  * textarea with the same metrics sits on top, so typing, selection and undo are native.
  */
-export function EditableCode({ value, language, about, instruction, readOnly, onChange, onSave }: EditableCodeProps) {
+export function EditableCode({ value, language, about, instruction, readOnly, onChange, onSave, marks = [], onMark, reveal }: EditableCodeProps) {
   const textarea = useRef<HTMLTextAreaElement>(null)
   const lineCount = value.split('\n').length
+  const markAt = new Map(marks.map((mark) => [mark.line, mark]))
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     const target = event.currentTarget
@@ -64,12 +95,43 @@ export function EditableCode({ value, language, about, instruction, readOnly, on
       </div>
       <div className="ide-mono flex py-2 text-[13px] leading-5" onClick={() => textarea.current?.focus()}>
         <div className="w-15 shrink-0 select-none pr-3 text-right text-(--ide-dim)">
-          {Array.from({ length: lineCount }, (_, index) => (
-            <div key={index} className="h-5">{index + 1}</div>
-          ))}
+          {Array.from({ length: lineCount }, (_, index) => {
+            const mark = markAt.get(index + 1)
+            return (
+              <div key={index} className="relative h-5">
+                {mark && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onMark?.(mark.label)
+                    }}
+                    aria-label={`Gap ${mark.label}: show what goes here`}
+                    title={`Gap ${mark.label}: show what goes here`}
+                    className={cn(
+                      'absolute left-1.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 font-sans text-[10px] font-bold leading-none',
+                      mark.active ? 'bg-(--ide-warning) text-(--ide-bg)' : 'bg-(--ide-warning)/25 text-(--ide-warning-soft) hover:bg-(--ide-warning)/40',
+                    )}
+                  >
+                    {mark.label}
+                  </button>
+                )}
+                {index + 1}
+              </div>
+            )
+          })}
         </div>
         <div className="relative min-w-0 flex-1 overflow-x-auto pl-3 pr-6">
           <div className="relative w-max min-w-full [tab-size:2]">
+            {marks.map((mark) => (
+              <div
+                key={`${mark.label}-${mark.line}`}
+                aria-hidden
+                className={cn('pointer-events-none absolute -left-3 right-0 border-l-2', mark.active ? 'border-(--ide-warning) bg-(--ide-warning)/15' : 'border-(--ide-warning)/40 bg-(--ide-warning)/7')}
+                style={{ top: (mark.line - 1) * LINE_HEIGHT, height: mark.span * LINE_HEIGHT }}
+              />
+            ))}
+            {reveal && <RevealBar key={reveal.key} reveal={reveal} />}
             <div aria-hidden className="pointer-events-none">
               <CodeLines code={value} language={language} />
             </div>

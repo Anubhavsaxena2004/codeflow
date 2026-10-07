@@ -118,7 +118,7 @@ export function MissionHeader({ place, kind, boss, title, summary, stars, worldC
 }
 
 /** What the learner has to do in a level of this kind, step by step. */
-export function howToPlay(kind: LevelKind, quiz: boolean): ReactNode[] {
+export function howToPlay(kind: LevelKind, quiz: boolean, gaps = false): ReactNode[] {
   switch (kind) {
     case 'explore':
       return [
@@ -134,6 +134,13 @@ export function howToPlay(kind: LevelKind, quiz: boolean): ReactNode[] {
         <>Stuck? Type <code className="ide-mono">hint</code> in the terminal, or press <b>Hint</b> at the top.</>,
       ]
     case 'edit':
+      if (gaps)
+        return [
+          <>Every <code className="ide-mono">TODO</code> in the file is a numbered gap. The number sits next to its line in the editor.</>,
+          <>Open a gap under <b>MISSING CODE</b>. It says what the code must do, where each name in it comes from, and where its result goes.</>,
+          <>Pick the right code out of three: it is written into the file. A wrong pick tells you why. You can also type the code yourself.</>,
+          <>When every gap is filled, press <b>Run tests</b>.</>,
+        ]
       return [
         <>The file to complete is open in the editor. Look for the <code className="ide-mono">TODO</code> comments.</>,
         <>Write the missing code right in the editor.</>,

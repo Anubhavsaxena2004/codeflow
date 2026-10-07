@@ -22,6 +22,8 @@ export interface LevelDraft {
   typed?: string[]
   /** edit / bugfix */
   code?: string
+  /** edit with gaps: the wrong options crossed out so far, per gap. */
+  gapMisses?: number[][]
   /** build: block id per slot. */
   slots?: (string | null)[]
   hinted?: number[]
@@ -77,6 +79,13 @@ export function readDraft(value: unknown, level: Level): LevelDraft | null {
     case 'edit':
     case 'bugfix':
       if (typeof raw.code === 'string') draft.code = raw.code
+      if (level.gaps) {
+        const misses = Array.isArray(raw.gapMisses) ? raw.gapMisses : []
+        draft.gapMisses = level.gaps.map((gap, index) => {
+          const tried = Array.isArray(misses[index]) ? (misses[index] as unknown[]) : []
+          return [...new Set(tried.filter((choice): choice is number => Number.isInteger(choice) && (choice as number) >= 0 && (choice as number) < gap.options.length && choice !== gap.answer))]
+        })
+      }
       break
     case 'build': {
       const order = buildOrder(level)

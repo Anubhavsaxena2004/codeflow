@@ -91,6 +91,18 @@ commenting a line out never passes a check; in `.html` files that means `<!-- --
 comments (`{# #}`, `{% comment %}`). Running real code (Jest, pytest) in a sandbox would be the next
 step up.
 
+**Gaps** (edit levels only) turn each TODO into a numbered gap with three versions of the code, exactly
+one right. Picking one writes it over the TODO line (`marker` is text on that line; `span` replaces
+more lines, for a TODO that sits above the line it changes). A wrong pick is crossed out with its `why`.
+Learners can still type the code themselves: a gap counts as filled when its `checks` pass, however
+the code got there. Each gap also says where every name in the right code comes from (`sources`, each
+`from` one of `import`, `here`, `file`, `param`, `command`, `builtin`; `find` is text on the defining
+line, which the workspace shows with a Go to definition jump) and where its result goes (`result`).
+Validation proves a gap is fair: its right option alone passes its checks, the right options together
+solve the level, each wrong option fails its gap, and any check no gap covers already passes in the
+starter. The bundled journeys give every TODO a gap, and the tests check every `find` lands on a real
+line.
+
 **Commands** match ignoring whitespace and quote style. `npm install`, `npm i` and `npm add` are
 interchangeable, so are `-D` and `--save-dev`, and package order doesn't matter (same for `pip install`).
 List alternatives such as `python`, `python3` and `py`, or OS-specific activation commands, in

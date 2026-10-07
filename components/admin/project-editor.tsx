@@ -500,6 +500,16 @@ function CodeFields({ level, onPatch }: { level: CodeLevel; onPatch: (patch: Par
         onChange={(checks) => onPatch({ checks: checks as CodeLevel['checks'] })}
         rows={14}
       />
+      {level.kind === 'edit' && (
+        <JsonField
+          key={`${level.id}-gaps`}
+          label="Gaps (optional): each TODO offered as three choices"
+          hint='[{ marker: text on the TODO line, span?, goal, options: three { code, why }, answer: 0–2, checks: [ids], sources: [{ name, from: "import" | "here" | "file" | "param" | "command" | "builtin", note, path?, find? }], result? }]. The right options together must solve the level, and every wrong option must fail its gap.'
+          value={level.gaps ?? []}
+          onChange={(gaps) => onPatch({ gaps: Array.isArray(gaps) && gaps.length ? (gaps as CodeLevel['gaps']) : undefined })}
+          rows={14}
+        />
+      )}
     </>
   )
 }

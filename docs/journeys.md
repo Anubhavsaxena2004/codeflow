@@ -7,7 +7,11 @@ does: `npm init -y` makes `package.json` appear, `django-admin startproject conf
 pushed to their own GitHub repo.
 
 - `lib/journeys/` is the engine: types, validation, checks, command matching, the file snapshot, XP and progress.
-- `data/journeys/` holds the journeys that ship with the code (`mern-todo.ts`, `django-todo.ts`).
+- `data/journeys/` holds the journeys that ship with the code: `mern-todo.ts` (React client + Express
+  API), `django-todo.ts` (a Django monolith: models, forms, views, templates and static files in one
+  project) and `spring-todo.ts` (a Spring Boot monolith: controller, service, repository, JPA on MySQL
+  and Thymeleaf pages, packaged as one JAR). All three run through the same six worlds, from setup to
+  the final architecture boss, and each project's README.md maps its whole scenario.
 - `app/admin/` and `components/admin/` hold the admin UI; `app/api/admin/` holds the admin API.
 - `components/journey/` is the learner workspace; `components/home/` is the map and profile.
 - `db/migrations/003_journeys.sql` holds the storage.
@@ -83,8 +87,9 @@ worlds in order.
 
 **Checks** are static tests on the code, not executed code: `includes` / `excludes` (whitespace and
 quote style don't matter) and `matches` / `notMatches` (a regex). Comments are stripped first, so
-commenting a line out never passes a check. Running real code (Jest, pytest) in a sandbox would be the
-next step up.
+commenting a line out never passes a check; in `.html` files that means `<!-- -->` and Django template
+comments (`{# #}`, `{% comment %}`). Running real code (Jest, pytest) in a sandbox would be the next
+step up.
 
 **Commands** match ignoring whitespace and quote style. `npm install`, `npm i` and `npm add` are
 interchangeable, so are `-D` and `--save-dev`, and package order doesn't matter (same for `pip install`).
@@ -93,8 +98,17 @@ List alternatives such as `python`, `python3` and `py`, or OS-specific activatio
 `cat`, `pwd`, `clear`, `hint` and `help`.
 
 **Files**: a path ending in `/` is an empty folder (`mkdir`). `generated: true` marks tool output
-(`node_modules/`, `venv/`, lock files): it is dimmed in the explorer and never pushed. A later level can
-replace a file, and the explorer marks it `M`; new files are marked `U`.
+(`node_modules/`, `venv/`, `__pycache__/`, lock files): it is dimmed in the explorer and never pushed. A
+later level can replace a file, and the explorer marks it `M`; new files are marked `U`.
+
+`unused: true` marks a file a setup command really makes but the project never uses: Vite's
+`App.css`, `assets/react.svg`, `README.md` and `eslint.config.js`; Django's `config/asgi.py` and
+`todos/admin.py`; Spring Initializr's `HELP.md`. Commands make exactly the files the real tool makes, so these still appear, but
+the explorer shows them with a lock: clicking one only explains it in ABOUT, `cat` says it is locked,
+explore levels never ask to open it, and the terminal lists it on a separate "not used" line. Unused
+files are still pushed to GitHub, because a real project has them too, unless they are also
+`generated`: Spring's `HELP.md` is in Initializr's own `.gitignore`, so it is both and never pushed. Never mark a file unused if a
+level edits it or an architecture stop points at it; the tests check this.
 
 ## Progress, profiles and GitHub
 

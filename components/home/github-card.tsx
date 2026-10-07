@@ -217,13 +217,22 @@ export function GithubCard({ signedIn, projects }: { signedIn: boolean; projects
       }}
     >
       <div className="flex items-center gap-2 text-sm font-bold"><KeyRound className="size-4 text-[#f59e0b]" /> Connect with a personal access token</div>
+      <p className="mt-2 text-[13px] leading-5 text-(--cf-muted)">
+        A token works like a password for <span className="font-semibold text-(--cf-text)">your own</span> GitHub account, so every learner creates their own. Never share it.
+      </p>
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-[13px] leading-5 text-(--cf-muted)">
         <li>
-          <a href={NEW_TOKEN_URL} target="_blank" rel="noreferrer" className="font-semibold text-[#2563eb] hover:underline dark:text-[#60a5fa]">Create a token on GitHub</a>. It opens with the <code className="rounded bg-(--cf-surface-2) px-1 text-[12px]">repo</code> scope ticked; pick an expiry.
+          Sign in to GitHub, then <a href={NEW_TOKEN_URL} target="_blank" rel="noreferrer" className="font-semibold text-[#2563eb] hover:underline dark:text-[#60a5fa]">create a token</a>. The page opens with a name and the <code className="rounded bg-(--cf-surface-2) px-1 text-[12px]">repo</code> scope already ticked; leave them.
         </li>
-        <li>Click <span className="font-semibold text-(--cf-text)">Generate token</span> and copy it. GitHub shows it only once.</li>
-        <li>Paste it below. It is encrypted before it is stored and only used to push your projects.</li>
+        <li>
+          <span className="font-semibold text-(--cf-text)">Expiration:</span> GitHub sets <span className="font-semibold text-(--cf-text)">30 days</span> by default, and pushes stop working when it runs out. Pick <span className="font-semibold text-(--cf-text)">90 days</span>, a <span className="font-semibold text-(--cf-text)">Custom</span> date, or <span className="font-semibold text-(--cf-text)">No expiration</span>.
+        </li>
+        <li>Scroll down, click <span className="font-semibold text-(--cf-text)">Generate token</span> and copy it (it starts with <code className="rounded bg-(--cf-surface-2) px-1 text-[12px]">ghp_</code>). GitHub shows it only once.</li>
+        <li>Paste it below and press Save token. It is encrypted before it is stored and only used to push your projects.</li>
       </ol>
+      <p className="mt-2 text-[12px] leading-5 text-(--cf-muted)">
+        Token expired? Pushes fail with &ldquo;expired or revoked&rdquo;. Create a new token the same way and save it here; your repositories stay linked.
+      </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <input
           type="password"

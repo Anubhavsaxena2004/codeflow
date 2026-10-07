@@ -3,12 +3,12 @@
 import { useEffect, useId, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Bug, Check, ChevronDown, Circle, Crosshair, Flame, House, LockKeyhole, LogOut, Menu, Network, PencilRuler, Puzzle, Shield, Skull, SquareTerminal, Star, Trophy, UserRound, X } from 'lucide-react'
+import { ArrowRight, BriefcaseBusiness, Bug, Check, ChevronDown, Crosshair, Flame, House, LockKeyhole, LogOut, Menu, Network, PencilRuler, Puzzle, Shield, Skull, SquareTerminal, Star, Trophy, UserRound, X } from 'lucide-react'
 import { kindIcons, Stars, worldThemes } from '@/components/journey/level-meta'
 import { Tilt } from '@/components/effects/tilt'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SoundToggle } from '@/components/ui/sound'
-import { achievementsFor, indexProgress, rankFor, streakDays, type Achievement } from '@/lib/journeys/progress'
+import { achievementsFor, indexProgress, playerLevelFor, postFor, streakDays, type Achievement } from '@/lib/journeys/progress'
 import { kindLabels, tracks, trackIds, type Track } from '@/lib/journeys/types'
 import type { ProjectSummary } from '@/lib/server/journeys'
 import { starsFor } from '@/lib/scoring'
@@ -20,7 +20,7 @@ import { JourneyMap } from './journey-map'
 import { QuestCard } from './quest-card'
 import { AchievementMedal } from './achievement-medal'
 import type { LevelState } from './world-map'
-import { GamePanel, GameButton, gameButtonClasses, Pill, SegmentedProgress, RankEmblem, StatTile, GameTooltip } from '@/components/ui/game'
+import { GamePanel, gameButtonClasses, LevelEmblem, Pill, SegmentedProgress, GameTooltip } from '@/components/ui/game'
 import { LoadingState, Skeleton, SkeletonText } from '@/components/ui/states'
 
 type IconType = ComponentType<{ className?: string }>
@@ -155,11 +155,15 @@ function Bar({ value, color = GREEN, className }: { value: number; color?: strin
   )
 }
 
-export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSummary[]; initialJourney: string | null }) {
-  const { session, track, setTrack, levels, challenges, ready } = useLearner()
+export function JourneyHome({ journeys, initialJourney, initialLevel = null }: { journeys: ProjectSummary[]; initialJourney: string | null; initialLevel?: string | null }) {
+  const { session, track, setTrack, trackLocked, levels, challenges, ready } = useLearner()
   const [picking, setPicking] = useState(false)
+  // A stack can only be chosen once, so the first pick waits for a confirmation.
+  const [pendingTrack, setPendingTrack] = useState<Track | null>(null)
+  const [trackError, setTrackError] = useState<string | null>(null)
   const [journeyId, setJourneyId] = useState<string | null>(initialJourney)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Coming back from a level (?level=) keeps that level selected on the map.
+  const [selectedId, setSelectedId] = useState<string | null>(initialLevel)
   const [focus, setFocus] = useState<{ worldId: string; nonce: number } | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -177,7 +181,8 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
   const selected = journey?.levels[selectedIndex]
 
   const totalXp = levels.reduce((sum, row) => sum + row.xp, 0)
-  const rank = rankFor(totalXp)
+  const playerLevel = playerLevelFor(totalXp)
+  const post = postFor(totalXp)
   const streak = streakDays(levels)
   const achievements = achievementsFor(journeys, levels)
   const earned = achievements.filter((item) => item.current >= item.target)
@@ -223,8 +228,11 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
     prevXpRef.current = totalXp
   }, [totalXp, ready])
 
-  const pickTrack = (next: Track) => {
-    void setTrack(next)
+  const pickTrack = async (next: Track) => {
+    setTrackError(null)
+    const error = await setTrack(next)
+    if (error) return setTrackError(error)
+    setPendingTrack(null)
     setPicking(false)
     setJourneyId(null)
     setSelectedId(null)
@@ -251,7 +259,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
       <NavLink href="/" icon={House} label="Home" active onClick={() => setMobileOpen(false)} />
       <NavLink href="/profile" icon={UserRound} label="Profile" onClick={() => setMobileOpen(false)} />
       {session.user?.isAdmin && <NavLink href="/admin" icon={Shield} label="Admin" onClick={() => setMobileOpen(false)} />}
-      <NavLink href="/mentor" icon={PencilRuler} label="Mentor mode" onClick={() => setMobileOpen(false)} />
+      {session.user?.isAdmin && <NavLink href="/mentor" icon={PencilRuler} label="Mentor mode" onClick={() => setMobileOpen(false)} />}
     </>
   )
 
@@ -415,24 +423,32 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
           </Link>
 
           {/* Desktop Journey heading */}
-          <div className="hidden lg:block">
-            <h1 className="text-xl font-extrabold font-display">Your coding journey</h1>
-            <p className="text-xs text-(--cf-muted)">Build real projects level by level, fix planted bugs, and push what you build to GitHub.</p>
+          <div className="hidden min-w-0 lg:block">
+            <h1 className="truncate text-xl font-extrabold font-display">Your coding journey</h1>
+            <p className="truncate text-xs text-(--cf-muted)">Build real projects level by level, fix planted bugs, and push what you build to GitHub.</p>
           </div>
 
           {/* Stack chip */}
-          {track && (
+          {track && (trackLocked ? (
+            <GameTooltip content="Your stack is chosen. Only an admin can change it." side="bottom">
+              <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-(--cf-border) bg-(--cf-surface) px-3 py-1.5 text-xs font-bold text-(--cf-text) shadow-xs">
+                <span className="size-2 rounded-full bg-[#22c55e]" aria-hidden="true" />
+                <span>{tracks[track].label} stack</span>
+                <LockKeyhole className="size-3 text-(--cf-muted)" aria-label="locked" />
+              </span>
+            </GameTooltip>
+          ) : (
             <button
               type="button"
               onClick={() => setPicking(true)}
-              className="group inline-flex items-center gap-1.5 rounded-full border border-(--cf-border) bg-(--cf-surface) px-3 py-1.5 text-xs font-bold text-(--cf-text) shadow-xs transition-all duration-[var(--dur-fast,160ms)] hover:-translate-y-[1px] hover:bg-(--cf-surface-2) active:translate-y-0"
-              title="Change your tech stack"
+              className="group inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-(--cf-border) bg-(--cf-surface) px-3 py-1.5 text-xs font-bold text-(--cf-text) shadow-xs transition-all duration-[var(--dur-fast,160ms)] hover:-translate-y-[1px] hover:bg-(--cf-surface-2) active:translate-y-0"
+              title="Change your tech stack (admin)"
             >
               <span className="size-2 rounded-full bg-[#22c55e]" aria-hidden="true" />
               <span>{tracks[track].label} stack</span>
               <ChevronDown className="size-3 text-(--cf-muted) transition-transform group-hover:translate-y-0.5" aria-hidden="true" />
             </button>
-          )}
+          ))}
 
           {/* Flexible space */}
           <div className="flex-1 min-w-2" />
@@ -447,7 +463,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
             >
               <span
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold select-none transition-colors',
+                  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold select-none transition-colors',
                   streak > 0
                     ? 'border-[#fed7aa] bg-[#fff7ed] text-[#c2410c] dark:border-[#f97316]/30 dark:bg-[#f97316]/15 dark:text-[#fdba74]'
                     : 'border-(--cf-border) bg-(--cf-surface) text-(--cf-muted)',
@@ -472,7 +488,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
             </GameTooltip>
           )}
 
-          {/* Rank and XP */}
+          {/* Level, post and XP */}
           {!ready ? (
             <div className="flex items-center gap-2">
               <Skeleton shape="circle" className="size-8 sm:size-10" />
@@ -483,19 +499,26 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
             </div>
           ) : (
             <div className="relative flex items-center gap-2">
-              <RankEmblem rank={rank.rank} size={40} className="hidden sm:inline-flex" />
-              <RankEmblem rank={rank.rank} size={32} className="sm:hidden" />
-              <div className="hidden sm:flex flex-col gap-0.5">
-                <div className="flex items-center justify-between text-[11px] font-semibold text-(--cf-muted)">
-                  <span className="font-display font-bold text-(--cf-text)">Rank <span className="num">{rank.rank}</span></span>
-                  <span className="num">{rank.into} / {rank.size} XP</span>
+              <LevelEmblem level={playerLevel.level} size={40} className="hidden sm:inline-flex" />
+              <LevelEmblem level={playerLevel.level} size={32} className="sm:hidden" />
+              <div className="hidden w-36 shrink-0 flex-col gap-0.5 sm:flex lg:w-[180px]">
+                <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-(--cf-muted)">
+                  <GameTooltip content={post.next ? `${post.toNext.toLocaleString()} XP to ${post.next.title}` : 'Top post reached'} side="bottom">
+                    <span className="flex min-w-0 items-center gap-1 font-display font-bold text-(--cf-text)">
+                      Lv <span className="num">{playerLevel.level}</span>
+                      <span className="text-(--cf-muted)">·</span>
+                      <BriefcaseBusiness className="size-3 shrink-0 text-(--cf-muted)" aria-hidden="true" />
+                      <span className="truncate">{post.title}</span>
+                    </span>
+                  </GameTooltip>
+                  <span className="num shrink-0">{playerLevel.into} / {playerLevel.size} XP</span>
                 </div>
                 <SegmentedProgress
-                  value={rank.into}
-                  max={rank.size}
+                  value={playerLevel.into}
+                  max={playerLevel.size}
                   segments={5}
                   tone="xp"
-                  label={`Rank ${rank.rank} progress`}
+                  label={`Level ${playerLevel.level} progress`}
                   className="w-36 lg:w-[180px]"
                 />
               </div>
@@ -544,7 +567,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
               </button>
             </span>
           ) : session.status === 'guest' ? (
-            <Link href="/login" className={primaryButton} style={{ background: GREEN }}>
+            <Link href="/login" className={cn(primaryButton, 'shrink-0 whitespace-nowrap')} style={{ background: GREEN }}>
               Sign in
             </Link>
           ) : null}
@@ -553,7 +576,7 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
           <div className="absolute inset-x-0 bottom-0 h-1 sm:hidden bg-(--cf-track) overflow-hidden" aria-hidden="true">
             <div
               className="h-full bg-gradient-to-r from-[#a855f7] to-[#6d28d9] transition-all duration-[var(--dur-count,900ms)] ease-[var(--ease-out)]"
-              style={{ width: `${(rank.into / rank.size) * 100}%` }}
+              style={{ width: `${(playerLevel.into / playerLevel.size) * 100}%` }}
             />
           </div>
         </header>
@@ -619,11 +642,32 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                 </div>
               </div>
             </LoadingState>
-          ) : !track || picking ? (
+          ) : !track || (picking && !trackLocked) ? (
             <Card className="mx-auto max-w-3xl p-6">
               <h2 className="text-lg font-extrabold">{track ? 'Change your tech stack' : 'Pick your tech stack'}</h2>
-              <p className="mb-5 mt-1 text-sm text-(--cf-muted)">Your journey, challenges and code all follow the stack you choose. You can switch any time; progress in each stack is kept.</p>
-              <TrackPicker value={track} onPick={pickTrack} journeyCounts={journeyCounts} />
+              <p className="mb-5 mt-1 text-sm text-(--cf-muted)">
+                {track
+                  ? 'As an admin you can switch stacks any time; progress in each stack is kept.'
+                  : 'Your journey, challenges and code all follow the stack you choose. Choose carefully: you pick it once, and only an admin can change it later.'}
+              </p>
+              <TrackPicker value={pendingTrack ?? track} onPick={(next) => (track ? void pickTrack(next) : setPendingTrack(next))} journeyCounts={journeyCounts} />
+              {pendingTrack && !track && (
+                <div role="alert" className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#f59e0b]/50 bg-[#fef3c7]/60 p-4 dark:bg-[#78350f]/25">
+                  <p className="flex items-start gap-2 text-sm text-(--cf-text)">
+                    <LockKeyhole className="mt-0.5 size-4 shrink-0 text-[#b45309] dark:text-[#fbbf24]" />
+                    <span>
+                      Start with <strong>{tracks[pendingTrack].label}</strong>? This choice is permanent for your account. Only an admin can move you to another stack.
+                    </span>
+                  </p>
+                  <span className="flex gap-2">
+                    <button type="button" onClick={() => setPendingTrack(null)} className={gameButtonClasses({ variant: 'secondary', size: 'md' })}>Back</button>
+                    <button type="button" onClick={() => void pickTrack(pendingTrack)} className={gameButtonClasses({ variant: 'primary', size: 'md' })}>
+                      Confirm {tracks[pendingTrack].label}
+                    </button>
+                  </span>
+                </div>
+              )}
+              {trackError && <p role="alert" className="mt-3 text-sm font-semibold text-[#b91c1c] dark:text-[#f87171]">{trackError}</p>}
               {track && (
                 <button type="button" onClick={() => setPicking(false)} className="mt-4 text-sm text-(--cf-muted) underline-offset-4 hover:underline">Cancel</button>
               )}
@@ -658,9 +702,17 @@ export function JourneyHome({ journeys, initialJourney }: { journeys: ProjectSum
                         <h2 className="text-xl font-extrabold font-display">{journey.title}</h2>
                         <p className="text-sm text-(--cf-muted)">{journey.summary}</p>
                       </div>
-                      <Link href={`/learn/${journey.id}`} className={primaryButton} style={{ background: GREEN }}>
-                        {passedCount === 0 ? 'Start the journey' : currentIndex < 0 ? 'Review the journey' : 'Continue'} <ArrowRight className="size-4" />
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* A level picked on the map (a passed one, say) opens directly, not the next unfinished one. */}
+                        {selected && selectedIndex !== currentIndex && stateOf(selectedIndex) !== 'locked' && (
+                          <Link href={`/learn/${journey.id}/${selected.id}`} className={gameButtonClasses({ variant: 'secondary', size: 'md' })}>
+                            {done[selected.id] ? 'Replay' : 'Open'} level {selectedIndex + 1}
+                          </Link>
+                        )}
+                        <Link href={`/learn/${journey.id}`} className={primaryButton} style={{ background: GREEN }}>
+                          {passedCount === 0 ? 'Start the journey' : currentIndex < 0 ? 'Review the journey' : 'Continue'} <ArrowRight className="size-4" />
+                        </Link>
+                      </div>
                     </div>
 
                     <div className="relative -mx-2 px-2">

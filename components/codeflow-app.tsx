@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type ComponentType, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -48,12 +48,15 @@ import { loginHref, useSession } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
 import { CheckFeedback, getRandomPraise, useShake, type CheckStatus } from '@/components/journey/feedback'
 import { Celebration } from '@/components/effects/celebration'
+import { HowToPlay, MissionSection } from '@/components/journey/mission'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { BlockCard, BlockPalette } from './ide/block-palette'
+import { useLearnerFiles } from '@/lib/use-learner-files'
+import { BlockCard, BlockPalette, codeSnippet } from './ide/block-palette'
 import { BottomPanel, type PanelTab, type Problem, type SlotGuideRow } from './ide/bottom-panel'
 import { ChallengeEditor, FileView, type SlotStatus } from './ide/code-editor'
 import { FileIcon, languageFor } from './ide/code'
-import { FileExplorer } from './ide/file-explorer'
+import { FileExplorer, type ExplorerFile } from './ide/file-explorer'
+import { EditableCode } from './ide/editable-code'
 import { GithubPanel, type GithubRepo, type ProjectSaveState } from './ide/github-panel'
 import { RunDrawer } from './ide/run-drawer'
 import { Sash } from './ide/sash'
@@ -81,6 +84,47 @@ const collisionDetection: CollisionDetection = (args) => {
 }
 
 const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+
+/** Everything done in a challenge so far, kept in this browser so a refresh resumes it. */
+interface ChallengeDraft {
+  slots: Slots
+  checked: boolean
+  wrongChecks: number
+  hints: number
+  hintLevels: Record<number, number>
+  hinted: number[]
+  elapsed: number
+}
+
+const challengeDraftKey = (owner: string, challengeId: string) => `codeflow-challenge:${owner}:${challengeId}`
+const count = (value: unknown, max: number) => (Number.isInteger(value) && (value as number) >= 0 ? Math.min(value as number, max) : 0)
+
+function readChallengeDraft(key: string, known: string[], length: number): ChallengeDraft | null {
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(key) ?? 'null')
+    if (!raw || typeof raw !== 'object' || !Array.isArray(raw.slots)) return null
+    const seen = new Set<string>()
+    const slots: Slots = Array.from({ length }, (_, index) => {
+      const id = raw.slots[index]
+      if (typeof id !== 'string' || !known.includes(id) || seen.has(id)) return null
+      seen.add(id)
+      return id
+    })
+    const hintLevels: Record<number, number> = {}
+    for (const [step, level] of Object.entries(raw.hintLevels ?? {})) if (Number(step) < length) hintLevels[Number(step)] = count(level, 3)
+    return {
+      slots,
+      checked: raw.checked === true,
+      wrongChecks: count(raw.wrongChecks, 10_000),
+      hints: count(raw.hints, 1000),
+      hintLevels,
+      hinted: (Array.isArray(raw.hinted) ? raw.hinted : []).filter((step: unknown): step is number => Number.isInteger(step) && (step as number) < length),
+      elapsed: count(raw.elapsed, 7 * 24 * 60 * 60),
+    }
+  } catch {
+    return null
+  }
+}
 const indentCode = (code: string, spaces: number) => code.split('\n').map((line) => ' '.repeat(spaces) + line).join('\n')
 
 function ToolButton({
@@ -255,6 +299,31 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
   }, [started, completed])
 
   // ---- persistence: server for signed-in users, localStorage for guests ----
+  // The placed blocks also go to the server for signed-in learners; this browser keeps the rest
+  // (tries, hints, time, whether it was solved) so a refresh resumes exactly where it was.
+  const [restored, setRestored] = useState(false)
+  const localDraftKey = challengeDraftKey(session.user?.id ?? 'guest', challenge.id)
+  const knownBlocks = useMemo(() => challenge.blocks.map((block) => block.id), [challenge])
+
+  const applyDraft = useCallback(
+    (draft: ChallengeDraft, solvedOnServer: boolean) => {
+      setSlots((current) => (current.every((slot) => slot === null) ? draft.slots : current))
+      setWrongChecks(draft.wrongChecks)
+      setHints(draft.hints)
+      setHintLevels(draft.hintLevels)
+      setHinted(new Set(draft.hinted))
+      if (draft.elapsed) {
+        setStarted(Date.now() - draft.elapsed * 1000)
+        setElapsed(draft.elapsed)
+      }
+      if (draft.slots.every((id, index) => id === order[index]) && (draft.checked || solvedOnServer)) {
+        setChecked(true)
+        setCheckStatus('success')
+      }
+    },
+    [order],
+  )
+
   useEffect(() => {
     if (session.status !== 'guest') return
     try {
@@ -266,8 +335,12 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
   }, [session.status])
 
   useEffect(() => {
+    if (!sync || session.status === 'loading') return
+    const local = readChallengeDraft(localDraftKey, knownBlocks, order.length)
     if (!canSync) {
       setSavedDraft(null)
+      if (local) applyDraft(local, false)
+      setRestored(true)
       return
     }
     let alive = true
@@ -277,17 +350,55 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
         if (!alive) return
         const empty: Slots = Array(order.length).fill(null)
         const draft: Slots = progress?.draftSlots?.length === order.length ? progress.draftSlots : empty
-        setSlots((current) => (current.every((slot) => slot === null) ? draft : current))
+        // This browser's extras (tries, hints, time) only apply to the same arrangement.
+        const sameAsLocal = local && JSON.stringify(local.slots) === JSON.stringify(draft)
+        applyDraft(sameAsLocal ? local : { slots: draft, checked: false, wrongChecks: 0, hints: 0, hintLevels: {}, hinted: [], elapsed: 0 }, !!progress?.completedAt)
         setSavedDraft(JSON.stringify(draft))
         setPredictions({ correct: progress?.predictionsCorrect ?? 0, total: progress?.predictionsTotal ?? 0 })
         setBestScore(progress?.bestScore ?? null)
         setSyncState('saved')
       })
-      .catch(() => alive && setSyncState('error'))
+      .catch(() => {
+        if (!alive) return
+        if (local) applyDraft(local, false)
+        setSyncState('error')
+      })
+      .finally(() => alive && setRestored(true))
     return () => {
       alive = false
     }
-  }, [canSync, challenge.id, order.length])
+  }, [sync, session.status, canSync, challenge.id, order.length, localDraftKey, knownBlocks, applyDraft])
+
+  // This browser's copy, written on every change and when the page is closed (for the timer).
+  const saveLocalDraft = useRef<() => void>(() => undefined)
+  useEffect(() => {
+    saveLocalDraft.current = () => {
+      if (!sync || !restored) return
+      const draft: ChallengeDraft = {
+        slots,
+        checked,
+        wrongChecks,
+        hints,
+        hintLevels,
+        hinted: [...hinted],
+        elapsed: started ? Math.floor((Date.now() - started) / 1000) : 0,
+      }
+      try {
+        window.localStorage.setItem(localDraftKey, JSON.stringify(draft))
+      } catch {
+        // storage unavailable: the placed blocks still save to the server when signed in
+      }
+    }
+    saveLocalDraft.current()
+  }, [sync, restored, localDraftKey, slots, checked, wrongChecks, hints, hintLevels, hinted, started])
+  useEffect(() => {
+    const onHide = () => saveLocalDraft.current()
+    window.addEventListener('pagehide', onHide)
+    return () => {
+      window.removeEventListener('pagehide', onHide)
+      onHide()
+    }
+  }, [])
 
   // Debounced draft save: one small write after the learner stops moving blocks, and none if nothing changed.
   useEffect(() => {
@@ -506,10 +617,38 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
     setChecked(false)
   }
 
+  // ---- files the learner creates in the explorer -------------------------
+  const learnerFiles = useLearnerFiles(sync ? `challenge:${challenge.id}` : null, canSync, session.status !== 'loading', (path) =>
+    workspace.files.some((file) => file.path === path || file.path.startsWith(`${path.replace(/\/$/, '')}/`)),
+  )
+  const explorerFiles = useMemo<ExplorerFile[]>(
+    () => [
+      ...learnerFiles.folders.filter((path) => !workspace.files.some((file) => file.path.startsWith(path))).map((path) => ({ path, about: 'A folder you created.', owned: true })),
+      ...Object.entries(learnerFiles.files)
+        .filter(([path]) => !workspace.files.some((file) => file.path === path))
+        .map(([path, content]) => ({ path, about: 'A file you created.', content, owned: true })),
+      ...workspace.files,
+    ],
+    [learnerFiles.files, learnerFiles.folders, workspace.files],
+  )
+
   // ---- editor tabs -------------------------------------------------------
   const openFile = (path: string) => {
     setTabs((current) => (current.includes(path) ? current : [...current, path]))
     setActivePath(path)
+  }
+
+  const createLearnerFile = (path: string) => {
+    const error = learnerFiles.create(path)
+    if (!error && !path.endsWith('/')) openFile(path)
+    return error
+  }
+  const deleteLearnerFile = (path: string) => {
+    learnerFiles.remove(path)
+    const gone = (tab: string) => (path.endsWith('/') ? tab.startsWith(path) : tab === path)
+    const remaining = tabs.filter((tab) => !gone(tab))
+    setTabs(remaining)
+    if (activePath && gone(activePath)) setActivePath(remaining[0] ?? null)
   }
 
   const closeTab = (path: string) => {
@@ -518,7 +657,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
     if (activePath === path) setActivePath(next[Math.max(0, tabs.indexOf(path) - 1)] ?? null)
   }
 
-  const activeFile = workspace.files.find((file) => file.path === activePath)
+  const activeFile = explorerFiles.find((file) => file.path === activePath)
 
   // ---- derived panels ----------------------------------------------------
   const statuses: SlotStatus[] = slots.map((id, index) => (!checked ? null : id === null ? 'empty' : id === order[index] ? 'correct' : 'wrong'))
@@ -549,7 +688,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
   } else if (checked) {
     statuses.forEach((status, index) => {
       if (status === 'empty') problems.push({ severity: 'warning', message: `Step ${index + 1} is empty.`, line: slotLines[index] })
-      if (status === 'wrong') problems.push({ severity: 'error', message: `“${blockById(slots[index])?.label}” doesn't belong at step ${index + 1}.`, line: slotLines[index] })
+      if (status === 'wrong') problems.push({ severity: 'error', message: `“${codeSnippet(workspace.codeFor(slots[index] ?? ''))}” doesn't belong at step ${index + 1}.`, line: slotLines[index] })
     })
   }
   problems.push(...hintNotes)
@@ -561,7 +700,8 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
     const mapping = mappings[id]
     const node = challenge.architecture.nodes.find((item) => item.id === mapping?.nodeIds[0])
     const guide = challenge.steps?.[index] ?? { kind: node?.label ?? `Step ${index + 1}`, goal: mapping?.hint ?? '' }
-    return { ...guide, placed: blockById(slots[index])?.label, status: statuses[index] }
+    const placed = slots[index]
+    return { ...guide, placed: placed ? codeSnippet(workspace.codeFor(placed)) : undefined, status: statuses[index] }
   })
 
   const focusStep = (index: number) => {
@@ -766,11 +906,13 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
                 ) : (
                   <FileExplorer
                     projectName={workspace.projectName}
-                    files={workspace.files}
+                    files={explorerFiles}
                     folders={workspace.folders}
                     activePath={activePath}
                     challengeBadge={completed ? '✓' : `${order.length - unplaced.length}/${order.length}`}
                     onOpen={openFile}
+                    onCreate={sync ? createLearnerFile : undefined}
+                    onDelete={sync ? deleteLearnerFile : undefined}
                   />
                 )}
               </aside>
@@ -780,7 +922,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
             <main className="flex min-w-0 flex-1 flex-col lg:min-h-0">
               <div role="tablist" aria-label="Open files" className="flex h-9 shrink-0 overflow-x-auto border-b border-(--ide-border) bg-(--ide-bar)">
                 {tabs.map((path) => {
-                  const file = workspace.files.find((item) => item.path === path)
+                  const file = explorerFiles.find((item) => item.path === path)
                   const isActive = path === activePath
                   return (
                     <div
@@ -835,6 +977,14 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
                       if (id) moveBlock(id, null)
                     }}
                     onHover={hover}
+                  />
+                ) : activeFile?.owned ? (
+                  <EditableCode
+                    value={activeFile.content ?? ''}
+                    language={languageFor(activeFile.path)}
+                    about="A file you created. It saves automatically."
+                    instruction="It is not part of the challenge and is not pushed to GitHub."
+                    onChange={(value) => learnerFiles.write(activeFile.path, value)}
                   />
                 ) : activeFile ? (
                   <FileView file={activeFile} language={languageFor(activeFile.path)} />
@@ -913,6 +1063,19 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
                   completed={completed}
                   onPlace={placeNext}
                   onHover={hover}
+                  guide={
+                    <MissionSection title="HOW TO PLAY" storageKey="challenge-how-to-play">
+                      <HowToPlay
+                        steps={[
+                          <>Read the code blocks below. They have no names, so work out what each one does from the code.</>,
+                          <>Open <b>SLOT GUIDE</b> at the bottom: it says what kind of code each empty line of {challengeFileName} needs.</>,
+                          <>Drag a block onto an empty line, or click a block to fill the next empty line. Some blocks are decoys that look right but are subtly wrong.</>,
+                          <>Press <b>Check</b>. Wrong lines get a red mark and <b>PROBLEMS</b> lists them. <b>Hint</b> helps, but costs points.</>,
+                          <>Once it is solved, press <b>Run it</b> to send test requests through your code.</>,
+                        ]}
+                      />
+                    </MissionSection>
+                  }
                 />
               </aside>
             )}
@@ -974,7 +1137,7 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
         <DragOverlay dropAnimation={null}>
           {draggedBlock && (
             <div className="w-72 cursor-grabbing">
-              <BlockCard label={draggedBlock.label} code={workspace.codeFor(draggedBlock.id)} language={language} lifted />
+              <BlockCard code={workspace.codeFor(draggedBlock.id)} language={language} lifted />
             </div>
           )}
         </DragOverlay>

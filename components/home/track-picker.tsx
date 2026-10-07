@@ -1,6 +1,6 @@
 'use client'
 
-import { Check } from 'lucide-react'
+import { Check, LockKeyhole } from 'lucide-react'
 import { trackIds, tracks, type Track } from '@/lib/journeys/types'
 import { Tilt } from '@/components/effects/tilt'
 import { Pill } from '@/components/ui/game'
@@ -44,11 +44,14 @@ export function TrackPicker({
   onPick,
   journeyCounts,
   layout = 'grid',
+  locked = false,
 }: {
   value: Track | null
   onPick: (track: Track) => void
   journeyCounts: Record<Track, number>
   layout?: 'grid' | 'list'
+  /** The stack is chosen for good: only the chosen one shows as active, the rest can't be picked. */
+  locked?: boolean
 }) {
   return (
     <div
@@ -73,12 +76,15 @@ export function TrackPicker({
               type="button"
               role="radio"
               aria-checked={selected}
-              onClick={() => onPick(track)}
+              disabled={locked && !selected}
+              onClick={() => !locked && onPick(track)}
               className={cn(
                 'group relative flex w-full flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 rounded-2xl border p-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e]',
                 selected
                   ? 'border-[#22c55e] ring-2 ring-[#22c55e] bg-gradient-to-r from-(--cf-surface) to-(--cf-surface-2) shadow-(--elev-2)'
-                  : 'border-(--cf-border) bg-(--cf-surface) shadow-xs hover:-translate-y-0.5 hover:border-(--cf-border-strong,var(--cf-border)) hover:bg-(--cf-surface-2)',
+                  : locked
+                    ? 'cursor-not-allowed border-(--cf-border) bg-(--cf-surface) opacity-55'
+                    : 'border-(--cf-border) bg-(--cf-surface) shadow-xs hover:-translate-y-0.5 hover:border-(--cf-border-strong,var(--cf-border)) hover:bg-(--cf-surface-2)',
               )}
             >
               <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -118,6 +124,10 @@ export function TrackPicker({
                   <Pill tone="success" size="sm" className="font-bold gap-1">
                     <Check className="size-3.5 stroke-[3]" /> Active class
                   </Pill>
+                ) : locked ? (
+                  <span className="flex items-center gap-1 rounded-lg border border-(--cf-border) bg-(--cf-surface-2) px-3 py-1 text-xs font-semibold text-(--cf-muted)">
+                    <LockKeyhole className="size-3" /> Locked
+                  </span>
                 ) : (
                   <span className="rounded-lg border border-(--cf-border) bg-(--cf-surface-2) px-3 py-1 text-xs font-semibold text-(--cf-muted) group-hover:bg-(--cf-surface) group-hover:text-(--cf-text) transition-colors">
                     Select
@@ -134,12 +144,15 @@ export function TrackPicker({
               type="button"
               role="radio"
               aria-checked={selected}
-              onClick={() => onPick(track)}
+              disabled={locked && !selected}
+              onClick={() => !locked && onPick(track)}
               className={cn(
                 'group relative flex size-full flex-col items-start justify-between rounded-2xl border bg-(--cf-surface) p-5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e]',
                 selected
                   ? 'border-[#22c55e] ring-3 ring-[#22c55e] shadow-(--elev-3) bg-gradient-to-b from-(--cf-surface) to-(--cf-surface-2)'
-                  : 'border-(--cf-border) shadow-(--elev-1) hover:-translate-y-1 hover:border-(--cf-border-strong,var(--cf-border)) hover:shadow-(--elev-2)',
+                  : locked
+                    ? 'cursor-not-allowed border-(--cf-border) opacity-55'
+                    : 'border-(--cf-border) shadow-(--elev-1) hover:-translate-y-1 hover:border-(--cf-border-strong,var(--cf-border)) hover:shadow-(--elev-2)',
               )}
             >
               {/* Header: Coloured Emblem and Selected Badge */}
@@ -202,7 +215,7 @@ export function TrackPicker({
                 {selected ? (
                   <span className="text-[#15803d] dark:text-[#86efac]">Active class</span>
                 ) : (
-                  <span>Click to select stack</span>
+                  <span>{locked ? 'Locked' : 'Click to select stack'}</span>
                 )}
               </div>
             </button>

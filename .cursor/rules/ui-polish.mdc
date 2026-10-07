@@ -71,7 +71,7 @@ Only edit these, plus new files under components/ui/, components/home/, componen
 - Added by the polish passes. Use these whenever they exist and never create parallel versions:
   - tokens: --font-display and .num (display font with tabular numbers), --fs-*, --radius-*, --elev-*, --depth-*, --dur-*, --ease-*
   - components/ui/motion.ts and components/ui/motion-provider.tsx
-  - components/ui/game.tsx: GamePanel, GameButton, gameButtonClasses, Pill, SegmentedProgress, RankEmblem, StatTile, GameTooltip, ModalShell
+  - components/ui/game.tsx: GamePanel, GameButton, gameButtonClasses, Pill, SegmentedProgress, LevelEmblem, StatTile, GameTooltip, ModalShell
   - components/ui/states.tsx, components/home/level-pin.tsx, components/home/achievement-medal.tsx, components/journey/feedback.tsx
 
 ## Design principles

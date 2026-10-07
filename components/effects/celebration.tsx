@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Skull } from 'lucide-react'
-import { GameButton, RankEmblem } from '@/components/ui/game'
+import { BriefcaseBusiness, Skull } from 'lucide-react'
+import { GameButton, LevelEmblem } from '@/components/ui/game'
 import { useSound } from '@/components/ui/sound'
+import { cn } from '@/lib/utils'
 
 interface Piece {
   x: number
@@ -52,20 +53,34 @@ function burst(width: number, height: number, colors: string[], count: number): 
 export function Celebration({
   colors,
   boss = false,
-  rankUp = null,
+  levelUp = null,
+  promotedTo = null,
   onDismiss,
 }: {
   colors: string[]
   boss?: boolean
-  rankUp?: number | null
+  /** The new player level, when the XP crossed one. */
+  levelUp?: number | null
+  /** The new career post, when the XP crossed one. */
+  promotedTo?: string | null
   onDismiss?: () => void
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
-  const [banner, setBanner] = useState(boss || !!rankUp)
+  const hasBanner = boss || !!levelUp || !!promotedTo
+  const [banner, setBanner] = useState(hasBanner)
+  // Once the confetti has finished and the banner is closed the overlay is removed for good, so
+  // it can never sit on top of the page and swallow clicks.
+  const [confettiDone, setConfettiDone] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [flash, setFlash] = useState(boss)
   const { play } = useSound()
+  const onDismissRef = useRef(onDismiss)
+  useEffect(() => {
+    onDismissRef.current = onDismiss
+  }, [onDismiss])
+  // Callers pass a fresh array on every render; only a real change of colours restarts the confetti.
+  const colorKey = colors.join(',')
 
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null
@@ -85,32 +100,36 @@ export function Celebration({
     }
   }, [boss])
 
+  const dismiss = useCallback(() => {
+    setBanner(false)
+    onDismissRef.current?.()
+  }, [])
+
   // Dismiss on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setBanner(false)
-        onDismiss?.()
-      }
+      if (e.key === 'Escape') dismiss()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onDismiss])
+  }, [dismiss])
 
-  const dismiss = () => {
-    setBanner(false)
-    onDismiss?.()
-  }
+  // Auto-dismiss the banner (without one, this just tells the caller the moment is over).
+  useEffect(() => {
+    if (!mounted) return
+    const hide = window.setTimeout(dismiss, hasBanner ? 3600 : 2500)
+    return () => window.clearTimeout(hide)
+  }, [mounted, dismiss, hasBanner])
 
   useEffect(() => {
     if (!mounted) return
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    // Auto-dismiss banner after 2.5s
-    const hide = window.setTimeout(() => dismiss(), rankUp ? 3200 : 2500)
     const element = canvas.current
     const context = element?.getContext('2d')
-    if (!element || !context || prefersReduced) return () => window.clearTimeout(hide)
+    if (!element || !context || prefersReduced) {
+      setConfettiDone(true)
+      return
+    }
 
     const ratio = Math.min(window.devicePixelRatio || 1, 2)
     const width = window.innerWidth
@@ -119,7 +138,7 @@ export function Celebration({
     element.height = height * ratio
     context.scale(ratio, ratio)
 
-    const pieces = burst(width, height, colors, 120)
+    const pieces = burst(width, height, colorKey.split(','), 120)
     const started = performance.now()
     const lifetime = 2500 // Confetti stops after 2.5s
     let frame = 0
@@ -154,29 +173,30 @@ export function Celebration({
         frame = requestAnimationFrame(draw)
       } else {
         context.clearRect(0, 0, width, height)
+        setConfettiDone(true)
       }
     }
     frame = requestAnimationFrame(draw)
-    return () => {
-      cancelAnimationFrame(frame)
-      window.clearTimeout(hide)
-    }
-  }, [mounted, colors])
+    return () => cancelAnimationFrame(frame)
+  }, [mounted, colorKey])
 
-  if (!mounted) return null
+  if (!mounted || (!banner && confettiDone)) return null
 
   const announcement = boss
     ? 'Boss defeated! Level complete!'
-    : rankUp
-      ? `Rank up! You reached Rank ${rankUp}!`
-      : 'Level complete!'
+    : promotedTo
+      ? `Promoted! You are now a ${promotedTo}.`
+      : levelUp
+        ? `Level up! You reached level ${levelUp}!`
+        : 'Level complete!'
 
   return createPortal(
     <div
-      role="dialog"
-      aria-modal="true"
+      role={banner ? 'dialog' : undefined}
+      aria-modal={banner ? 'true' : undefined}
       aria-label={announcement}
-      className="fixed inset-0 z-[70] grid place-items-center p-4 pointer-events-auto"
+      // Only the banner (with its Continue button) takes clicks; confetti alone never blocks the page.
+      className={cn('fixed inset-0 z-[70] grid place-items-center p-4', banner ? 'pointer-events-auto' : 'pointer-events-none')}
     >
       <div className="sr-only" aria-live="polite">
         {announcement}
@@ -214,7 +234,25 @@ export function Celebration({
             </div>
           )}
 
-          {rankUp && !boss && (
+          {promotedTo && !boss && (
+            <div className="relative flex flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-[#0f766e] via-[#15803d] to-[#14532d] p-6 text-white shadow-[0_20px_60px_rgb(21_128_61/0.45)] ring-4 ring-white/70">
+              <span className="grid size-16 place-items-center rounded-2xl bg-white/15 ring-2 ring-white/40">
+                <BriefcaseBusiness className="size-8" aria-hidden />
+              </span>
+              <div className="leading-tight">
+                <span className="block text-xs font-bold uppercase tracking-widest text-[#fde047]">Promoted!</span>
+                <span className="block font-display text-[26px] sm:text-[32px] font-bold text-white">{promotedTo}</span>
+                {levelUp && <span className="mt-1 block text-sm font-medium text-white/85">and you reached level {levelUp}</span>}
+              </div>
+              <div className="mt-2">
+                <GameButton variant="primary" size="md" onClick={dismiss} autoFocus>
+                  Continue
+                </GameButton>
+              </div>
+            </div>
+          )}
+
+          {levelUp && !promotedTo && !boss && (
             <div className="relative flex flex-col items-center gap-3 rounded-2xl bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#4c1d95] p-6 text-white shadow-[0_20px_60px_rgb(109_40_217/0.45)] ring-4 ring-white/70">
               {/* Rotating rays behind emblem */}
               <div className="relative grid place-items-center">
@@ -233,14 +271,14 @@ export function Celebration({
                     <polygon points="50,50 15,15 25,5" />
                   </svg>
                 </div>
-                <RankEmblem rank={rankUp} size={64} className="shadow-lg relative z-1" />
+                <LevelEmblem level={levelUp} size={64} className="shadow-lg relative z-1" />
               </div>
               <div className="leading-tight">
                 <span className="block text-xs font-bold uppercase tracking-widest text-[#fde047]">
-                  Rank up!
+                  Level up!
                 </span>
                 <span className="block font-display text-[28px] sm:text-[36px] font-bold text-white">
-                  Rank {rankUp}
+                  Level {levelUp}
                 </span>
               </div>
               <div className="mt-2">

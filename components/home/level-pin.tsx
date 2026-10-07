@@ -82,7 +82,7 @@ export function LevelPin({
           'relative grid place-items-center rounded-full border-[3px] font-extrabold shadow-[0_6px_16px_rgb(0_0_0/0.35)] transition-transform duration-[var(--dur-fast,160ms)] ease-[var(--ease-pop)]',
           sizeClass,
           locked
-            ? 'border-white/70 bg-slate-300 text-slate-500 opacity-70 dark:border-slate-400/40 dark:bg-slate-600 dark:text-slate-300'
+            ? 'border-white/90 bg-slate-200 text-slate-700 shadow-md dark:border-slate-400/60 dark:bg-slate-700 dark:text-slate-200'
             : isBoss
               ? 'border-white text-white shadow-[0_0_20px_rgb(239_68_68/0.45)]'
               : isDone
@@ -108,7 +108,7 @@ export function LevelPin({
         {isBoss ? (
           <Skull className="size-6 shrink-0 drop-shadow-sm" />
         ) : locked ? (
-          <LockKeyhole className="size-4 shrink-0 text-slate-600 dark:text-slate-300" />
+          <LockKeyhole className="size-4 shrink-0 text-slate-700 dark:text-slate-200" />
         ) : isDone ? (
           <Check className="size-5 shrink-0 stroke-[3]" />
         ) : isCurrent ? (

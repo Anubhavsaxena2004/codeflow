@@ -60,6 +60,7 @@ import { EditableCode } from './ide/editable-code'
 import { GithubPanel, type GithubRepo, type ProjectSaveState } from './ide/github-panel'
 import { RunDrawer } from './ide/run-drawer'
 import { Sash } from './ide/sash'
+import { UserAvatar } from '@/components/ui/user-avatar'
 
 type Slots = (string | null)[]
 type SyncState = 'idle' | 'saving' | 'saved' | 'error'
@@ -817,7 +818,9 @@ export default function CodeFlowApp({ challenge = signupChallenge, sync = true, 
                 <ThemeToggle className="size-8 rounded-lg text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)" iconClassName="size-4" />
                 {session.status === 'signed-in' ? (
                   <>
-                    <span title={`${session.user.name} · ${session.user.email}`} className="grid size-6 place-items-center rounded-full bg-[#0078d4] text-[10px] font-semibold text-white">{initials}</span>
+                    <span title={`${session.user.name} · ${session.user.email}`} className="size-6 overflow-hidden rounded-full ring-1 ring-(--ide-border)">
+                      <UserAvatar avatar={session.user.avatar} className="size-full text-[9px]" fallback={initials} />
+                    </span>
                     <button type="button" onClick={session.signOut} aria-label="Sign out" title="Sign out" className="rounded p-1 text-(--ide-muted) hover:bg-(--ide-border) hover:text-(--ide-heading)">
                       <LogOut className="size-3.5" />
                     </button>

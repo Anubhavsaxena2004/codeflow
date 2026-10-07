@@ -35,8 +35,8 @@ database, or before the migration has run, the bundled journeys still work.
 
 ## The admin workflow
 
-1. Open `/admin` (the **Admin** link in the sidebar). While `ADMIN_EMAILS` is empty every signed-in
-   user is an admin; list emails there (comma-separated) to limit it to them.
+1. Open `/admin` (the **Admin** link in the sidebar, shown only to the admin: the owner email in
+   `lib/server/auth.ts`, or the emails in `ADMIN_EMAILS`).
 2. On `/admin`, under **New journey**, give a topic, a stack, the folder tree and the request flow:
 
    ```
@@ -98,8 +98,10 @@ replace a file, and the explorer marks it `M`; new files are marked `U`.
 
 ## Progress, profiles and GitHub
 
-- Learners pick a tech stack (`users.track`: mern, django or spring). The map shows that stack's
-  journeys. Guests' stack and progress are kept in localStorage.
+- Learners pick a tech stack (`users.track`: mern, django or spring) **once**. `PUT /api/profile`
+  refuses a change after that unless the caller is an admin; the admin changes anyone's stack under
+  **Learners**. The map shows that stack's journeys. Guests' stack and progress are kept in
+  localStorage.
 - Levels unlock in order. `POST /api/journeys/:id/levels/:levelId` re-verifies the submission on the
   server, refuses locked levels, and stores stars, XP and the learner's solution in `level_progress`.
   A passed level stays open, so adding a level in the middle of a journey never locks finished work.
@@ -112,8 +114,18 @@ replace a file, and the explorer marks it `M`; new files are marked `U`.
   including their own code, is written to `user_project_files`. That is the table the GitHub
   integration pushes from, so the GitHub view in a level pushes the real project. `.env*`, `.git*` and
   `node_modules` are never stored or pushed.
-- XP, ranks (500 XP each), streaks and achievements are derived from `level_progress`; nothing extra is
-  stored.
+- XP, the player **level** (every 500 XP), the career **post** (Intern, Trainee, Junior Developer, …,
+  far apart on purpose: the whole MERN Todo journey makes a Trainee), streaks, the activity heatmap
+  and achievements are all derived from `level_progress`; nothing extra is stored. Days are the
+  learner's local calendar days.
+- **Resume**: everything done inside a level (commands typed, code, placed blocks, quiz answer,
+  architecture order, tries and hints) is a level draft (`lib/journeys/draft.ts`). It autosaves to
+  `level_drafts` (migration 006) for signed-in learners and to localStorage for everyone, and the
+  newer copy wins on load, so a refresh, the map or another device resumes the level. A passed level
+  reopens showing the learner's solution. Drafts are never trusted: passing still re-verifies.
+- **New File / New Folder** in the explorer create the learner's own scratch files, per journey (or
+  challenge), stored in `learner_files`. They are editable and saved, but not checked by levels and
+  not pushed to GitHub.
 
 ## API
 
@@ -123,17 +135,19 @@ replace a file, and the explorer marks it `M`; new files are marked `U`.
 | GET | `/api/journeys/:id` | anyone | One published journey in full |
 | POST | `/api/journeys/:id/levels/:levelId` | learner | `{ submission, wrongAttempts, hints }` passes a level |
 | GET | `/api/progress` | learner | Challenge progress plus every passed level |
-| PUT | `/api/profile` | learner | `{ track }` |
+| GET / PUT | `/api/journeys/:id/levels/:levelId/draft` | learner | The level draft and the passed solution / save `{ state }` |
+| GET / PUT | `/api/learner-files?scope=<journey or challenge:id>` | learner | Files the learner created / replace `{ scope, files }` |
+| PUT | `/api/profile` | learner | `{ track }`, only while none is set (admins any time) |
 | GET / POST | `/api/admin/projects` | admin | List everything / create `{ definition, published }` |
 | GET / PUT / DELETE | `/api/admin/projects/:id` | admin | Read / save `{ definition, published }` / delete or revert |
 | POST | `/api/admin/scaffold` | admin | `{ id, track, title, tree, flow }` → a draft journey (not saved) |
 | GET | `/api/admin/learners` | admin | Every learner with their journeys, passed levels and GitHub repo |
-| PATCH | `/api/admin/learners/:id` | admin | `{ allLevelsOpen }` opens every level for that learner |
+| PATCH | `/api/admin/learners/:id` | admin | `{ allLevelsOpen }` opens every level for that learner; `{ track }` changes their stack |
 
 ## Setup
 
 ```bash
-pnpm db:migrate          # adds users.track, journey_projects, level_progress
+pnpm db:migrate          # adds users.track, journey_projects, level_progress, level_drafts, learner_files
 pnpm test:journeys       # validates every bundled journey and the engine
 ```
 
@@ -142,7 +156,8 @@ and grants the `anon` role (anyone with the publishable key) full access to new 
 default. 004 turns on row level security and revokes those grants, so only the server can
 read users, sessions or GitHub tokens. Any new table needs the same treatment in its migration.
 
-The admin is open to every signed-in user until `ADMIN_EMAILS=you@example.com` is set.
+Only the admin (the owner email, or `ADMIN_EMAILS`) can open `/admin` and `/mentor`. Create that
+account with `npm run admin:create -- <email> <password>`; admin emails cannot sign up.
 
 ## Adding a bundled journey in code
 

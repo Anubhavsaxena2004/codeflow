@@ -5,11 +5,21 @@ import { useId } from 'react'
 export interface MascotProps {
   className?: string
   hoodie?: string
+  darkHoodie?: string
+  headphoneColor?: string
+  hairColor?: string
   expression?: 'idle' | 'wave' | 'cheer' | 'think'
 }
 
 /** The learner's developer mascot, used for "You are here" on the map, in the HUD and sidebar. */
-export function Mascot({ className, hoodie = '#16a34a', expression = 'idle' }: MascotProps) {
+export function Mascot({
+  className,
+  hoodie = '#16a34a',
+  darkHoodie,
+  headphoneColor = '#22c55e',
+  hairColor = '#3b2314',
+  expression = 'idle',
+}: MascotProps) {
   const uid = useId()
   const hoodieId = `hoodie-${uid}`
   const skinId = `skin-${uid}`
@@ -19,7 +29,7 @@ export function Mascot({ className, hoodie = '#16a34a', expression = 'idle' }: M
       <defs>
         <linearGradient id={hoodieId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={hoodie} />
-          <stop offset="100%" stopColor="#14532d" />
+          <stop offset="100%" stopColor={darkHoodie ?? '#14532d'} />
         </linearGradient>
         <linearGradient id={skinId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#ffeedd" />
@@ -46,7 +56,7 @@ export function Mascot({ className, hoodie = '#16a34a', expression = 'idle' }: M
       {/* Back Hair */}
       <path
         d="M 25 44 C 21 26, 79 26, 75 44 C 77 56, 72 63, 68 66 C 60 62, 40 62, 32 66 C 28 63, 23 56, 25 44 Z"
-        fill="#26160d"
+        fill={hairColor}
       />
 
       {/* Body / Hoodie */}
@@ -144,10 +154,10 @@ export function Mascot({ className, hoodie = '#16a34a', expression = 'idle' }: M
       <g>
         {/* Left Earcup */}
         <rect x="19" y="38" width="9" height="18" rx="4.5" fill="#0f172a" />
-        <rect x="21" y="40" width="5" height="14" rx="2.5" fill="#22c55e" opacity="0.85" />
+        <rect x="21" y="40" width="5" height="14" rx="2.5" fill={headphoneColor} opacity={0.85} />
         {/* Right Earcup */}
         <rect x="72" y="38" width="9" height="18" rx="4.5" fill="#0f172a" />
-        <rect x="74" y="40" width="5" height="14" rx="2.5" fill="#22c55e" opacity="0.85" />
+        <rect x="74" y="40" width="5" height="14" rx="2.5" fill={headphoneColor} opacity={0.85} />
       </g>
 
       {/* Blush cheeks */}
@@ -157,19 +167,19 @@ export function Mascot({ className, hoodie = '#16a34a', expression = 'idle' }: M
       {/* Front Hair (Layered anime/chibi bangs) */}
       <path
         d="M 28 42 C 26 23, 74 23, 72 42 C 67 33, 56 32, 50 36 C 44 32, 33 34, 28 42 Z"
-        fill="#3b2314"
+        fill={hairColor}
       />
       <path
         d="M 33 36 Q 37 46 44 41 Q 40 35 43 33"
-        fill="#3b2314"
+        fill={hairColor}
       />
       <path
         d="M 43 34 Q 52 46 62 38 Q 55 33 58 31"
-        fill="#3b2314"
+        fill={hairColor}
       />
       <path
         d="M 60 36 Q 66 45 70 41 Q 65 34 68 31"
-        fill="#3b2314"
+        fill={hairColor}
       />
       {/* Hair highlight */}
       <path

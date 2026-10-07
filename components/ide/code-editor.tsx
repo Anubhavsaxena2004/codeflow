@@ -6,6 +6,7 @@ import { Check, CircleX, Info, Lightbulb, TriangleAlert, X } from 'lucide-react'
 import type { ProjectFile, ScaffoldLine } from '@/data/challenges'
 import { cn } from '@/lib/utils'
 import { CodeLines, commentPrefix } from './code'
+import { RevealBar, type LineReveal } from './editable-code'
 
 export type SlotStatus = 'correct' | 'wrong' | 'empty' | null
 
@@ -31,8 +32,8 @@ function InfoBar({ children }: { children: ReactNode }) {
   )
 }
 
-/** A read-only project file with line numbers. */
-export function FileView({ file, language }: { file: ProjectFile; language: string }) {
+/** A read-only project file with line numbers. `reveal` flashes a line, e.g. after Go to definition. */
+export function FileView({ file, language, reveal }: { file: ProjectFile; language: string; reveal?: LineReveal | null }) {
   const code = file.content ?? ''
   return (
     <div>
@@ -41,7 +42,8 @@ export function FileView({ file, language }: { file: ProjectFile; language: stri
       </InfoBar>
       <div className="ide-mono flex py-2 text-[13px] leading-5">
         <Gutter from={1} count={code.split('\n').length} />
-        <div className="min-w-0 flex-1 pl-3 pr-6">
+        <div className="relative min-w-0 flex-1 pl-3 pr-6">
+          {reveal && <RevealBar key={reveal.key} reveal={reveal} />}
           <CodeLines code={code} language={language} />
         </div>
       </div>

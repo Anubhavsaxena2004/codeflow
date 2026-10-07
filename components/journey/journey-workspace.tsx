@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   DndContext,
   DragOverlay,
@@ -16,23 +16,25 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { ArrowLeft, BookOpen, Check, ChevronLeft, ChevronRight, Files, FlaskConical, GitBranch, Lightbulb, Lock, LogOut, Map as MapIcon, Network, PanelBottom, PanelRight, Play, RotateCcw, Skull, SquareTerminal, Star, Target, UserRound, X } from 'lucide-react'
-import { GameButton, GameTooltip } from '@/components/ui/game'
+import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Files, FlaskConical, GitBranch, Lightbulb, Lock, LogOut, Network, PanelBottom, PanelRight, Play, RotateCcw, Skull, SquareTerminal, Star, Target, UserRound, X } from 'lucide-react'
+import { GameButton, GameTooltip, gameButtonClasses } from '@/components/ui/game'
 import { LoadingState, Skeleton, SkeletonText } from '@/components/ui/states'
 import { LessonText } from '@/components/lesson-text'
 import { runChecks, type CheckResult } from '@/lib/journeys/checks'
 import { termsFor } from '@/lib/journeys/glossary'
 import { matchesStep } from '@/lib/journeys/commands'
-import { indexProgress, isUnlocked, levelStars, rankFor, xpFor } from '@/lib/journeys/progress'
-import { buildOrder, filesBefore, layer, outputOf } from '@/lib/journeys/snapshot'
-import { kindLabels, tracks, type Level, type LevelProgress, type Project, type Submission } from '@/lib/journeys/types'
+import { draftFromSolution, readDraft, submissionOf, type LevelDraft } from '@/lib/journeys/draft'
+import { indexProgress, isUnlocked, levelStars, playerLevelFor, postFor, xpFor } from '@/lib/journeys/progress'
+import { buildOrder, filesBefore, layer, outputOf, type WorkspaceFile } from '@/lib/journeys/snapshot'
+import { kindLabels, tracks, type Level, type LevelProgress, type Project, type Solution, type Submission } from '@/lib/journeys/types'
 import { verifyLevel } from '@/lib/journeys/verify'
 import { useLearner } from '@/lib/use-learner'
+import { useLearnerFiles } from '@/lib/use-learner-files'
 import { loginHref } from '@/lib/use-session'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { SoundToggle } from '@/components/ui/sound'
-import { BlockCard, BlockPalette } from '../ide/block-palette'
+import { BlockCard, BlockPalette, codeSnippet } from '../ide/block-palette'
 import type { Problem, SlotGuideRow } from '../ide/bottom-panel'
 import { ChallengeEditor, FileView, type SlotStatus } from '../ide/code-editor'
 import { FileIcon, languageFor } from '../ide/code'
@@ -44,7 +46,7 @@ import { Terminal, type TerminalLine } from '../ide/terminal'
 import { FlowBoard } from './flow-board'
 import { JourneyPanel, type FlowContext, type JourneyTab } from './journey-panel'
 import { Celebration } from '@/components/effects/celebration'
-import { CommandSteps, CompletionCard, HintNote, MissionHeader, MissionSection, NewFiles, QuizCard, TestList } from './mission'
+import { CommandSteps, CompletionCard, HintNote, HowToPlay, howToPlay, MissionHeader, MissionSection, NewFiles, PassedCard, QuizCard, TestList } from './mission'
 import { kindIcons, worldThemes } from './level-meta'
 
 type IconType = ComponentType<{ className?: string; strokeWidth?: number }>
@@ -67,7 +69,23 @@ const collisionDetection: CollisionDetection = (args) => {
 }
 
 const isCodeLevel = (level: Level) => level.kind === 'edit' || level.kind === 'bugfix'
-const draftKey = (projectId: string, levelId: string) => `codeflow-draft:${projectId}:${levelId}`
+/** Code drafts from before level drafts existed; read once so nobody loses work. */
+const legacyCodeKey = (projectId: string, levelId: string) => `codeflow-draft:${projectId}:${levelId}`
+/** This browser's copy of a level draft. Signed-in learners also keep one on the server. */
+const localDraftKey = (owner: string, projectId: string, levelId: string) => `codeflow-level:${owner}:${projectId}:${levelId}`
+const DRAFT_SAVE_MS = 700
+const DRAFT_LOAD_TIMEOUT_MS = 8000
+
+/** A draft's content without its timestamp, to tell whether anything changed. */
+const draftContent = (draft: LevelDraft) => JSON.stringify({ ...draft, savedAt: undefined })
+
+function readLocalDraft(key: string): unknown {
+  try {
+    return JSON.parse(window.localStorage.getItem(key) ?? 'null')
+  } catch {
+    return null
+  }
+}
 
 /** Resolves `cat ../x` style paths against the terminal's folder. */
 function resolvePath(cwd: string, target: string) {
@@ -127,6 +145,7 @@ interface JourneyWorkspaceProps {
 /** One level of a journey, in the same VS Code-style workspace as the challenges. Mount it with key={levelId}. */
 export function JourneyWorkspace({ project, levelId, preview = false, onNavigate, onExit }: JourneyWorkspaceProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const learner = useLearner()
   const { session } = learner
   const signedIn = !preview && session.status === 'signed-in'
@@ -141,14 +160,21 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const blocking = project.levels.slice(0, index).find((item) => !done[item.id])
   const previous = done[level.id] ?? null
   const totalXp = learner.levels.reduce((sum, row) => sum + row.xp, 0)
-  const rank = rankFor(totalXp)
+  const playerLevel = playerLevelFor(totalXp)
+  const post = postFor(totalXp)
   const levelHref = (id: string) => `/learn/${project.id}/${id}`
-  const mapHref = preview ? '#' : `/?journey=${project.id}`
+  // Back on the map, the level just played stays selected.
+  const mapHref = preview ? '#' : `/?journey=${project.id}&level=${level.id}`
 
   // ---- shared level state --------------------------------------------------
   const [phase, setPhase] = useState<Phase>('playing')
-  /** Set when the level is passed in this visit; rankUp is the new rank if the XP crossed one. */
-  const [reward, setReward] = useState<{ stars: number; xp: number; rankUp: number | null } | null>(null)
+  /**
+   * Set when the level is passed in this visit. levelUp is the new player level and promotedTo the
+   * new career post, when the XP crossed one.
+   */
+  const [reward, setReward] = useState<{ stars: number; xp: number; levelUp: number | null; promotedTo: string | null } | null>(null)
+  /** Counts passes in this visit, so a replayed pass celebrates again. */
+  const [passCount, setPassCount] = useState(0)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pending, setPending] = useState<Submission | null>(null)
   const [wrong, setWrong] = useState(0)
@@ -257,27 +283,6 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     return () => window.clearTimeout(timer)
   }, [layout])
 
-  useEffect(() => {
-    if (!isCodeLevel(level) || preview) return
-    try {
-      const draft = window.localStorage.getItem(draftKey(project.id, level.id))
-      if (draft !== null) setCode(draft)
-    } catch {
-      // no drafts in this browser
-    }
-  }, [level, project.id, preview])
-  useEffect(() => {
-    if (!isCodeLevel(level) || preview) return
-    const timer = window.setTimeout(() => {
-      try {
-        if (code === starter) window.localStorage.removeItem(draftKey(project.id, level.id))
-        else window.localStorage.setItem(draftKey(project.id, level.id), code)
-      } catch {
-        // storage unavailable
-      }
-    }, 500)
-    return () => window.clearTimeout(timer)
-  }, [code, starter, level, project.id, preview])
 
   const resize = (key: keyof Layout) => (value: number) => setLayout((current) => ({ ...current, [key]: value }))
   const resetSize = (key: keyof Layout) => () => setLayout((current) => ({ ...current, [key]: DEFAULT_LAYOUT[key] }))
@@ -301,7 +306,20 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         return base
     }
   }, [base, level, stepIndex, code])
-  const fileList = useMemo(() => [...files.values()], [files])
+  // Files and folders the learner created with New File / New Folder. The level's own files win
+  // when a later level adds the same path.
+  const learnerFiles = useLearnerFiles(preview ? null : project.id, signedIn, learner.ready, (path) => {
+    const bare = path.replace(/\/$/, '')
+    return files.has(path) || [...files.keys()].some((existing) => existing.startsWith(`${bare}/`))
+  })
+  const allFiles = useMemo(() => {
+    const map = new Map<string, WorkspaceFile & { owned?: boolean }>()
+    for (const path of learnerFiles.folders) map.set(path, { path, about: 'A folder you created.', owned: true })
+    for (const [path, content] of Object.entries(learnerFiles.files)) map.set(path, { path, about: 'A file you created.', content, owned: true })
+    for (const [path, file] of files) map.set(path, file)
+    return map
+  }, [files, learnerFiles.files, learnerFiles.folders])
+  const fileList = useMemo(() => [...allFiles.values()], [allFiles])
   const terms = useMemo(() => termsFor(project.glossary, level), [project.glossary, level])
   // The journey's request flow, with the stops this level's files belong to. Hidden on the architecture level itself.
   const flow = useMemo<FlowContext | null>(() => {
@@ -312,7 +330,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   }, [project, level])
 
   const openFile = (path: string) => {
-    if (path.endsWith('/') || !files.has(path)) return
+    if (path.endsWith('/') || !allFiles.has(path)) return
     setTabs((current) => (current.includes(path) ? current : [...current, path]))
     setActiveTab(path)
     if (newFiles.some((file) => file.path === path)) setOpened((current) => new Set(current).add(path))
@@ -321,6 +339,23 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     const remaining = tabs.filter((item) => item !== tab)
     setTabs(remaining)
     if (activeTab === tab) setActiveTab(remaining[Math.max(0, tabs.indexOf(tab) - 1)] ?? null)
+  }
+
+  // New File / New Folder in the explorer. A new file opens straight away, like in VS Code.
+  const createLearnerFile = (path: string) => {
+    const error = learnerFiles.create(path)
+    if (!error && !path.endsWith('/')) {
+      setTabs((current) => (current.includes(path) ? current : [...current, path]))
+      setActiveTab(path)
+    }
+    return error
+  }
+  const deleteLearnerFile = (path: string) => {
+    learnerFiles.remove(path)
+    const gone = (tab: string) => (path.endsWith('/') ? tab.startsWith(path) : tab === path)
+    const remaining = tabs.filter((tab) => !gone(tab))
+    setTabs(remaining)
+    if (activeTab && gone(activeTab)) setActiveTab(remaining[0] ?? null)
   }
 
   // ---- passing a level ----------------------------------------------------
@@ -332,9 +367,12 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     }
     const stars = levelStars(wrong, hints)
     const xp = xpFor(level)
-    // XP only counts the first time a level is passed, so a replay never ranks up.
-    const rankAfter = rankFor(totalXp + (previous ? 0 : xp)).rank
-    const rankUp = rankAfter > rank.rank ? rankAfter : null
+    // XP only counts the first time a level is passed, so a replay never levels up or promotes.
+    const xpAfter = totalXp + (previous ? 0 : xp)
+    const levelAfter = playerLevelFor(xpAfter).level
+    const levelUp = levelAfter > playerLevel.level ? levelAfter : null
+    const postAfter = postFor(xpAfter)
+    const promotedTo = postAfter.index > post.index ? postAfter.title : null
     setPending(submission)
     setSaveError(null)
     setMissionOpen(true)
@@ -353,11 +391,12 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         return true
       }
       learner.recordLevel(data.progress as LevelProgress)
-      setReward({ stars: data.progress.stars, xp, rankUp })
+      setReward({ stars: data.progress.stars, xp, levelUp, promotedTo })
     } else {
       if (!preview) learner.recordLevel({ projectId: project.id, levelId: level.id, stars, xp, completedAt: new Date().toISOString() })
-      setReward({ stars, xp, rankUp })
+      setReward({ stars, xp, levelUp, promotedTo })
     }
+    setPassCount((count) => count + 1)
     setPhase('passed')
     return true
   }
@@ -466,7 +505,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   const listDir = (dir: string, all: boolean) => {
     const prefix = dir ? `${dir}/` : ''
     const names = new Set<string>()
-    for (const path of files.keys()) {
+    for (const path of allFiles.keys()) {
       if (!path.startsWith(prefix) || path === prefix) continue
       const [first, ...rest] = path.slice(prefix.length).split('/')
       if (all || !first.startsWith('.')) names.add(rest.length ? `${first}/` : first)
@@ -543,7 +582,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     }
     const cat = /^(?:cat|type)\s+(\S+)$/.exec(command)
     if (cat) {
-      const file = files.get(resolvePath(cwd, cat[1]))
+      const file = allFiles.get(resolvePath(cwd, cat[1]))
       if (!file || file.path.endsWith('/')) return print({ kind: 'error', text: `cat: ${cat[1]}: No such file or directory` })
       return print({ kind: 'output', text: file.content ?? '' })
     }
@@ -604,15 +643,197 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     setTerminal(welcome)
   }
 
+  // ---- resume: restore and autosave everything done in this level --------------------------------
+  // The draft is the level as it stands. Signed-in learners keep it on the server (and a copy in
+  // this browser, so a save still in flight when the page closes is not lost); guests keep it in
+  // this browser. On load the newer copy wins; a level passed before, with no draft, shows the
+  // learner's saved solution.
+  const [draftReady, setDraftReady] = useState(preview)
+  const draftOwner = signedIn ? (session.user?.id ?? 'me') : 'guest'
+  const localKey = localDraftKey(draftOwner, project.id, level.id)
+  const lastSaved = useRef<string | null>(null)
+  const pendingDraft = useRef<LevelDraft | null>(null)
+  const saveTimer = useRef<number | null>(null)
+
+  const currentDraft = useMemo<LevelDraft>(() => {
+    const base = { passed: phase === 'passed', wrong, hints, hintLevel }
+    switch (level.kind) {
+      case 'explore':
+        return { ...base, opened: [...opened], answer, eliminated: [...eliminated] }
+      case 'command':
+        return { ...base, typed }
+      case 'edit':
+      case 'bugfix':
+        return { ...base, code }
+      case 'build':
+        return { ...base, slots, hinted: [...hinted] }
+      case 'architecture':
+        return { ...base, arrangement }
+    }
+  }, [level.kind, phase, wrong, hints, hintLevel, opened, answer, eliminated, typed, code, slots, hinted, arrangement])
+
+  /** Rebuilds the terminal, folder and prompt from the commands of finished steps. */
+  const replayCommands = (commands: string[]) => {
+    if (level.kind !== 'command') return null
+    let cwdNow = startCwd
+    let envNow = startEnv
+    const lines: TerminalLine[] = [...welcome]
+    const accepted: string[] = []
+    for (const [position, command] of commands.entries()) {
+      const step = level.steps[position]
+      if (!step || !matchesStep(step, command)) break
+      lines.push({ kind: 'input', prompt: `${envNow ? `${envNow} ` : ''}${project.projectName}${cwdNow ? `/${cwdNow}` : ''} $`, text: command })
+      if (step.output) lines.push({ kind: 'output', text: step.output })
+      if (step.adds?.some((file) => !file.generated)) lines.push({ kind: 'success', text: `✓ ${step.adds.filter((file) => !file.generated).map((file) => file.path).join(', ')}` })
+      if (step.cwd !== undefined) cwdNow = step.cwd
+      if (step.env !== undefined) envNow = step.env
+      accepted.push(command)
+    }
+    if (accepted.length && accepted.length < level.steps.length) lines.push({ kind: 'info', text: `Welcome back. Your first ${accepted.length} step${accepted.length === 1 ? ' is' : 's are'} restored; carry on with step ${accepted.length + 1}.` })
+    return { lines, cwd: cwdNow, env: envNow, typed: accepted }
+  }
+
+  const applyDraft = (draft: LevelDraft) => {
+    setWrong(draft.wrong)
+    setHints(draft.hints)
+    setHintLevel(draft.hintLevel)
+    switch (level.kind) {
+      case 'explore':
+        setOpened(new Set(draft.opened ?? []))
+        setAnswer(draft.answer ?? null)
+        setEliminated(new Set(draft.eliminated ?? []))
+        break
+      case 'command': {
+        const replay = replayCommands(draft.typed ?? [])
+        if (replay) {
+          setTerminal(replay.lines)
+          setCwd(replay.cwd)
+          setEnv(replay.env)
+          setTyped(replay.typed)
+          setStepIndex(replay.typed.length)
+          draft = { ...draft, typed: replay.typed }
+        }
+        break
+      }
+      case 'edit':
+      case 'bugfix':
+        if (typeof draft.code === 'string') setCode(draft.code)
+        break
+      case 'build':
+        if (draft.slots) setSlots(draft.slots)
+        setHinted(new Set(draft.hinted ?? []))
+        break
+      case 'architecture':
+        if (draft.arrangement) setArrangement(draft.arrangement)
+        break
+    }
+    // A finished level reopens finished, as long as it really is passed and still solves.
+    if (draft.passed && done[level.id] && verifyLevel(level, submissionOf(level, draft)).ok) {
+      setPhase('passed')
+      if (level.kind === 'explore') setQuizResult('right')
+      if (level.kind === 'build') setBuildChecked(true)
+      if (level.kind === 'architecture') setFlowChecked(true)
+      if (isCodeLevel(level)) {
+        const codeLevel = level as Extract<Level, { kind: 'edit' | 'bugfix' }>
+        setResults(runChecks(draft.code ?? codeLevel.starter, codeLevel.path, codeLevel.checks))
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (preview || !learner.ready || draftReady) return
+    let alive = true
+    const local = readDraft(readLocalDraft(localKey), level)
+
+    const finish = (remote: LevelDraft | null, solution: Solution | null) => {
+      if (!alive) return
+      // The newer of the two copies wins.
+      let draft = remote && (!local || (remote.savedAt ?? 0) >= (local.savedAt ?? 0)) ? remote : local
+      if (!draft && isCodeLevel(level)) {
+        try {
+          const legacy = window.localStorage.getItem(legacyCodeKey(project.id, level.id))
+          if (legacy !== null) draft = { wrong: 0, hints: 0, hintLevel: 0, code: legacy }
+        } catch {
+          // no legacy draft
+        }
+      }
+      if (!draft && solution && done[level.id]) draft = draftFromSolution(level, solution)
+      if (draft) applyDraft(draft)
+      // Opening a level saves nothing until the learner actually does something in it.
+      lastSaved.current = draftContent(draft ?? currentDraft)
+      setDraftReady(true)
+    }
+
+    if (!signedIn) {
+      finish(null, null)
+      return () => {
+        alive = false
+      }
+    }
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), DRAFT_LOAD_TIMEOUT_MS)
+    fetch(`/api/journeys/${project.id}/levels/${level.id}/draft`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { draft?: unknown; solution?: Solution | null } | null) => finish(readDraft(data?.draft, level), data?.solution ?? null))
+      .catch(() => finish(null, null))
+      .finally(() => window.clearTimeout(timeout))
+    return () => {
+      alive = false
+      controller.abort()
+      window.clearTimeout(timeout)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once, when the learner's progress is known
+  }, [preview, learner.ready, draftReady, signedIn, localKey, level, project.id])
+
+  const flushDraft = useCallback(
+    (keepalive = false) => {
+      if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
+      saveTimer.current = null
+      const draft = pendingDraft.current
+      pendingDraft.current = null
+      if (!draft || !signedIn) return
+      fetch(`/api/journeys/${project.id}/levels/${level.id}/draft`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ state: draft }), keepalive }).catch(() => undefined)
+    },
+    [signedIn, project.id, level.id],
+  )
+
+  // Autosave: this browser's copy at once, the server's a moment after the learner stops.
+  useEffect(() => {
+    if (preview || !draftReady) return
+    const json = draftContent(currentDraft)
+    if (json === lastSaved.current) return
+    lastSaved.current = json
+    const draft = { ...currentDraft, savedAt: Date.now() }
+    try {
+      window.localStorage.setItem(localKey, JSON.stringify(draft))
+    } catch {
+      // storage full or blocked: the server copy still saves for signed-in learners
+    }
+    if (!signedIn) return
+    pendingDraft.current = draft
+    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
+    saveTimer.current = window.setTimeout(() => flushDraft(), DRAFT_SAVE_MS)
+  }, [currentDraft, draftReady, preview, signedIn, localKey, flushDraft])
+
+  // Leaving (another level, the map, closing the tab) sends whatever is still waiting.
+  useEffect(() => {
+    const onHide = () => flushDraft(true)
+    window.addEventListener('pagehide', onHide)
+    return () => {
+      window.removeEventListener('pagehide', onHide)
+      flushDraft(true)
+    }
+  }, [flushDraft])
+
   // ---- render ----------------------------------------------------------------------
   const initials = session.user?.name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
   const passed = phase === 'passed'
-  const activeFile = activeTab ? files.get(activeTab) : undefined
+  const activeFile = activeTab ? allFiles.get(activeTab) : undefined
 
   // ---- bottom panel: slot guide and problems -----------------------------------------
   const slotGuide: SlotGuideRow[] | null =
     level.kind === 'build'
-      ? order.map((_, index) => ({ kind: level.steps?.[index]?.kind ?? `Step ${index + 1}`, goal: level.steps?.[index]?.goal ?? '', placed: blockById(slots[index])?.label, status: statuses[index] }))
+      ? order.map((_, index) => ({ kind: level.steps?.[index]?.kind ?? `Step ${index + 1}`, goal: level.steps?.[index]?.goal ?? '', placed: slots[index] ? codeSnippet(codeFor(slots[index]!)) : undefined, status: statuses[index] }))
       : null
   const focusStep = (index: number) => {
     if (level.kind !== 'build') return
@@ -627,7 +848,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
     if (level.kind === 'build' && buildChecked)
       statuses.forEach((status, index) => {
         if (status === 'empty') problems.push({ severity: 'warning', message: `Step ${index + 1} is empty.` })
-        if (status === 'wrong') problems.push({ severity: 'error', message: `“${blockById(slots[index])?.label}” doesn't belong at step ${index + 1}.`, detail: blockById(slots[index])?.whyWrong })
+        if (status === 'wrong') problems.push({ severity: 'error', message: `“${codeSnippet(codeFor(slots[index] ?? ''))}” doesn't belong at step ${index + 1}.`, detail: blockById(slots[index])?.whyWrong })
       })
     if (level.kind === 'architecture' && flowChecked)
       arrangement.forEach((id, index) => {
@@ -695,7 +916,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
   }, [results])
   const nextLink = next ? { title: next.title, href: preview ? undefined : levelHref(next.id) } : null
 
-  if (!preview && !learner.ready) {
+  if (!preview && (!learner.ready || (unlocked && !draftReady))) {
     return (
       <LoadingState label="Loading level…" className="min-h-dvh bg-(--ide-bg)">
         <div className="flex h-dvh flex-col overflow-hidden bg-(--ide-bg) text-(--ide-fg)">
@@ -837,6 +1058,14 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         if (id) setInspected(id)
       }}
     />
+  ) : activeFile?.owned ? (
+    <EditableCode
+      value={activeFile.content ?? ''}
+      language={languageFor(activeFile.path)}
+      about="A file you created. It saves automatically."
+      instruction="It is not checked by the level and is not pushed to GitHub."
+      onChange={(value) => learnerFiles.write(activeFile.path, value)}
+    />
   ) : activeFile ? (
     <FileView file={activeFile} language={languageFor(activeFile.path)} />
   ) : (
@@ -947,6 +1176,46 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
               )}
 
               {preview && <span className="rounded-sm bg-(--ide-warning)/20 px-2 py-0.5 text-[11px] text-(--ide-warning-soft)">Preview</span>}
+
+              {/* Level switcher: open any level that is unlocked, including ones already passed. */}
+              <div className="mr-1 flex items-center rounded border border-(--ide-border-strong)">
+                {(() => {
+                  const go = (id: string) => (preview ? onNavigate?.(id) : router.push(levelHref(id)))
+                  const openAt = (at: number) => at >= 0 && at < project.levels.length && (preview || isUnlocked(project, at, done, !!session.user?.allLevelsOpen))
+                  const prevLevel = project.levels[index - 1]
+                  return (
+                    <>
+                      <button type="button" onClick={() => prevLevel && go(prevLevel.id)} disabled={!openAt(index - 1)} aria-label="Previous level" title={prevLevel ? `Previous: ${prevLevel.title}` : 'This is the first level'} className="grid h-7 w-6 place-items-center text-(--ide-fg) hover:bg-(--ide-border) disabled:opacity-30">
+                        <ChevronLeft className="size-3.5" />
+                      </button>
+                      <select
+                        value={level.id}
+                        onChange={(event) => go(event.target.value)}
+                        aria-label="Go to level"
+                        title="Go to another level"
+                        className="h-7 max-w-[9.5rem] cursor-pointer border-x border-(--ide-border-strong) bg-(--ide-bar) px-1.5 text-[12px] text-(--ide-fg) outline-none hover:bg-(--ide-border) focus:border-[#0078d4] sm:max-w-[13rem]"
+                      >
+                        {project.worlds.map((item, worldIndex) => (
+                          <optgroup key={item.id} label={`World ${worldIndex + 1} · ${item.title}`}>
+                            {project.levels.map((entry, at) =>
+                              entry.world === item.id ? (
+                                <option key={entry.id} value={entry.id} disabled={!openAt(at)}>
+                                  {done[entry.id] ? '✓ ' : !openAt(at) ? '🔒 ' : ''}
+                                  {at + 1}. {entry.title}
+                                </option>
+                              ) : null,
+                            )}
+                          </optgroup>
+                        ))}
+                      </select>
+                      <button type="button" onClick={() => next && go(next.id)} disabled={!openAt(index + 1)} aria-label="Next level" title={next ? (openAt(index + 1) ? `Next: ${next.title}` : `Pass this level to open ${next.title}`) : 'This is the last level'} className="grid h-7 w-6 place-items-center text-(--ide-fg) hover:bg-(--ide-border) disabled:opacity-30">
+                        <ChevronRight className="size-3.5" />
+                      </button>
+                    </>
+                  )
+                })()}
+              </div>
+
               <ToolButton icon={RotateCcw} label="Reset" onClick={reset} />
               <ToolButton icon={Lightbulb} label="Hint" onClick={giveHint} disabled={passed} />
               {primary && (
@@ -1027,6 +1296,8 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                     activePath={activeTab}
                     challengeBadge={results ? `${results.filter((result) => result.passed).length}/${results.length}` : level.kind === 'build' ? `${slots.filter(Boolean).length}/${order.length}` : undefined}
                     onOpen={openFile}
+                    onCreate={preview ? undefined : createLearnerFile}
+                    onDelete={preview ? undefined : deleteLearnerFile}
                   />
                 )}
               </aside>
@@ -1041,7 +1312,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                     <div key={tab} className={cn('group flex shrink-0 items-center gap-1.5 border-r border-(--ide-border) pl-3 pr-1 text-[13px]', isActive ? 'border-t border-t-[#0078d4] bg-(--ide-bg) text-(--ide-heading)' : 'border-t border-t-transparent text-(--ide-muted) hover:bg-(--ide-bg)/60')}>
                       <button type="button" role="tab" aria-selected={isActive} onClick={() => setActiveTab(tab)} className="flex h-full items-center gap-1.5">
                         {tabIcon(tab)}
-                        <span className={cn(files.get(tab)?.challenge && 'text-(--ide-warning-soft)')}>{tabLabel(tab)}</span>
+                        <span className={cn(allFiles.get(tab)?.challenge && 'text-(--ide-warning-soft)')}>{tabLabel(tab)}</span>
                       </button>
                       <button type="button" onClick={() => closeTab(tab)} aria-label={`Close ${tabLabel(tab)}`} className={cn('rounded p-0.5 hover:bg-(--ide-border-strong)', isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
                         <X className="size-3.5" />
@@ -1098,8 +1369,31 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                 <div className={cn('flex min-h-0 flex-col', level.kind === 'build' ? 'lg:h-full' : 'overflow-y-auto lg:h-full')}>
                   <div className="flex h-9 shrink-0 items-center px-4 text-[11px] tracking-wide text-(--ide-fg-title)">MISSION</div>
                   <MissionHeader place={place} kind={level.kind} boss={level.boss} title={level.title} summary={level.summary} stars={reward?.stars ?? previous?.stars ?? null} worldColor={palette.color} />
-                  {passed && reward && world && <Celebration key={level.id} colors={[worldThemes[world.theme].color, worldThemes[world.theme].deep]} boss={!!level.boss} rankUp={reward.rankUp} />}
+                  {passed && reward && world && <Celebration key={`${level.id}-${passCount}`} colors={[worldThemes[world.theme].color, worldThemes[world.theme].deep]} boss={!!level.boss} levelUp={reward.levelUp} promotedTo={reward.promotedTo} />}
                   {passed && reward && <CompletionCard stars={reward.stars} xp={reward.xp} next={nextLink} mapHref={mapHref} onNext={next && onNavigate ? () => onNavigate(next.id) : undefined} worldColor={palette.color} />}
+                  {passed && !reward && previous && (
+                    <PassedCard
+                      stars={previous.stars}
+                      worldColor={palette.color}
+                      onReplay={reset}
+                      next={
+                        next ? (
+                          <Link href={levelHref(next.id)} className={cn(gameButtonClasses({ variant: 'primary', size: 'sm' }), 'flex-1')}>
+                            Next level <ArrowRight aria-hidden className="ml-1.5 size-3.5" />
+                          </Link>
+                        ) : (
+                          <Link href={mapHref} className={cn(gameButtonClasses({ variant: 'primary', size: 'sm' }), 'flex-1')}>
+                            Back to the map
+                          </Link>
+                        )
+                      }
+                    />
+                  )}
+                  {!passed && (
+                    <MissionSection title="HOW TO PLAY" storageKey="how-to-play">
+                      <HowToPlay steps={howToPlay(level.kind, level.kind === 'explore' && !!level.quiz)} />
+                    </MissionSection>
+                  )}
                   {!passed && previous && (
                     <p className="mx-4 mb-3 rounded border border-(--ide-border-strong) p-2 text-[12px] leading-5 text-(--ide-muted)">
                       You passed this level before. Replay it, or{' '}
@@ -1249,11 +1543,11 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
                 )}
               </div>
 
-              <span>Rank {rank.rank} · {totalXp} XP</span>
+              <span title={post.next ? `${post.toNext.toLocaleString()} XP to ${post.next.title}` : 'Top post reached'}>Lv {playerLevel.level} · {post.title} · {totalXp} XP</span>
               <span>Level reward {xpFor(level)} XP</span>
               <span>Tries {wrong}</span>
               <span>Hints {hints}</span>
-              <span className="hidden md:inline">{preview ? 'Preview: nothing is saved' : signedIn ? 'Progress saves to your account' : 'Progress saves in this browser'}</span>
+              <span className="hidden md:inline">{preview ? 'Preview: nothing is saved' : signedIn ? 'Progress saves to your account as you play' : 'Progress saves in this browser as you play'}</span>
             </div>
           </footer>
         </div>
@@ -1261,7 +1555,7 @@ export function JourneyWorkspace({ project, levelId, preview = false, onNavigate
         <DragOverlay dropAnimation={null}>
           {dragging && level.kind === 'build' && (
             <div className="w-72 cursor-grabbing">
-              <BlockCard label={blockById(dragging)?.label ?? ''} code={codeFor(dragging)} language={languageFor(level.path)} lifted />
+              <BlockCard code={codeFor(dragging)} language={languageFor(level.path)} lifted />
             </div>
           )}
         </DragOverlay>

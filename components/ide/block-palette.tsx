@@ -1,18 +1,27 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CircleCheck, GripVertical, Hand } from 'lucide-react'
 import type { Block } from '@/data/challenges'
 import { cn } from '@/lib/utils'
 import { CodeLines } from './code'
 
-/** The card itself, shared by the palette and the drag overlay. */
-export function BlockCard({ label, code, language, lifted = false }: { label: string; code: string; language: string; lifted?: boolean }) {
+/**
+ * A short, recognisable piece of a block's code (its first line), used wherever a block has to be
+ * named. Blocks deliberately have no visible title: learners read the code to work out what it does.
+ */
+export function codeSnippet(code: string, max = 48) {
+  const line = code.split('\n').map((item) => item.trim()).find(Boolean) ?? ''
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line
+}
+
+/** The card itself, shared by the palette and the drag overlay. Only the code is shown, never a title. */
+export function BlockCard({ code, language, lifted = false }: { code: string; language: string; lifted?: boolean }) {
   return (
     <div className={cn('overflow-hidden rounded-md border bg-(--ide-bg) text-left', lifted ? 'rotate-1 border-[#0078d4] shadow-[0_12px_32px_rgba(0,0,0,0.55)]' : 'border-(--ide-border-strong)')}>
-      <div className="flex items-center gap-1.5 border-b border-(--ide-border) bg-(--ide-bg-alt) px-2 py-1 font-sans text-[11px] text-(--ide-fg)">
-        <GripVertical aria-hidden className="size-3.5 shrink-0 text-(--ide-icon)" />
-        <span className="truncate">{label}</span>
+      <div aria-hidden className="flex h-4 items-center justify-center border-b border-(--ide-border) bg-(--ide-bg-alt)">
+        <GripVertical className="size-3 rotate-90 text-(--ide-icon)" />
       </div>
       <div className="ide-mono px-2.5 py-1.5 text-[12px] leading-5">
         <CodeLines code={code} language={language} wrap />
@@ -43,7 +52,7 @@ function PaletteBlock({ block, code, language, dimmed, active, onPlace, onHover 
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(block.id)}
       onBlur={() => onHover(null)}
-      aria-label={`${block.label}. Drag into the editor, or press Enter to fill the next empty line.`}
+      aria-label={`Code block: ${codeSnippet(code)}. Drag into the editor, or press Enter to fill the next empty line.`}
       className={cn(
         'block w-full cursor-grab rounded-md outline-none transition [touch-action:manipulation] focus-visible:ring-1 focus-visible:ring-[#0078d4] active:cursor-grabbing',
         active && 'ring-1 ring-[#0078d4]',
@@ -51,7 +60,7 @@ function PaletteBlock({ block, code, language, dimmed, active, onPlace, onHover 
         isDragging && 'opacity-30',
       )}
     >
-      <BlockCard label={block.label} code={code} language={language} />
+      <BlockCard code={code} language={language} />
     </button>
   )
 }
@@ -69,9 +78,11 @@ interface BlockPaletteProps {
   completed: boolean
   onPlace: (blockId: string) => void
   onHover: (blockId: string | null) => void
+  /** Optional "how to play" section shown above the blocks (the challenges have no mission panel). */
+  guide?: ReactNode
 }
 
-export function BlockPalette({ blocks, total, placedCount = total - blocks.length, language, codeFor, activeBlock, relatedTo, inspected, completed, onPlace, onHover }: BlockPaletteProps) {
+export function BlockPalette({ blocks, total, placedCount = total - blocks.length, language, codeFor, activeBlock, relatedTo, inspected, completed, onPlace, onHover, guide }: BlockPaletteProps) {
   const { setNodeRef, isOver, active } = useDroppable({ id: 'palette' })
   const draggingPlaced = typeof active?.id === 'string' && active.id.startsWith('placed:')
 
@@ -82,13 +93,15 @@ export function BlockPalette({ blocks, total, placedCount = total - blocks.lengt
         <span className="rounded-full bg-(--ide-border) px-2 py-0.5 text-[10px] text-(--ide-fg)">{placedCount}/{total} placed</span>
       </div>
 
+      {guide}
+
       <div
         ref={setNodeRef}
-        className={cn('min-h-0 flex-1 overflow-y-auto px-3 pb-3', draggingPlaced && 'bg-[#0078d4]/5', isOver && 'bg-[#0078d4]/10 outline outline-1 -outline-offset-1 outline-[#0078d4]')}
+        className={cn('min-h-0 flex-1 overflow-y-auto px-3 pb-3', guide && 'pt-2', draggingPlaced && 'bg-[#0078d4]/5', isOver && 'bg-[#0078d4]/10 outline outline-1 -outline-offset-1 outline-[#0078d4]')}
       >
         <p className="mb-3 flex items-start gap-2 font-sans text-[12px] leading-5 text-(--ide-muted)">
           <Hand aria-hidden className="mt-0.5 size-3.5 shrink-0 text-(--ide-link)" />
-          Grab a block and drop it on an empty line. Click a block to fill the next empty line.
+          Read each block&apos;s code, then drop it on the empty line where it belongs. Click a block to fill the next empty line.
         </p>
 
         {blocks.length > 0 ? (
@@ -118,14 +131,19 @@ export function BlockPalette({ blocks, total, placedCount = total - blocks.lengt
 
       <section className="shrink-0 border-t border-(--ide-border) px-4 py-3">
         <div className="mb-1 text-[11px] font-bold tracking-wide">BLOCK DETAILS</div>
-        {inspected ? (
+        {/* Explanations would give the answer away, so they unlock once the file is solved. */}
+        {inspected && completed ? (
           <div className="text-[12px] leading-5 text-(--ide-muted)">
             <div className="text-(--ide-fg)">{inspected.label}</div>
             <p className="mt-1">{inspected.what}</p>
-            {completed && inspected.whyHere && <p className="mt-1 text-(--ide-success)">Why here: {inspected.whyHere}</p>}
+            {inspected.whyHere && <p className="mt-1 text-(--ide-success)">Why here: {inspected.whyHere}</p>}
           </div>
         ) : (
-          <p className="text-[12px] text-(--ide-dim)">Hover a block to see what it does.</p>
+          <p className="text-[12px] leading-5 text-(--ide-dim)">
+            {completed
+              ? 'Hover a block to see what it does and why it goes there.'
+              : 'Read the code: what does it do, and when in the request does it have to run? Each block is explained here once you solve the file.'}
+          </p>
         )}
       </section>
     </div>

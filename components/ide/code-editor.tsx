@@ -69,7 +69,7 @@ export function ChallengeEditor({ about, scaffold, language, slots, statuses, hi
   return (
     <div>
       <InfoBar>
-        {about} Drag blocks from the right into the empty lines, then press <span className="text-(--ide-fg)">Check</span>.
+        {about} Drag each block onto the empty line where it belongs (the <span className="text-(--ide-fg)">Slot guide</span> below says what each line needs), then press <span className="text-(--ide-fg)">Check</span>.
       </InfoBar>
       <div className="ide-mono py-2 text-[13px] leading-5">
         {scaffold.map((line, row) => {

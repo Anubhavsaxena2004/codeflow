@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Check, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, Skull, Sparkles, Star as StarIcon, Trophy } from 'lucide-react'
+import { ArrowRight, Check, ChevronRight, CircleCheck, CircleDashed, CircleX, Lightbulb, Lock, Map as MapIcon, RotateCcw, Skull, Sparkles, Star as StarIcon, Trophy } from 'lucide-react'
 import type { CheckResult } from '@/lib/journeys/checks'
 import { kindLabels, type Check as CheckDefinition, type CommandStep, type LevelKind, type Quiz } from '@/lib/journeys/types'
 import { cn } from '@/lib/utils'
@@ -13,11 +13,37 @@ import { GameButton, gameButtonClasses, Pill } from '@/components/ui/game'
 import { useSound } from '@/components/ui/sound'
 import { useShake, CheckFeedback, getRandomPraise } from './feedback'
 
-/** A collapsible block of the mission panel, so the parts that matter right now get the room. */
-export function MissionSection({ title, children, aside, defaultOpen = true }: { title: string; children: ReactNode; aside?: ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen)
+/**
+ * A collapsible block of the mission panel, so the parts that matter right now get the room.
+ * With `storageKey` the open/closed choice is remembered in this browser across levels.
+ */
+export function MissionSection({ title, children, aside, defaultOpen = true, storageKey }: { title: string; children: ReactNode; aside?: ReactNode; defaultOpen?: boolean; storageKey?: string }) {
+  const [open, setOpenState] = useState(defaultOpen)
   const id = useId()
   const prefersReduced = useReducedMotion()
+
+  useEffect(() => {
+    if (!storageKey) return
+    try {
+      const saved = window.localStorage.getItem(`codeflow-section:${storageKey}`)
+      if (saved !== null) setOpenState(saved === 'open')
+    } catch {
+      // storage unavailable: use the default
+    }
+  }, [storageKey])
+
+  const setOpen = (update: (value: boolean) => boolean) =>
+    setOpenState((value) => {
+      const next = update(value)
+      if (storageKey) {
+        try {
+          window.localStorage.setItem(`codeflow-section:${storageKey}`, next ? 'open' : 'closed')
+        } catch {
+          // storage unavailable: the choice lasts for this visit
+        }
+      }
+      return next
+    })
 
   return (
     <section className="border-t border-(--ide-border) px-4 py-2">
@@ -88,6 +114,84 @@ export function MissionHeader({ place, kind, boss, title, summary, stars, worldC
         </div>
       </div>
     </header>
+  )
+}
+
+/** What the learner has to do in a level of this kind, step by step. */
+export function howToPlay(kind: LevelKind, quiz: boolean): ReactNode[] {
+  switch (kind) {
+    case 'explore':
+      return [
+        <>Open every file under <b>NEW FILES</b> below (or click it in the explorer on the left).</>,
+        <>Read each one. The <b>ABOUT</b> box under the explorer explains what a file or folder is for.</>,
+        quiz ? <>Answer the <b>QUESTION</b> and press <b>Check answer</b>.</> : <>Press <b>Complete level</b>.</>,
+      ]
+    case 'command':
+      return [
+        <>Read the goal of the highlighted step under <b>STEPS</b> below.</>,
+        <>Click the <b>TERMINAL</b> at the bottom, type the command for that step and press <b>Enter</b>.</>,
+        <>Each right command ticks the step and its files appear in the explorer.</>,
+        <>Stuck? Type <code className="ide-mono">hint</code> in the terminal, or press <b>Hint</b> at the top.</>,
+      ]
+    case 'edit':
+      return [
+        <>The file to complete is open in the editor. Look for the <code className="ide-mono">TODO</code> comments.</>,
+        <>Write the missing code right in the editor.</>,
+        <>Press <b>Run tests</b> (or <b>Ctrl+S</b>). The <b>TESTS</b> list shows what still fails.</>,
+        <>Fix and run again until every test passes.</>,
+      ]
+    case 'bugfix':
+      return [
+        <>The open file has bugs planted in it. Read it carefully.</>,
+        <>Press <b>Run tests</b> to see which checks fail.</>,
+        <>Fix the code in the editor and run the tests again until they all pass.</>,
+      ]
+    case 'build':
+      return [
+        <>Read the code blocks under <b>BLOCKS</b>. They have no names, so work out what each one does.</>,
+        <>Open <b>SLOT GUIDE</b> at the bottom: it says what kind of code each empty line needs.</>,
+        <>Drag a block onto an empty line, or click a block to fill the next empty line. Some blocks are decoys.</>,
+        <>Press <b>Check</b>. Wrong lines are marked, and <b>PROBLEMS</b> explains why.</>,
+      ]
+    case 'architecture':
+      return [
+        <>The <b>Architecture</b> tab shows the stops of a request, shuffled.</>,
+        <>Click the stops in the order a request travels through them. Click a placed stop to take it back.</>,
+        <>Press <b>Check order</b> when every place is filled.</>,
+      ]
+  }
+}
+
+export function HowToPlay({ steps }: { steps: ReactNode[] }) {
+  return (
+    <ol className="flex flex-col gap-1.5">
+      {steps.map((step, index) => (
+        <li key={index} className="flex gap-2 text-[12px] leading-5 text-(--ide-fg)">
+          <span className="mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full bg-(--ide-border) text-[10px] font-bold text-(--ide-heading)">{index + 1}</span>
+          <span className="min-w-0 [&_b]:font-semibold [&_b]:text-(--ide-heading)">{step}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+/** Shown when a passed level is reopened: the learner's finished work, with replay and next. */
+export function PassedCard({ stars, next, onReplay, worldColor }: { stars: number; next: ReactNode; onReplay: () => void; worldColor?: string }) {
+  return (
+    <div className="mx-4 mb-3 rounded-xl border border-(--ide-border-strong) bg-(--ide-bg) p-3" style={{ borderTop: `3px solid ${worldColor ?? '#16a34a'}` }}>
+      <div className="flex items-center gap-2">
+        <CircleCheck aria-hidden className="size-4 shrink-0 text-(--ide-success)" />
+        <span className="text-[12px] font-semibold text-(--ide-heading)">You passed this level</span>
+        <Stars count={stars} className="ml-auto" />
+      </div>
+      <p className="mt-1 text-[12px] leading-5 text-(--ide-muted)">This is your finished work. Replay it to try for more stars; XP is only earned once.</p>
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        <button type="button" onClick={onReplay} className={cn(gameButtonClasses({ variant: 'secondary', size: 'sm' }), 'flex-1')}>
+          <RotateCcw aria-hidden className="mr-1.5 size-3.5" /> Replay
+        </button>
+        {next}
+      </div>
+    </div>
   )
 }
 

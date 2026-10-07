@@ -195,13 +195,22 @@ export function GithubPanel({
       <div className="mb-2 flex items-center gap-1.5 text-[12px] text-(--ide-fg-strong)">
         <KeyRound className="size-3.5" /> Connect with a personal access token
       </div>
+      <p className="mb-2 text-[11px] leading-[18px] text-(--ide-muted)">
+        A token works like a password for <span className="text-(--ide-fg)">your own</span> GitHub account, so every learner creates their own. Never share it.
+      </p>
       <ol className="list-decimal space-y-1 pl-4 text-[11px] leading-[18px] text-(--ide-muted)">
         <li>
-          <a href={NEW_TOKEN_URL} target="_blank" rel="noreferrer" className="text-(--ide-link) hover:underline">Create a token on GitHub</a>. It opens with the <code className="text-(--ide-string)">repo</code> scope ticked; pick an expiry.
+          Sign in to GitHub, then <a href={NEW_TOKEN_URL} target="_blank" rel="noreferrer" className="text-(--ide-link) hover:underline">create a token</a>. The page opens with a name and the <code className="text-(--ide-string)">repo</code> scope already ticked; leave them.
         </li>
-        <li>Click <span className="text-(--ide-fg)">Generate token</span> and copy it. GitHub shows it only once.</li>
-        <li>Paste it here. It is encrypted before it is stored and only used to push your projects.</li>
+        <li>
+          <span className="text-(--ide-fg)">Expiration:</span> GitHub sets <span className="text-(--ide-fg)">30 days</span> by default, and pushes stop working when it runs out. Pick <span className="text-(--ide-fg)">90 days</span>, a <span className="text-(--ide-fg)">Custom</span> date, or <span className="text-(--ide-fg)">No expiration</span>.
+        </li>
+        <li>Scroll down, click <span className="text-(--ide-fg)">Generate token</span> and copy it (it starts with <code className="text-(--ide-string)">ghp_</code>). GitHub shows it only once.</li>
+        <li>Paste it here and press Save. It is encrypted before it is stored and only used to push your projects.</li>
       </ol>
+      <p className="mt-2 text-[11px] leading-[18px] text-(--ide-muted)">
+        Token expired? Pushes fail with &ldquo;expired or revoked&rdquo;. Create a new token the same way and save it here; your repositories stay linked.
+      </p>
       <input
         type="password"
         value={token}

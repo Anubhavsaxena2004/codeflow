@@ -532,6 +532,135 @@ public class GlobalExceptionHandler {
 }
 `
 
+const SERVICE_READ_STARTER = `package com.anubhav.todoapp.service;
+
+import com.anubhav.todoapp.dto.TodoRequest;
+import com.anubhav.todoapp.exception.ResourceNotFoundException;
+import com.anubhav.todoapp.model.Todo;
+import com.anubhav.todoapp.repository.TodoRepository;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+// TODO 1: annotate class with @Service so Spring creates and manages it
+public class TodoService {
+
+    private final TodoRepository todoRepository;
+
+    // TODO 2: constructor injection: pass TodoRepository and assign this.todoRepository = todoRepository
+
+    // Newest first
+    public List<Todo> getAllTodos() {
+        // TODO 3: return all todos from todoRepository sorted by id descending
+    }
+}
+`
+
+const SERVICE_READ_SOLUTION = `package com.anubhav.todoapp.service;
+
+import com.anubhav.todoapp.dto.TodoRequest;
+import com.anubhav.todoapp.exception.ResourceNotFoundException;
+import com.anubhav.todoapp.model.Todo;
+import com.anubhav.todoapp.repository.TodoRepository;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+// The business logic. Controllers call it; it is the only class that talks to the repository.
+@Service
+public class TodoService {
+
+    private final TodoRepository todoRepository;
+
+    // Constructor injection: Spring creates the repository and passes it in
+    public TodoService(TodoRepository todoRepository) {
+        this.todoRepository = todoRepository;
+    }
+
+    // Newest first
+    public List<Todo> getAllTodos() {
+        return todoRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+    }
+}
+`
+
+const SERVICE_CREATE_HEAD = `package com.anubhav.todoapp.service;
+
+import com.anubhav.todoapp.dto.TodoRequest;
+import com.anubhav.todoapp.exception.ResourceNotFoundException;
+import com.anubhav.todoapp.model.Todo;
+import com.anubhav.todoapp.repository.TodoRepository;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+// The business logic. Controllers call it; it is the only class that talks to the repository.
+@Service
+public class TodoService {
+
+    private final TodoRepository todoRepository;
+
+    // Constructor injection: Spring creates the repository and passes it in
+    public TodoService(TodoRepository todoRepository) {
+        this.todoRepository = todoRepository;
+    }
+
+    // Newest first
+    public List<Todo> getAllTodos() {
+        return todoRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+    }
+
+    public Todo getTodoById(Long id) {`
+
+const SERVICE_UPDATE_DELETE_STARTER = `package com.anubhav.todoapp.service;
+
+import com.anubhav.todoapp.dto.TodoRequest;
+import com.anubhav.todoapp.exception.ResourceNotFoundException;
+import com.anubhav.todoapp.model.Todo;
+import com.anubhav.todoapp.repository.TodoRepository;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+// The business logic. Controllers call it; it is the only class that talks to the repository.
+@Service
+public class TodoService {
+
+    private final TodoRepository todoRepository;
+
+    // Constructor injection: Spring creates the repository and passes it in
+    public TodoService(TodoRepository todoRepository) {
+        this.todoRepository = todoRepository;
+    }
+
+    // Newest first
+    public List<Todo> getAllTodos() {
+        return todoRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
+    }
+
+    public Todo getTodoById(Long id) {
+        return todoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Todo " + id + " not found"));
+    }
+
+    public Todo createTodo(TodoRequest request) {
+        return todoRepository.save(new Todo(request.getTitle().trim(), false));
+    }
+
+    public void toggleTodo(Long id) {
+        // TODO 1: load todo with getTodoById, flip completed, and save it
+    }
+
+    public void deleteTodo(Long id) {
+        // TODO 2: delete todo from todoRepository using getTodoById(id)
+    }
+}
+`
+
 const SERVICE_HEAD = `package com.anubhav.todoapp.service;
 
 import com.anubhav.todoapp.dto.TodoRequest;
@@ -1663,34 +1792,146 @@ Open both files, then answer the question.`,
       },
     },
     {
+      id: 'service-read',
+      world: 'logic',
+      kind: 'edit',
+      title: 'Define the service and list todos',
+      summary: 'Annotate with @Service, inject the repository, and write getAllTodos.',
+      lesson: `The service is the business logic between the controller and the repository. The controller never touches the repository directly, so business rules live in one clean place.
+
+Start \`TodoService.java\` from scratch:
+- Annotate the class with \`@Service\` so Spring registers it as a managed singleton bean.
+- Inject \`TodoRepository\` through the constructor (constructor injection).
+- Implement \`getAllTodos()\`: ask the repository for all todos, sorted newest first (\`Sort.by(Sort.Direction.DESC, "id")\`).`,
+      path: `${JAVA}/service/TodoService.java`,
+      about: 'The business logic: list, create, toggle and delete todos.',
+      starter: SERVICE_READ_STARTER,
+      solution: SERVICE_READ_SOLUTION,
+      checks: [
+        { id: 'service-anno', name: 'Annotated with @Service', hint: '@Service above the class declaration.', type: 'includes', value: '@Service\npublic class TodoService' },
+        { id: 'constructor-inj', name: 'Constructor injects TodoRepository', hint: 'public TodoService(TodoRepository todoRepository) { this.todoRepository = todoRepository; }', type: 'includes', value: 'public TodoService(TodoRepository todoRepository) {\n        this.todoRepository = todoRepository;\n    }' },
+        { id: 'get-all', name: 'getAllTodos queries repository sorted by id DESC', hint: 'return todoRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));', type: 'includes', value: 'return todoRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));' },
+      ],
+      gaps: [
+        {
+          marker: '// TODO 1:',
+          goal: 'Annotate class with @Service so Spring registers it as a service bean.',
+          options: [
+            { code: '@Service\npublic class TodoService {', why: 'Tells Spring this class holds business logic and should be managed as a singleton component.' },
+            { code: '@Component\npublic class TodoService {', why: '@Component works, but @Service is the specialized stereotype for business logic layer classes.' },
+            { code: 'public class TodoService {', why: 'Without @Service, Spring cannot detect or inject this class into the controller.' },
+          ],
+          answer: 0,
+          checks: ['service-anno'],
+          sources: [{ name: 'Service', from: 'import', find: 'import org.springframework.stereotype.Service;', note: 'Spring stereotype annotation for service layer.' }],
+          result: 'Spring will create and inject TodoService at startup.',
+        },
+        {
+          marker: '// TODO 2:',
+          goal: 'Inject TodoRepository through the constructor.',
+          options: [
+            { code: 'public TodoService(TodoRepository todoRepository) {\n        this.todoRepository = todoRepository;\n    }', why: 'Constructor injection ensures the repository dependency is passed in when Spring creates the service.' },
+            { code: 'public TodoService() {\n        this.todoRepository = null;\n    }', why: 'Leaves todoRepository as null, causing NullPointerException on any database call.' },
+            { code: 'public TodoService(TodoRepository repo) {\n    }', why: 'Does not assign the parameter to this.todoRepository, leaving the field null.' },
+          ],
+          answer: 0,
+          checks: ['constructor-inj'],
+          sources: [{ name: 'TodoRepository', from: 'import', find: 'import com.anubhav.todoapp.repository.TodoRepository;', note: 'The repository interface from the data layer.' }],
+          result: 'todoRepository is initialized and ready to run queries.',
+        },
+        {
+          marker: '// TODO 3:',
+          goal: 'Return all todos sorted by id descending.',
+          options: [
+            { code: 'return todoRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));', why: 'Calls Spring Data JPA findAll with sorting so newest todos appear first.' },
+            { code: 'return todoRepository.findAll();', why: 'Returns todos in natural database order (oldest first). We need newest first (DESC by id).' },
+            { code: 'return todoRepository.findById(1L);', why: 'findById returns one Optional, not the List<Todo> required by the return type.' },
+          ],
+          answer: 0,
+          checks: ['get-all'],
+          sources: [{ name: 'todoRepository', from: 'here', find: 'private final TodoRepository todoRepository;', note: 'The injected repository field.' }],
+          result: 'getAllTodos returns all todos sorted newest first.',
+        },
+      ],
+    },
+    {
       id: 'service',
       world: 'logic',
       kind: 'build',
-      title: 'Build the service',
-      summary: 'Find a todo or fail clearly, then flip and save it.',
-      lesson: `The service is the business logic between the controller and the repository. The controller never touches the repository, so rules like "a missing todo is an error" live in one place.
+      title: 'Build getTodoById and createTodo',
+      summary: 'Find a todo or fail clearly, and save new todos with trimmed titles.',
+      lesson: `Now add lookup and creation to \`TodoService.java\`:
 
-\`@Service\` makes Spring create it, and the repository arrives through the constructor (constructor injection).
+- \`getTodoById\` must return the todo or throw \`ResourceNotFoundException\`: \`findById\` returns an \`Optional\`, a container that may be empty, and \`orElseThrow\` extracts it or throws with a helpful message.
+- \`createTodo\` trims the title and calls \`todoRepository.save(new Todo(title, false))\`.
 
-Two methods are missing. \`getTodoById\` must return the todo or throw \`ResourceNotFoundException\`: findById returns an Optional, a box that may be empty, and orElseThrow opens it. \`toggleTodo\` loads the todo, flips it and saves it: save on an object that has an id updates that row. Some blocks look right but hide a bug: hover one to read what it does.`,
+Some blocks look right but hide a bug: hover one to read what it does.`,
       path: `${JAVA}/service/TodoService.java`,
       about: 'The business logic: list, create, toggle and delete todos.',
-      scaffold: [...lines(SERVICE_HEAD), slot(1, 8), ...lines(SERVICE_MIDDLE), slot(2, 8), slot(3, 8), slot(4, 8), ...lines(SERVICE_TAIL)],
+      scaffold: [...lines(SERVICE_CREATE_HEAD), slot(1, 8), line('    }'), line(''), line('    public Todo createTodo(TodoRequest request) {'), slot(2, 8), line('    }'), line('}')],
       blocks: [
         { id: 'find', label: 'Find it, or fail with "not found"', code: 'return todoRepository.findById(id)\n        .orElseThrow(() -> new ResourceNotFoundException("Todo " + id + " not found"));', what: 'findById returns an Optional. orElseThrow hands back the todo, or throws with a message that names the missing id.', whyHere: 'The one place that decides what a missing todo means. Toggle and delete reuse it.' },
-        { id: 'load', label: 'Load the todo to toggle', code: 'Todo todo = getTodoById(id);', what: 'Reuses getTodoById, so a missing id throws the same clear exception.', whyHere: 'You need the todo before you can change it.' },
-        { id: 'flip', label: 'Flip completed', code: 'todo.setCompleted(!todo.isCompleted());', what: 'True becomes false and false becomes true, so the same button completes and undoes.', whyHere: 'The change itself, on the loaded object.' },
-        { id: 'save', label: 'Save the change', code: 'todoRepository.save(todo);', what: 'The todo has an id, so save runs an UPDATE on that row.', whyHere: 'Last: until it is saved, only the Java object changed.' },
+        { id: 'create', label: 'Save the new todo', code: 'return todoRepository.save(new Todo(request.getTitle().trim(), false));', what: 'Trims leading/trailing whitespace and saves a new non-completed Todo row.', whyHere: 'Ensures clean data reaches MySQL and returns the persisted entity with its generated id.' },
         { id: 'bad-find-null', label: 'Find it, or return nothing', code: 'return todoRepository.findById(id).orElse(null);', what: 'Returns the todo, or null.', whyWrong: 'Every caller now has to check for null, and the first one that forgets crashes with a NullPointerException, far from the cause.' },
         { id: 'bad-find-get', label: 'Find it', code: 'return todoRepository.findById(id).get();', what: 'Opens the Optional.', whyWrong: 'get() on an empty Optional throws NoSuchElementException, which the user sees as a 500 error, with no hint of which todo was missing.' },
-        { id: 'bad-flip', label: 'Mark it completed', code: 'todo.setCompleted(true);', what: 'Marks the todo as done.', whyWrong: 'It can never be undone: pressing Undo would mark it completed again.' },
-        { id: 'bad-save', label: 'Save the change', code: 'todoRepository.save(new Todo(todo.getTitle(), todo.isCompleted()));', what: 'Saves a todo with the new state.', whyWrong: 'A new Todo has no id, so save INSERTs a second row instead of updating the first.' },
+        { id: 'bad-create-untrimmed', label: 'Save the raw title', code: 'return todoRepository.save(new Todo(request.getTitle(), false));', what: 'Saves without trimming.', whyWrong: 'Leaves accidental leading and trailing whitespace in the database title.' },
       ],
       steps: [
         { kind: 'Lookup', goal: 'Return the todo, or fail with a clear "not found".' },
-        { kind: 'Reuse', goal: 'Load the todo to change, with the same not-found rule.' },
-        { kind: 'Change', goal: 'Flip completed, so the button works both ways.' },
-        { kind: 'Database write', goal: 'Save the change to the same row.' },
+        { kind: 'Database write', goal: 'Save the new todo with a trimmed title and completed=false.' },
+      ],
+    },
+    {
+      id: 'service-update-delete',
+      world: 'logic',
+      kind: 'edit',
+      title: 'Build toggleTodo and deleteTodo',
+      summary: 'Reuse getTodoById to update or delete rows safely.',
+      lesson: `Complete \`TodoService.java\` with toggle and delete:
+
+- \`toggleTodo\` reuses \`getTodoById(id)\` to safely look up the row, flips \`completed\` with \`setCompleted(!todo.isCompleted())\`, and saves it. Because the entity already has an ID, \`save()\` issues an SQL \`UPDATE\`.
+- \`deleteTodo\` looks up the entity with \`getTodoById(id)\` and passes it to \`todoRepository.delete(todo)\`. If the ID does not exist, \`getTodoById\` immediately throws \`ResourceNotFoundException\`.`,
+      path: `${JAVA}/service/TodoService.java`,
+      about: 'The business logic: list, create, toggle and delete todos.',
+      starter: SERVICE_UPDATE_DELETE_STARTER,
+      solution: SERVICE,
+      checks: [
+        { id: 'toggle', name: 'toggleTodo flips completed and saves', hint: 'Todo todo = getTodoById(id); todo.setCompleted(!todo.isCompleted()); todoRepository.save(todo);', type: 'includes', value: 'Todo todo = getTodoById(id);\n        todo.setCompleted(!todo.isCompleted());\n        todoRepository.save(todo);' },
+        { id: 'delete', name: 'deleteTodo deletes the todo by entity', hint: 'todoRepository.delete(getTodoById(id));', type: 'includes', value: 'todoRepository.delete(getTodoById(id));' },
+      ],
+      gaps: [
+        {
+          marker: '// TODO 1:',
+          goal: 'Load todo with getTodoById, flip completed, and save it.',
+          options: [
+            { code: 'Todo todo = getTodoById(id);\n        todo.setCompleted(!todo.isCompleted());\n        todoRepository.save(todo);', why: 'Reuses getTodoById (which checks 404), toggles boolean, and calls save() to perform SQL UPDATE.' },
+            { code: 'Todo todo = getTodoById(id);\n        todo.setCompleted(true);\n        todoRepository.save(todo);', why: 'Hardcodes true: pressing the toggle button can never undo completion.' },
+            { code: 'Todo todo = getTodoById(id);\n        todo.setCompleted(!todo.isCompleted());', why: 'Missing todoRepository.save(todo): the change is only in Java heap memory and never saved to the database.' },
+          ],
+          answer: 0,
+          checks: ['toggle'],
+          sources: [
+            { name: 'getTodoById', from: 'here', find: 'public Todo getTodoById(Long id)', note: 'Reuses lookup and 404 check.' },
+            { name: 'todoRepository', from: 'here', find: 'private final TodoRepository todoRepository;', note: 'Injected repository.' },
+          ],
+          result: 'Toggles completed state and persists the change to MySQL.'
+        },
+        {
+          marker: '// TODO 2:',
+          goal: 'Delete the todo using getTodoById(id).',
+          options: [
+            { code: 'todoRepository.delete(getTodoById(id));', why: 'Loads the entity with getTodoById (raising ResourceNotFoundException if missing) and deletes it via repository.' },
+            { code: 'todoRepository.deleteById(id);', why: 'deleteById does not throw ResourceNotFoundException when the id is missing.' },
+            { code: 'getTodoById(id);', why: 'Only looks up the entity without calling todoRepository.delete().' },
+          ],
+          answer: 0,
+          checks: ['delete'],
+          sources: [
+            { name: 'getTodoById', from: 'here', find: 'public Todo getTodoById(Long id)', note: 'Reuses lookup and 404 verification.' },
+            { name: 'todoRepository', from: 'here', find: 'private final TodoRepository todoRepository;', note: 'Injected repository.' },
+          ],
+          result: 'Deletes the specified row from the MySQL database.'
+        },
       ],
     },
     {

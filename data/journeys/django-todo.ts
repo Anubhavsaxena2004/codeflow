@@ -404,6 +404,30 @@ class TodoForm(forms.ModelForm):
         fields = ['title']
 `
 
+const VIEWS_READ_STARTER = `# TODO 1: import get_object_or_404, redirect, render from django.shortcuts, and require_POST from django.views.decorators.http
+
+# TODO 2: import TodoForm from .forms and Todo from .models
+
+
+# GET /: every todo, newest first (Meta.ordering in models.py sorts them)
+def todo_list(request):
+    # TODO 3: get all todos with Todo.objects.all() and render todos/todo_list.html with {'todos': todos}
+    pass
+`
+
+const VIEWS_READ_SOLUTION = `from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from .forms import TodoForm
+from .models import Todo
+
+
+# GET /: every todo, newest first (Meta.ordering in models.py sorts them)
+def todo_list(request):
+    todos = Todo.objects.all()
+    return render(request, 'todos/todo_list.html', {'todos': todos})
+`
+
 const VIEWS_HEAD = `from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -428,6 +452,45 @@ const CREATE_BODY = `    if request.method == 'POST':
     else:
         form = TodoForm()
     return render(request, 'todos/todo_form.html', {'form': form})`
+
+const VIEWS_UPDATE_DELETE_STARTER = `from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from .forms import TodoForm
+from .models import Todo
+
+
+# GET /: every todo, newest first (Meta.ordering in models.py sorts them)
+def todo_list(request):
+    todos = Todo.objects.all()
+    return render(request, 'todos/todo_list.html', {'todos': todos})
+
+
+# GET /add/ shows an empty form; POST /add/ saves it
+def todo_create(request):
+    if request.method == 'POST':
+        form = TodoForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('todo_list')
+    else:
+        form = TodoForm()
+    return render(request, 'todos/todo_form.html', {'form': form})
+
+
+# POST /toggle/<pk>/: tick a todo off, or undo it. It changes data, so POST only.
+@require_POST
+def todo_toggle(request, pk):
+    # TODO 1: get todo with get_object_or_404, flip completed, save, and redirect to 'todo_list'
+    pass
+
+
+# POST /delete/<pk>/
+@require_POST
+def todo_delete(request, pk):
+    # TODO 2: get todo with get_object_or_404, delete it, and redirect to 'todo_list'
+    pass
+`
 
 const VIEWS_TAIL = `# POST /toggle/<pk>/: tick a todo off, or undo it. It changes data, so POST only.
 @require_POST
@@ -1200,21 +1263,94 @@ List the fields one by one. \`fields = '__all__'\` would let anyone who edits th
       ],
     },
     {
+      id: 'views-read',
+      world: 'views',
+      kind: 'edit',
+      title: 'Import models and write todo_list',
+      summary: 'Import shortcuts, forms, and models, and query all todos for the list view.',
+      lesson: `A Django view is a Python function that takes an \`HttpRequest\` and returns an \`HttpResponse\`.
+
+Start \`todos/views.py\` from scratch:
+- Import shortcuts from \`django.shortcuts\`: \`render\` to draw templates, \`redirect\` to send the browser to another URL, and \`get_object_or_404\` to safely look up model instances.
+- Import \`require_POST\` from \`django.views.decorators.http\` for actions that change data.
+- Import \`TodoForm\` from \`.forms\` and \`Todo\` from \`.models\`.
+- Write \`todo_list(request)\`: query all todos with \`Todo.objects.all()\` and render \`todos/todo_list.html\` with \`{'todos': todos}\`.`,
+      path: 'todos/views.py',
+      about: 'The logic: list, create, toggle and delete todos.',
+      starter: VIEWS_READ_STARTER,
+      solution: VIEWS_READ_SOLUTION,
+      checks: [
+        { id: 'shortcuts', name: 'Imports shortcuts and require_POST', hint: 'from django.shortcuts import get_object_or_404, redirect, render and from django.views.decorators.http import require_POST', type: 'includes', value: 'from django.shortcuts import get_object_or_404, redirect, render\nfrom django.views.decorators.http import require_POST' },
+        { id: 'imports', name: 'Imports TodoForm and Todo', hint: 'from .forms import TodoForm and from .models import Todo', type: 'includes', value: 'from .forms import TodoForm\nfrom .models import Todo' },
+        { id: 'list-view', name: 'todo_list queries todos and renders todo_list.html', hint: "todos = Todo.objects.all()\n    return render(request, 'todos/todo_list.html', {'todos': todos})", type: 'includes', value: "todos = Todo.objects.all()\n    return render(request, 'todos/todo_list.html', {'todos': todos})" },
+      ],
+      gaps: [
+        {
+          marker: '# TODO 1:',
+          goal: 'Import shortcuts and require_POST.',
+          options: [
+            { code: 'from django.shortcuts import get_object_or_404, redirect, render\nfrom django.views.decorators.http import require_POST', why: 'Imports the shortcuts for rendering templates, redirecting, and fetching models, along with the POST-only decorator.' },
+            { code: 'from django.shortcuts import render\nfrom django.views.decorators.http import require_POST', why: 'Missing redirect and get_object_or_404, which views need to send users to the list and safely look up rows.' },
+            { code: 'from django.http import get_object_or_404, redirect, render', why: 'These helpers live in django.shortcuts, not django.http. Python would fail with ImportError.' },
+          ],
+          answer: 0,
+          checks: ['shortcuts'],
+          sources: [
+            { name: 'render', from: 'builtin', note: 'Django shortcut that renders a template with a context dictionary.' },
+            { name: 'redirect', from: 'builtin', note: 'Sends an HTTP 302 redirect response.' },
+          ],
+          result: 'Shortcuts and decorators are available to the view functions.',
+        },
+        {
+          marker: '# TODO 2:',
+          goal: 'Import TodoForm and Todo from this app.',
+          options: [
+            { code: 'from forms import TodoForm\nfrom models import Todo', why: 'Missing the dot prefix: Python will search top-level site packages instead of the current todos app.' },
+            { code: 'from .forms import TodoForm\nfrom .models import Todo', why: 'Relative imports: loads TodoForm from todos/forms.py and Todo from todos/models.py.' },
+            { code: 'import TodoForm, Todo', why: 'TodoForm and Todo are classes inside files, not top-level modules.' },
+          ],
+          answer: 1,
+          checks: ['imports'],
+          sources: [
+            { name: 'TodoForm', from: 'file', path: 'todos/forms.py', find: 'class TodoForm(forms.ModelForm)', note: 'The ModelForm created in the previous level.' },
+            { name: 'Todo', from: 'file', path: 'todos/models.py', find: 'class Todo(models.Model)', note: 'The Todo database model.' },
+          ],
+          result: 'Todo and TodoForm can now be used in your view functions.',
+        },
+        {
+          marker: '# TODO 3:',
+          goal: 'Query all todos and render the todo_list.html template.',
+          options: [
+            { code: "todos = Todo.objects.all()\n    return render(request, 'todos/todo_list.html', {'todos': todos})", why: 'Queries all rows (ordered by -created_at from models.py Meta) and renders the list template.' },
+            { code: "todos = Todo.objects.all()\n    return render(request, 'todos/todo_list.html')", why: 'Missing context dictionary: the template will receive no todos variable and draw an empty list.' },
+            { code: "todos = Todo.all()\n    return render(request, 'todos/todo_list.html', {'todos': todos})", why: 'Django models use an objects manager: Todo.objects.all(), not Todo.all().' },
+          ],
+          answer: 0,
+          checks: ['list-view'],
+          sources: [
+            { name: 'Todo', from: 'file', path: 'todos/models.py', find: 'class Todo(models.Model)', note: 'The model whose rows are queried with Todo.objects.all().' },
+            { name: 'request', from: 'param', find: 'def todo_list(request)', note: 'HttpRequest passed by Django to every view.' },
+          ],
+          result: 'todo_list renders the home page with all existing todos.',
+        },
+      ],
+    },
+    {
       id: 'create-view',
       world: 'views',
       kind: 'build',
       title: 'Build todo_create',
       summary: 'Arrange the view behind /add/: show the form, check it, save it, redirect.',
-      lesson: `A view is a function that takes a request and returns a response. todo_create answers the same URL, /add/, in two ways:
+      lesson: `Now add the Create operation: todo_create answers the same URL, /add/, in two ways:
 - GET, the first visit: draw an empty form.
 - POST, the form was submitted: fill the form with \`request.POST\`, check it with \`is_valid()\`, save it, and redirect to the list.
 
 When the data is invalid, the view falls through to the same render, and the form comes back with its error messages.
 
-Redirecting after a successful POST is called Post/Redirect/Get: refreshing the list never submits the form a second time. The other three views are written for you. Some blocks look right but hide a bug: hover one to read what it does.`,
+Redirecting after a successful POST is called Post/Redirect/Get: refreshing the list never submits the form a second time. Some blocks look right but hide a bug: hover one to read what it does.`,
       path: 'todos/views.py',
       about: 'The logic: list, create, toggle and delete todos.',
-      scaffold: [...lines(VIEWS_HEAD), slot(1, 4), slot(2, 8), slot(3, 4), slot(4, 4), line(''), line(''), ...lines(VIEWS_TAIL)],
+      scaffold: [...lines(VIEWS_HEAD), slot(1, 4), slot(2, 8), slot(3, 4), slot(4, 4)],
       blocks: [
         { id: 'bind', label: 'Fill the form with what was sent', code: "if request.method == 'POST':\n    form = TodoForm(request.POST)", what: 'On a submit, binds the posted fields (here, title) to a TodoForm so it can check them.', whyHere: 'Everything after this depends on whether this is a submit or a first visit.' },
         { id: 'save', label: 'Save valid data, then go to the list', code: "if form.is_valid():\n    form.save()\n    return redirect('todo_list')", what: "is_valid() runs the model's rules (required, at most 200 characters). Only then does save() insert the row, and redirect sends the browser to the list.", whyHere: 'Inside the POST branch: there is only something to save when the form was submitted.' },
@@ -1230,6 +1366,61 @@ Redirecting after a successful POST is called Post/Redirect/Get: refreshing the 
         { kind: 'Validation', goal: 'Save only valid data, then send the browser to the list.' },
         { kind: 'First visit', goal: 'On a plain GET, start with an empty form.' },
         { kind: 'Response', goal: 'Draw the form page, empty or with its errors.' },
+      ],
+    },
+    {
+      id: 'views-update-delete',
+      world: 'views',
+      kind: 'edit',
+      title: 'Build todo_toggle and todo_delete',
+      summary: 'Protect state-changing views with @require_POST and update or delete rows safely.',
+      lesson: `Complete the view suite with update (toggle) and delete:
+
+- Both views change database data, so they are decorated with \`@require_POST\`. If a user or web crawler tries to call them with GET, Django immediately returns 405 Method Not Allowed.
+- \`get_object_or_404(Todo, pk=pk)\` looks up the row by primary key. If it doesn't exist, Django immediately raises an \`Http404\` error page instead of crashing with \`DoesNotExist\`.
+- \`todo_toggle\` flips \`completed\` (\`todo.completed = not todo.completed\`), calls \`todo.save()\`, and redirects to \`todo_list\`.
+- \`todo_delete\` calls \`todo.delete()\` and redirects to \`todo_list\`.`,
+      path: 'todos/views.py',
+      about: 'The logic: list, create, toggle and delete todos.',
+      starter: VIEWS_UPDATE_DELETE_STARTER,
+      solution: VIEWS,
+      checks: [
+        { id: 'toggle', name: 'todo_toggle flips completed, saves, and redirects', hint: "todo = get_object_or_404(Todo, pk=pk)\n    todo.completed = not todo.completed\n    todo.save()\n    return redirect('todo_list')", type: 'includes', value: "todo = get_object_or_404(Todo, pk=pk)\n    todo.completed = not todo.completed\n    todo.save()\n    return redirect('todo_list')" },
+        { id: 'delete', name: 'todo_delete deletes the todo and redirects', hint: "todo = get_object_or_404(Todo, pk=pk)\n    todo.delete()\n    return redirect('todo_list')", type: 'includes', value: "todo = get_object_or_404(Todo, pk=pk)\n    todo.delete()\n    return redirect('todo_list')" },
+      ],
+      gaps: [
+        {
+          marker: '# TODO 1:',
+          goal: 'Find the todo by pk, toggle completed, save, and redirect.',
+          options: [
+            { code: "todo = get_object_or_404(Todo, pk=pk)\n    todo.completed = not todo.completed\n    todo.save()\n    return redirect('todo_list')", why: 'Looks up the todo or raises 404, inverts completed boolean, saves changes to database, and redirects to list.' },
+            { code: "todo = Todo.objects.get(pk=pk)\n    todo.completed = not todo.completed\n    todo.save()\n    return redirect('todo_list')", why: 'Todo.objects.get raises DoesNotExist which crashes with a 500 error instead of a clean 404.' },
+            { code: "todo = get_object_or_404(Todo, pk=pk)\n    todo.completed = not todo.completed\n    return redirect('todo_list')", why: 'Missing todo.save(): the change only happened in Python memory and never reached the database.' },
+          ],
+          answer: 0,
+          checks: ['toggle'],
+          sources: [
+            { name: 'get_object_or_404', from: 'import', find: 'from django.shortcuts import get_object_or_404', note: 'Shortcut imported at the top.' },
+            { name: 'Todo', from: 'file', path: 'todos/models.py', find: 'class Todo(models.Model)', note: 'The model.' },
+          ],
+          result: 'Toggling flips completion status and redirects back to the list.',
+        },
+        {
+          marker: '# TODO 2:',
+          goal: 'Find the todo by pk, delete it, and redirect.',
+          options: [
+            { code: "todo = get_object_or_404(Todo, pk=pk)\n    todo.delete()\n    return redirect('todo_list')", why: 'Finds row safely with 404 protection, runs DELETE query, and redirects back to the list.' },
+            { code: "todo = get_object_or_404(Todo, pk=pk)\n    return redirect('todo_list')", why: 'Missing todo.delete(): the row is never removed from the database.' },
+            { code: "Todo.delete(pk=pk)\n    return redirect('todo_list')", why: 'Todo has no class-level delete(pk=...) method. You must delete an instance or queryset.' },
+          ],
+          answer: 0,
+          checks: ['delete'],
+          sources: [
+            { name: 'get_object_or_404', from: 'import', find: 'from django.shortcuts import get_object_or_404', note: 'Shortcut imported at the top.' },
+            { name: 'Todo', from: 'file', path: 'todos/models.py', find: 'class Todo(models.Model)', note: 'The model.' },
+          ],
+          result: 'Deletes the specified todo row from SQLite.',
+        },
       ],
     },
     {

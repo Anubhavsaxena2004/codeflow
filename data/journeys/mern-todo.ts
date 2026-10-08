@@ -278,6 +278,116 @@ const MODEL_BUGGY = MODEL_SOLUTION.replace('new mongoose.Schema(', 'new mongoose
   .replace('{ timestamps: true }', '{ timestamp: true }')
   .replace('module.exports =', 'module.export =')
 
+const CONTROLLER_READ_STARTER = `// TODO 1: import the Todo model from ../models/Todo
+
+// GET /api/todos: every todo, newest first
+const getTodos = async (req, res) => {
+  try {
+    // TODO 2: find all todos, sorted by createdAt descending (-1)
+    // TODO 3: send 200 OK with the todos array
+  } catch (error) {
+    return res.status(500).json({ message: "Could not load todos" });
+  }
+};
+
+// TODO 4: export getTodos
+`;
+
+const CONTROLLER_READ_SOLUTION = `const Todo = require("../models/Todo");
+
+// GET /api/todos: every todo, newest first
+const getTodos = async (req, res) => {
+  try {
+    const todos = await Todo.find().sort({ createdAt: -1 });
+    return res.status(200).json(todos);
+  } catch (error) {
+    return res.status(500).json({ message: "Could not load todos" });
+  }
+};
+
+module.exports = { getTodos };
+`;
+
+const CONTROLLER_CREATE_HEAD = `const Todo = require("../models/Todo");
+
+// GET /api/todos: every todo, newest first
+const getTodos = async (req, res) => {
+  try {
+    const todos = await Todo.find().sort({ createdAt: -1 });
+    return res.status(200).json(todos);
+  } catch (error) {
+    return res.status(500).json({ message: "Could not load todos" });
+  }
+};
+
+// POST /api/todos: create one from { title }
+const createTodo = async (req, res) => {
+  try {`;
+
+const CREATE_BODY = `    const { title } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+    const todo = await Todo.create({ title });
+    return res.status(201).json(todo);`;
+
+const CONTROLLER_CREATE_TAIL = `  } catch (error) {
+    return res.status(500).json({ message: "Could not create todo" });
+  }
+};
+
+module.exports = { getTodos, createTodo };`;
+
+const CONTROLLER_UPDATE_DELETE_STARTER = `const Todo = require("../models/Todo");
+
+// GET /api/todos: every todo, newest first
+const getTodos = async (req, res) => {
+  try {
+    const todos = await Todo.find().sort({ createdAt: -1 });
+    return res.status(200).json(todos);
+  } catch (error) {
+    return res.status(500).json({ message: "Could not load todos" });
+  }
+};
+
+// POST /api/todos: create one from { title }
+const createTodo = async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+    const todo = await Todo.create({ title });
+    return res.status(201).json(todo);
+  } catch (error) {
+    return res.status(500).json({ message: "Could not create todo" });
+  }
+};
+
+// PUT /api/todos/:id: rename it or tick it off
+const updateTodo = async (req, res) => {
+  try {
+    const { title, completed } = req.body;
+    // TODO 1: find by req.params.id, update { title, completed }, and return 404 if missing
+    return res.status(200).json(todo);
+  } catch (error) {
+    return res.status(500).json({ message: "Could not update todo" });
+  }
+};
+
+// DELETE /api/todos/:id
+const deleteTodo = async (req, res) => {
+  try {
+    // TODO 2: find by req.params.id, delete it, and return 404 if missing
+    return res.status(200).json({ message: "Todo deleted", id: todo._id });
+  } catch (error) {
+    return res.status(500).json({ message: "Could not delete todo" });
+  }
+};
+
+// TODO 3: export getTodos, createTodo, updateTodo, deleteTodo
+`;
+
 const CONTROLLER_HEAD = `const Todo = require("../models/Todo");
 
 // GET /api/todos: every todo, newest first
@@ -292,14 +402,7 @@ const getTodos = async (req, res) => {
 
 // POST /api/todos: create one from { title }
 const createTodo = async (req, res) => {
-  try {`
-
-const CREATE_BODY = `    const { title } = req.body;
-    if (!title || !title.trim()) {
-      return res.status(400).json({ message: "Title is required" });
-    }
-    const todo = await Todo.create({ title });
-    return res.status(201).json(todo);`
+  try {`;
 
 const CONTROLLER_TAIL = `  } catch (error) {
     return res.status(500).json({ message: "Could not create todo" });
@@ -333,7 +436,7 @@ const deleteTodo = async (req, res) => {
   }
 };
 
-module.exports = { getTodos, createTodo, updateTodo, deleteTodo };`
+module.exports = { getTodos, createTodo, updateTodo, deleteTodo };`;
 
 const CONTROLLER = `${CONTROLLER_HEAD}\n${CREATE_BODY}\n${CONTROLLER_TAIL}\n`
 
@@ -1139,17 +1242,144 @@ A teammate wrote this model in a hurry. It has four bugs: two crash the server t
 
     // ---- World 3: API Forest ---------------------------------------------------------------
     {
+      id: 'request-response-cycle',
+      world: 'api',
+      kind: 'explore',
+      title: 'The request-response cycle',
+      summary: 'Trace how an HTTP request travels from the client, through middleware and controllers, to MongoDB and back.',
+      lesson: `Web communication follows a strict request-response cycle: the **client requests**, and the **server responds**. Understanding every step in this journey is what turns someone from a code-paster into a backend engineer.
+
+Here is the exact journey of a request in a MERN app:
+1. **The Client sends an HTTP Request**: When a user types a todo and clicks "Add", the browser (via axios/fetch) sends an HTTP message containing:
+   - **Method (Verb)**: \`GET\` (read), \`POST\` (create), \`PUT\` (update), or \`DELETE\` (remove).
+   - **URL Path**: Where the request goes (e.g. \`/api/todos\` or \`/api/todos/:id\`).
+   - **Headers**: Metadata like \`Content-Type: application/json\` describing the payload.
+   - **Body**: The JSON string carrying data (e.g. \`{"title": "Buy milk"}\`).
+
+2. **Express Middleware Pipeline**: The Express server receives the request on port 5000. Before any route runs, middleware inspects and transforms it:
+   - \`cors()\` allows requests from the React dev server (a different port/domain).
+   - \`express.json()\` intercepts the raw incoming byte stream, parses it, and places the resulting JavaScript object into \`req.body\`. Without this, \`req.body\` is undefined.
+
+3. **Routing to the Controller**: Express matches the method and path against \`todoRoutes.js\`. Matching \`POST /api/todos\` invokes the controller function: \`createTodo(req, res)\`.
+
+4. **Controller Logic & Database Execution**: The controller executes your business logic:
+   - Validates input (guard clauses returning 400 Bad Request if fields are invalid).
+   - Talks asynchronously to MongoDB through the Mongoose model (\`await Todo.create({ title })\`).
+
+5. **The HTTP Response**: The controller finishes the cycle by sending an HTTP response:
+   - **Status Code**: \`200 OK\`, \`201 Created\`, \`400 Bad Request\`, \`404 Not Found\`, or \`500 Server Error\`.
+   - **Response Body**: The saved JSON document: \`return res.status(201).json(todo);\`.
+   - The client receives the response, updates its React state, and re-renders the screen.`,
+      adds: [],
+      quiz: {
+        question: 'What is the correct sequence of events when a client creates a new todo with a POST request?',
+        options: [
+          'Browser sends HTTP POST → express.json() parses body into req.body → router dispatches to controller → controller validates & awaits Mongoose write → res.status(201).json() sends response back',
+          'Browser saves document directly to MongoDB → Express polls the database for changes → Server sends GET request to React',
+          'Express controller runs in the browser → React writes to server disk → Server responds with HTML',
+        ],
+        answer: 0,
+        explain: 'Express middleware parses the incoming request body first, the router directs it to the controller, the controller handles validation and awaits the database write, and res.json() sends the HTTP response back to the client.',
+      },
+    },
+    {
+      id: 'controller-read',
+      world: 'api',
+      kind: 'edit',
+      title: 'Import the model and Read todos',
+      summary: 'Require the Todo model, query all documents in getTodos, and export the handlers.',
+      lesson: `A controller is the function that runs when a route is hit. It reads the request, decides what to do, and sends exactly one response.
+
+Every controller starts from scratch by requiring the model it interacts with. Then \`getTodos\` queries MongoDB for every todo:
+- \`Todo.find()\` finds documents matching the query (empty means everything).
+- \`.sort({ createdAt: -1 })\` sorts them newest first (-1 is descending, 1 is ascending).
+- Because database operations are asynchronous, you must \`await\` the query.
+- \`res.status(200).json(todos)\` sends HTTP 200 OK with the array as JSON.
+
+Finally, \`module.exports\` exports the handlers so \`todoRoutes.js\` can require them.`,
+      path: 'server/controllers/todoController.js',
+      about: 'The logic for create, read, update and delete.',
+      starter: CONTROLLER_READ_STARTER,
+      solution: CONTROLLER_READ_SOLUTION,
+      checks: [
+        { id: 'import', name: 'Imports the Todo model', hint: 'const Todo = require("../models/Todo"); at the top.', type: 'includes', value: 'const Todo = require("../models/Todo")' },
+        { id: 'find-sort', name: 'Queries all todos newest first', hint: 'const todos = await Todo.find().sort({ createdAt: -1 });', type: 'includes', value: 'const todos = await Todo.find().sort({ createdAt: -1 })' },
+        { id: 'respond-200', name: 'Sends 200 OK with the todos', hint: 'return res.status(200).json(todos);', type: 'includes', value: 'return res.status(200).json(todos)' },
+        { id: 'export', name: 'Exports getTodos', hint: 'module.exports = { getTodos };', type: 'includes', value: 'module.exports = { getTodos }' },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: 'Import the Todo model from ../models/Todo.',
+          options: [
+            { code: 'const Todo = require("../models/Todo");', why: 'Loads the Mongoose model you created in the Database Dungeon so this controller can query MongoDB.' },
+            { code: 'const Todo = require("./models/Todo");', why: 'Wrong path: controllers is inside server/, so you must go up one folder with ../ to reach models/.' },
+            { code: 'const Todo = require("mongoose");', why: 'This imports Mongoose itself, not your Todo model. You need the model to query todos.' },
+          ],
+          answer: 0,
+          checks: ['import'],
+          sources: [{ name: 'Todo', from: 'file', path: 'server/models/Todo.js', find: 'module.exports = mongoose.model("Todo", todoSchema)', note: 'The model you created in the Database Dungeon.' }],
+          result: 'Todo is now available in this file to run queries like Todo.find().',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Find all todos sorted by createdAt descending (-1).',
+          options: [
+            { code: 'const todos = Todo.find().sort({ createdAt: -1 });', why: 'Missing await: Todo.find() returns a query/promise. Without await, todos is a Promise, not the array of documents.' },
+            { code: 'const todos = await Todo.find().sort({ createdAt: -1 });', why: 'Queries the database for every document in the todos collection, newest first (-1).' },
+            { code: 'const todos = await Todo.find().sort({ createdAt: 1 });', why: 'Sorting by 1 sorts in ascending order (oldest first). Users expect to see their newest todos at the top.' },
+          ],
+          answer: 1,
+          checks: ['find-sort'],
+          sources: [{ name: 'Todo', from: 'here', find: 'const Todo = require("../models/Todo")', note: 'Imported on line 1.' }],
+          result: 'todos holds the array of documents returned by MongoDB.',
+        },
+        {
+          marker: 'TODO 3:',
+          goal: 'Send 200 OK with the todos array.',
+          options: [
+            { code: 'return res.status(200).json(todos);', why: 'Sets status 200 OK and serializes the todos array to JSON for the client.' },
+            { code: 'return res.status(201).json(todos);', why: '201 means "Created". A read query was successful, so standard 200 OK is the correct HTTP status.' },
+            { code: 'return res.send(todos.toString());', why: 'res.send with toString() produces "[object Object]" instead of valid JSON that the client can parse.' },
+          ],
+          answer: 0,
+          checks: ['respond-200'],
+          sources: [{ name: 'res', from: 'param', find: 'const getTodos = async (req, res)', note: 'Express response object passed into every route handler.' }],
+          result: 'The client receives the JSON array and HTTP 200.',
+        },
+        {
+          marker: 'TODO 4:',
+          goal: 'Export getTodos so the router can use it.',
+          options: [
+            { code: 'module.exports = getTodos;', why: 'Exporting just the function directly prevents exporting the other CRUD handlers later. Export an object: { getTodos }.' },
+            { code: 'module.exports = { getTodos };', why: 'Exports an object containing getTodos, ready for the router to destructure.' },
+            { code: 'export default { getTodos };', why: 'This server uses CommonJS (require/module.exports). ES module export syntax is not used here.' },
+          ],
+          answer: 1,
+          checks: ['export'],
+          sources: [{ name: 'getTodos', from: 'here', find: 'const getTodos = async', note: 'The read handler defined above.' }],
+          result: 'todoRoutes.js can now require and mount getTodos.',
+        },
+      ],
+    },
+    {
       id: 'create-todo',
       world: 'api',
       kind: 'build',
       title: 'Build createTodo',
       summary: 'Arrange the steps of POST /api/todos: read, validate, save, respond.',
-      lesson: `A controller is the function that runs when a route is hit. It reads the request, decides what to do, and sends exactly one response.
+      lesson: `Now add the Create operation to your controller.
 
-Three of the four handlers in todoController.js are written for you. Build the fourth, createTodo, from the blocks. Some blocks look right but hide a bug: hover one to read what it does.`,
+Build createTodo from the blocks. It follows a four-step pattern common to almost every web API:
+1. Extract user input from \`req.body\`
+2. Validate with a guard clause (reject empty titles with 400 Bad Request before touching the database)
+3. Save the new document with \`Todo.create({ title })\` and await the result
+4. Respond with \`201 Created\` and the saved document
+
+Some blocks look right but hide a bug: hover one to read what it does.`,
       path: 'server/controllers/todoController.js',
       about: 'The logic for create, read, update and delete.',
-      scaffold: [...lines(CONTROLLER_HEAD), ...slots(4, 4), ...lines(CONTROLLER_TAIL)],
+      scaffold: [...lines(CONTROLLER_CREATE_HEAD), ...slots(4, 4), ...lines(CONTROLLER_CREATE_TAIL)],
       blocks: [
         { id: 'extract', label: 'Read the title from the body', code: 'const { title } = req.body;', what: 'Destructures title out of the parsed JSON body. express.json() in server.js is what fills req.body.', whyHere: 'Everything after this needs the title.' },
         { id: 'validate', label: 'Reject a missing title', code: 'if (!title || !title.trim()) {\n  return res.status(400).json({ message: "Title is required" });\n}', what: 'A guard clause: stop early with 400 Bad Request when the title is missing or only spaces.', whyHere: 'Validate before touching the database, so bad requests never cost a write.' },
@@ -1164,6 +1394,77 @@ Three of the four handlers in todoController.js are written for you. Build the f
         { kind: 'Guard clause', goal: 'Stop early when the title is missing. Responds 400.' },
         { kind: 'Database write', goal: 'Save the new todo and wait for the result.' },
         { kind: 'Response', goal: 'Send the saved todo back. Responds 201.' },
+      ],
+    },
+    {
+      id: 'controller-update-delete',
+      world: 'api',
+      kind: 'edit',
+      title: 'Build Update and Delete handlers',
+      summary: 'Complete the CRUD operations with findByIdAndUpdate and findByIdAndDelete.',
+      lesson: `Now complete the CRUD suite by adding updateTodo and deleteTodo:
+
+- \`updateTodo\` receives the ID in \`req.params.id\` and updated fields in \`req.body\`. \`Todo.findByIdAndUpdate(id, data, { new: true, runValidators: true })\` finds the row, applies updates, and returns the modified document.
+- \`deleteTodo\` removes the document with \`Todo.findByIdAndDelete(id)\`.
+- Both operations must check \`if (!todo)\` and return \`404 Not Found\` if the document does not exist.
+- Finally, export all four handlers so the router can wire every CRUD operation.`,
+      path: 'server/controllers/todoController.js',
+      about: 'The logic for create, read, update and delete.',
+      starter: CONTROLLER_UPDATE_DELETE_STARTER,
+      solution: CONTROLLER,
+      checks: [
+        { id: 'update', name: 'updateTodo updates by id with new and runValidators, or returns 404', hint: 'const todo = await Todo.findByIdAndUpdate(req.params.id, { title, completed }, { new: true, runValidators: true }); if (!todo) return res.status(404)...', type: 'includes', value: 'const todo = await Todo.findByIdAndUpdate(req.params.id, { title, completed }, { new: true, runValidators: true });\n    if (!todo) {\n      return res.status(404).json({ message: "Todo not found" });\n    }' },
+        { id: 'delete', name: 'deleteTodo deletes by id or returns 404', hint: 'const todo = await Todo.findByIdAndDelete(req.params.id); if (!todo) return res.status(404)...', type: 'includes', value: 'const todo = await Todo.findByIdAndDelete(req.params.id);\n    if (!todo) {\n      return res.status(404).json({ message: "Todo not found" });\n    }' },
+        { id: 'exports', name: 'Exports all four CRUD handlers', hint: 'module.exports = { getTodos, createTodo, updateTodo, deleteTodo };', type: 'includes', value: 'module.exports = { getTodos, createTodo, updateTodo, deleteTodo };' },
+      ],
+      gaps: [
+        {
+          marker: 'TODO 1:',
+          goal: 'Find todo by req.params.id, update { title, completed }, and return 404 if missing.',
+          options: [
+            { code: 'const todo = await Todo.findByIdAndUpdate(req.params.id, { title, completed }, { new: true, runValidators: true });\n    if (!todo) {\n      return res.status(404).json({ message: "Todo not found" });\n    }', why: 'Updates the document, enforces Mongoose schema validation with runValidators, returns the new doc with new: true, and stops early with 404 if missing.' },
+            { code: 'const todo = Todo.findByIdAndUpdate(req.params.id, { title, completed });\n    if (!todo) {\n      return res.status(404).json({ message: "Todo not found" });\n    }', why: 'Missing await: todo is a pending Promise, so it is never null and the updated document is never returned.' },
+            { code: 'const todo = await Todo.findByIdAndUpdate(req.body.id, { title, completed });\n    if (!todo) {\n      return res.status(404).json({ message: "Todo not found" });\n    }', why: 'The ID is in the URL path (req.params.id), not the request body, and missing { new: true } returns the outdated document.' },
+          ],
+          answer: 0,
+          checks: ['update'],
+          sources: [
+            { name: 'req', from: 'param', find: 'const updateTodo = async (req, res)', note: 'Express request object containing req.params.id and req.body.' },
+            { name: 'Todo', from: 'here', find: 'const Todo = require("../models/Todo")', note: 'Imported on line 1.' },
+          ],
+          result: 'todo holds the updated document from MongoDB.',
+        },
+        {
+          marker: 'TODO 2:',
+          goal: 'Find todo by req.params.id, delete it, and return 404 if missing.',
+          options: [
+            { code: 'const todo = Todo.findByIdAndDelete(req.params.id);\n    if (!todo) {\n      return res.status(404).json({ message: "Todo not found" });\n    }', why: 'Missing await: findByIdAndDelete returns a Promise that must be awaited before checking if anything was found.' },
+            { code: 'const todo = await Todo.findByIdAndDelete(req.params.id);\n    if (!todo) {\n      return res.status(404).json({ message: "Todo not found" });\n    }', why: 'Awaits deletion by ID and returns 404 if the document was not found.' },
+            { code: 'const todo = await Todo.findByIdAndDelete(req.body.id);\n    if (!todo) {\n      return res.status(404).json({ message: "Todo not found" });\n    }', why: 'The ID comes from the URL parameter req.params.id, not req.body.id.' },
+          ],
+          answer: 1,
+          checks: ['delete'],
+          sources: [{ name: 'Todo', from: 'here', find: 'const Todo = require("../models/Todo")', note: 'Imported on line 1.' }],
+          result: 'Removes the document from MongoDB and verifies it existed.',
+        },
+        {
+          marker: 'TODO 3:',
+          goal: 'Export getTodos, createTodo, updateTodo, deleteTodo.',
+          options: [
+            { code: 'module.exports = { getTodos, createTodo, updateTodo, deleteTodo };', why: 'Exports the complete CRUD controller suite.' },
+            { code: 'module.exports = { createTodo, updateTodo, deleteTodo };', why: 'Missing getTodos: the router needs all four handlers to wire GET /api/todos.' },
+            { code: 'exports = { getTodos, createTodo, updateTodo, deleteTodo };', why: 'In Node.js, reassigning exports does not modify module.exports: the file would export an empty object.' },
+          ],
+          answer: 0,
+          checks: ['exports'],
+          sources: [
+            { name: 'getTodos', from: 'here', find: 'const getTodos = async', note: 'Read handler.' },
+            { name: 'createTodo', from: 'here', find: 'const createTodo = async', note: 'Create handler.' },
+            { name: 'updateTodo', from: 'here', find: 'const updateTodo = async', note: 'Update handler.' },
+            { name: 'deleteTodo', from: 'here', find: 'const deleteTodo = async', note: 'Delete handler.' },
+          ],
+          result: 'todoRoutes.js can require and wire all four operations.',
+        },
       ],
     },
     {
